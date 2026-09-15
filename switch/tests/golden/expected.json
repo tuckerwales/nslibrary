@@ -1,0 +1,81 @@
+{
+  "titleId": "0100ABCDEF012000",
+  "version": 0,
+  "kind": "application",
+  "applicationId": "0100ABCDEF012000",
+  "requiredSystemVersion": 786432,
+  "contents": [
+    {
+      "ncaId": "efce88d7423f9460a65a984d95ccd14e",
+      "size": 8192,
+      "type": 1
+    },
+    {
+      "ncaId": "3dd1b2b003aac8fdf21b4636176b0ecd",
+      "size": 2048,
+      "type": 3
+    }
+  ],
+  "ticket": {
+    "rightsId": "0100ABCDEF012000000000000000000B",
+    "titleId": "0100ABCDEF012000",
+    "keyGeneration": 11,
+    "issuer": "Root-CA00000003-XS00000020"
+  },
+  "pfs0": {
+    "names": [
+      "d2a7631919c8969992c35c56083ed6ec.cnmt.nca",
+      "efce88d7423f9460a65a984d95ccd14e.nca",
+      "3dd1b2b003aac8fdf21b4636176b0ecd.nca",
+      "0100abcdef012000000000000000000b.tik",
+      "0100abcdef012000000000000000000b.cert"
+    ],
+    "kinds": ["cnmt", "nca", "nca", "tik", "cert"],
+    "sizes": [192, 8192, 2048, 704, 1792],
+    "headerSize": 352
+  },
+  "hfs0": {
+    "names": [
+      "0123456789abcdef0123456789abcdef.cnmt.nca",
+      "fedcba9876543210fedcba9876543210.nca",
+      "00112233445566778899aabbccddeeff.ncz",
+      "0100000000010000000000000000000a.tik",
+      "0100000000010000000000000000000a.cert",
+      "empty.txt"
+    ],
+    "kinds": ["cnmt", "nca", "ncz", "tik", "cert", "other"],
+    "sizes": [801, 8192, 119, 704, 1792, 0],
+    "hashedSize": 256
+  },
+  "ncz": {
+    "ncaSize": 368639,
+    "ncaSha256": "ba97bc7b52295bf2c993f1a2be0c353eddd2ccba7ef5dda18c76b6fa1fad1375",
+    "ncaId": "ba97bc7b52295bf2c993f1a2be0c353e",
+    "sections": [
+      {
+        "offset": 16384,
+        "size": 196611,
+        "cryptoType": 3
+      },
+      {
+        "offset": 212995,
+        "size": 8177,
+        "cryptoType": 1
+      },
+      {
+        "offset": 221172,
+        "size": 147467,
+        "cryptoType": 3
+      }
+    ],
+    "solidSmaller": true
+  },
+  "crypto": {
+    "emptySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ctrOffset": 16385,
+    "ctrKey": "00112233445566778899aabbccddeeff",
+    "ctrNonce": "0102030405060708",
+    "ctrPlain": "68656c6c6f206e736c696272617279206374722121",
+    "ctrOut": "b4c176b24f4ee8ef48187d1d3ddd743bf49ec4fc6e"
+  }
+}

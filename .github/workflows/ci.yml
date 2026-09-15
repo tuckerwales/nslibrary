@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Switch host tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libzstd-dev pkg-config
+          cmake -B switch/build-host -S switch
+          cmake --build switch/build-host --target nslib-switch-tests -j"$(nproc)"
+          switch/build-host/nslib-switch-tests
+
+  switch:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Switch portlibs
+        run: |
+          pacman -Sy --noconfirm --needed \
+            switch-pkg-config switch-freetype switch-harfbuzz switch-libwebp \
+            switch-glfw switch-mesa switch-libdrm_nouveau \
+            switch-curl switch-mbedtls switch-zstd switch-glm switch-libpng switch-zlib
+      - run: cmake -B switch/build -S switch -DPLATFORM_SWITCH=ON
+      - run: cmake --build switch/build --target nslibrary.nro -j"$(nproc)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nslibrary.nro
+          path: switch/build/nslibrary.nro
+
+  docker:
+    runs-on: ubuntu-latest
+    env:
+      # First-run setup needs a token; pinning one here lets the smoke test create the admin.
+      NSLIB_SETUP_TOKEN: ci-smoke-setup-token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and start
+        run: docker compose up --build -d --wait --wait-timeout 180
+      - name: Device-sim against the container
+        run: node scripts/docker-smoke.mjs
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Stop
+        if: always()
+        run: docker compose down -v

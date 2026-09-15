@@ -1,0 +1,17 @@
+packages:
+  - packages/*
+allowBuilds:
+  # v13 ships N-API .node files in the tarball. Allowing its implicit
+  # `node-gyp rebuild` (from binding.gyp) fails on machines without node-gyp.
+  better-sqlite3: false
+  esbuild: true
+  usb: true
+  electron: true
+  electron-winstaller: true
+minimumReleaseAgeExclude:
+  - "@vitest/mocker@5.0.1"
+  - "@vitest/spy@5.0.1"
+  - vitest@5.0.1
+  - usb@2.16.0
+  - electron@35.1.5
+  - electron-builder@26.0.12

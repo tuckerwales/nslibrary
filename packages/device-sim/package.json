@@ -1,0 +1,24 @@
+{
+  "name": "@nslib/device-sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "nslib-sim": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@nslib/shared": "workspace:*",
+    "@nslib/usb-host": "workspace:*"
+  },
+  "devDependencies": {
+    "@nslib/fixtures": "workspace:*",
+    "@nslib/server": "workspace:*",
+    "tsx": "^4.23.13"
+  }
+}

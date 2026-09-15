@@ -1,0 +1,23 @@
+{
+  "name": "@nslib/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/main.ts",
+  "scripts": {
+    "ensure-electron": "node scripts/ensure-electron.mjs",
+    "predev": "node scripts/ensure-electron.mjs",
+    "prestart": "node scripts/ensure-electron.mjs",
+    "dev": "electron --import tsx src/main.ts",
+    "start": "electron --import tsx src/main.ts"
+  },
+  "dependencies": {
+    "@nslib/server": "workspace:*",
+    "@nslib/shared": "workspace:*",
+    "tsx": "^4.23.13"
+  },
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
+  }
+}

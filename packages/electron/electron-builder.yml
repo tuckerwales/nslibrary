@@ -1,0 +1,22 @@
+appId: wales.tucker.nslibrary
+productName: NSLibrary
+directories:
+  output: dist
+files:
+  - src/**/*
+  - package.json
+extraMetadata:
+  main: src/main.ts
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  extraFiles:
+    - from: udev/99-nslibrary.rules
+      to: udev/99-nslibrary.rules
+win:
+  target: nsis
+mac:
+  target: dmg
+npmRebuild: true

@@ -1,0 +1,31 @@
+{
+  "name": "nslibrary",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=22.15"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p packages/web && tsc --noEmit -p packages/electron",
+    "build": "pnpm --filter @nslib/web build",
+    "start": "pnpm --filter @nslib/server start",
+    "seed": "pnpm --filter @nslib/server seed",
+    "dev:server": "pnpm --filter @nslib/server dev",
+    "dev:web": "pnpm --filter @nslib/web dev",
+    "dev:desktop": "pnpm --filter @nslib/web build && pnpm --filter @nslib/desktop dev",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test:switch": "bash scripts/build-switch.sh --test",
+    "build:switch": "bash scripts/build-switch.sh",
+    "release:switch": "bash scripts/release-switch.sh"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.13",
+    "@types/node": "^22.15.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

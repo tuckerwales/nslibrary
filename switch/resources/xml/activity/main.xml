@@ -1,0 +1,35 @@
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+    <brls:TabFrame
+        title="@i18n/app/title"
+        icon="@res/img/icon.jpg">
+
+        <brls:Tab label="@i18n/app/tabs/library">
+            <LibraryTab id="library" />
+        </brls:Tab>
+
+        <brls:Tab label="@i18n/app/tabs/updates">
+            <UpdatesTab id="updates" />
+        </brls:Tab>
+
+        <brls:Tab label="@i18n/app/tabs/queue">
+            <QueueTab id="queue" />
+        </brls:Tab>
+
+        <brls:Tab label="@i18n/app/tabs/installed">
+            <InstalledTab id="installed" />
+        </brls:Tab>
+
+        <brls:Tab label="@i18n/app/tabs/missing">
+            <MissingTab id="missing" />
+        </brls:Tab>
+
+        <brls:Separator />
+
+        <brls:Tab label="@i18n/app/tabs/settings">
+            <SettingsTab />
+        </brls:Tab>
+
+    </brls:TabFrame>
+</brls:AppletFrame>

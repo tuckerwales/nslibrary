@@ -1,0 +1,18 @@
+{
+  "name": "@nslib/usb-host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./duplex": "./src/duplex.ts",
+    "./session": "./src/session.ts",
+    "./host": "./src/host.ts"
+  },
+  "dependencies": {
+    "@nslib/shared": "workspace:*"
+  },
+  "optionalDependencies": {
+    "usb": "^2.16.0"
+  }
+}

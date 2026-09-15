@@ -1,0 +1,36 @@
+services:
+  nslibrary:
+    build: .
+    image: nslibrary:local
+    ports:
+      - "8465:8465"
+      - "8466:8466/udp"
+    environment:
+      NSLIB_TRUST_PROXY: "true"
+      NSLIB_POLLING: "false"
+      NSLIB_LIBRARY_DIR: /library
+      # Needed once, to create the admin account. Leave it unset and the server generates one on
+      # first boot and prints it to `docker compose logs`.
+      NSLIB_SETUP_TOKEN: ${NSLIB_SETUP_TOKEN:-}
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - nslib-data:/data
+      # Mount dumps as /library/<name>:ro — they are attached as roots on start.
+      # - ${NSLIB_LIBRARY:-./games}:/library/games:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.NSLIB_PORT||8465)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+    restart: unless-stopped
+
+volumes:
+  nslib-data:

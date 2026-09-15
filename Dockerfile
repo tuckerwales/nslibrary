@@ -1,0 +1,67 @@
+# syntax=docker/dockerfile:1
+FROM node:22-bookworm-slim AS build
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+RUN corepack enable
+WORKDIR /src
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/server/package.json packages/server/
+COPY packages/web/package.json packages/web/
+COPY packages/shared/package.json packages/shared/
+COPY packages/formats/package.json packages/formats/
+COPY packages/fixtures/package.json packages/fixtures/
+COPY packages/device-sim/package.json packages/device-sim/
+COPY packages/usb-host/package.json packages/usb-host/
+COPY packages/electron/package.json packages/electron/
+RUN pnpm install --frozen-lockfile --filter @nslib/server... --filter @nslib/web
+COPY . .
+RUN pnpm --filter @nslib/web build \
+  && mkdir -p packages/server/public \
+  && cp -r packages/web/dist/. packages/server/public/
+RUN pnpm --filter @nslib/server seed -- /demo/library /demo/prod.keys
+# Bundled with esbuild, so the image runs plain JavaScript instead of transpiling on every start.
+RUN pnpm --filter @nslib/server build
+RUN pnpm --filter @nslib/server deploy --prod /out \
+  && mkdir -p /out/public /out/drizzle /out/dist \
+  && cp -r packages/server/public/. /out/public/ \
+  && cp -r packages/server/drizzle/. /out/drizzle/ \
+  && cp packages/server/dist/main.js /out/dist/main.js
+
+FROM node:22-bookworm-slim
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends gosu ca-certificates libusb-1.0-0 \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /out /app
+COPY --from=build /demo/library /library/demo
+COPY --from=build /demo/prod.keys /app/demo.keys
+COPY docker/entrypoint.sh /entrypoint.sh
+COPY LICENSE NOTICE THIRD-PARTY.md /app/
+RUN chmod +x /entrypoint.sh \
+  && chmod 644 /app/demo.keys
+
+LABEL org.opencontainers.image.title="NSLibrary" \
+      org.opencontainers.image.description="Self-hosted library for your own Nintendo Switch dumps" \
+      org.opencontainers.image.source="https://github.com/tuckerwales/nslibrary" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
+ENV NODE_ENV=production \
+    NSLIB_DATA_DIR=/data \
+    NSLIB_HOST=0.0.0.0 \
+    NSLIB_PORT=8465 \
+    NSLIB_DISCOVERY_PORT=8466 \
+    NSLIB_LIBRARY_DIR=/library \
+    NSLIB_TRUST_PROXY=true \
+    NSLIB_SEED=true \
+    NSLIB_SEED_DIR=/library/demo \
+    NSLIB_SEED_KEYS=/app/demo.keys
+
+EXPOSE 8465
+EXPOSE 8466/udp
+VOLUME ["/data"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.NSLIB_PORT||process.env.PORT||8465)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["node", "dist/main.js"]

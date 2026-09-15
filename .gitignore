@@ -1,0 +1,25 @@
+node_modules/
+dist/
+packages/server/public/
+packages/electron/dist/
+*.tsbuildinfo
+coverage/
+.env
+data/
+
+# Switch build outputs
+switch/build/
+switch/build-host/
+*.nro
+*.elf
+*.nacp
+
+# Never commit keys or real game files
+*.keys
+*.nsp
+*.nsz
+*.xci
+*.xcz
+
+# Logs
+*.log

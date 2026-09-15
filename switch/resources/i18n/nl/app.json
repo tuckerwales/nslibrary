@@ -1,0 +1,146 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "Bibliotheek",
+    "updates": "Updates",
+    "queue": "Wachtrij",
+    "installed": "Geïnstalleerd",
+    "missing": "Niet geïnstalleerd",
+    "settings": "Instellingen"
+  },
+  "connect": {
+    "title": "Verbinden",
+    "intro": "Zoek de bibliotheek op het LAN, of typ het adres.",
+    "usb": "USB-kabel",
+    "usb_connect": "Verbinden via USB",
+    "usb_hint": "Deze computer draait NSLibrary",
+    "lan": "In dit netwerk",
+    "discover": "Servers zoeken",
+    "none": "Geen antwoord. Voer het adres in.",
+    "by_address": "Via adres",
+    "manual": "Adres invoeren",
+    "address": "Adres",
+    "hint": "IP, hostnaam of URL",
+    "connecting": "Verbinden met de bibliotheek…",
+    "change": "Andere server",
+    "offline": "Bibliotheek niet bereikbaar. Nieuwe poging op de achtergrond.",
+    "failed": "Verbinding mislukt"
+  },
+  "pair": {
+    "title": "Koppelen",
+    "intro": "Open Apparaten in de web-UI en voer de 6-cijferige code in.",
+    "server": "Server",
+    "code": "Koppelcode",
+    "enter": "Koppelcode invoeren"
+  },
+  "library": {
+    "nothing": "Deze titel heeft geen installeerbare inhoud.",
+    "empty": "De bibliotheek is leeg."
+  },
+  "detail": {
+    "base": "Basisspel",
+    "install_body": "Naar welke opslag?",
+    "installed": "Geïnstalleerd",
+    "not_installed": "Niet op deze Switch",
+    "on_console": "Op deze Switch",
+    "firmware": "Vereiste firmware",
+    "warn_battery": "Let op: de accu is onder 15% en laadt niet op.",
+    "clear_firmware": "Vereist firmware {}, nieuwer dan deze console. De vereiste wordt gewist zodat HOME het start; een game voor nieuwere firmware start mogelijk nog steeds niet.",
+    "warn_firmware_version": "Waarschuwing: deze console is ouder dan de vereiste firmware {}"
+  },
+  "type": {
+    "patch": "Update",
+    "addon": "DLC",
+    "applications": "Spellen",
+    "patches": "Updates",
+    "addons": "DLC"
+  },
+  "storage": {
+    "sd": "SD-kaart",
+    "nand": "Systeemgeheugen",
+    "auto": "Automatisch"
+  },
+  "job": {
+    "queued": "In wachtrij",
+    "claimed": "Overgenomen",
+    "running": "Bezig met installeren",
+    "done": "Geïnstalleerd",
+    "failed": "Mislukt",
+    "cancelled": "Geannuleerd",
+    "interrupted": "Onderbroken"
+  },
+  "phase": {
+    "preflight": "Ruimte controleren",
+    "ticket": "Ticket schrijven",
+    "meta": "Metadata schrijven",
+    "content": "Inhoud kopiëren",
+    "commit": "Afronden",
+    "record": "Registreren"
+  },
+  "progress": {
+    "installing": "Installeren",
+    "starting": "Starten…",
+    "cancel_hint": "Druk op B om te annuleren",
+    "continue_hint": "Druk op A om door te gaan",
+    "failed": "Kan {} niet installeren"
+  },
+  "notify": {
+    "installing": "{} installeren",
+    "installed": "{} geïnstalleerd",
+    "cancelled": "{} geannuleerd"
+  },
+  "updates": {
+    "intro": "Updates in de bibliotheek die nieuwer lijken dan wat er geïnstalleerd is.",
+    "empty": "Voor de geïnstalleerde spellen staan geen nieuwere updates in de bibliotheek."
+  },
+  "missing": {
+    "intro": "Basisspellen in de bibliotheek die niet op deze Switch staan. Open er een om te installeren.",
+    "empty": "Elk basisspel in de bibliotheek is al geïnstalleerd."
+  },
+  "installed": {
+    "console": "Deze console",
+    "firmware": "Firmware",
+    "ams": "Atmosphère",
+    "free": "{} vrij van {}",
+    "free_only": "{} vrij",
+    "other": "Overig",
+    "empty": "Er is niets geïnstalleerd op deze Switch.",
+    "required_version": "Vereiste versie",
+    "reset_version": "Vereiste versie resetten",
+    "reset_body": "Wist de firmwareversie die de game en de update vereisen (“Er is een systeemupdate vereist”) en de updateversie die HOME verwacht (bijvoorbeeld nadat een update is verwijderd). Een game die voor nieuwere firmware is gemaakt, start mogelijk nog steeds niet.",
+    "reset_done": "Vereiste versie gereset. Start het spel opnieuw en herstart de console als HOME er nog om vraagt.",
+    "reset_failed": "Kon de vereiste versie niet resetten ({})",
+    "required_firmware": "Vereist firmware {} (deze console: {})"
+  },
+  "queue": {
+    "empty": "Nog geen taken. Stuur een titel via het web, of installeer vanuit de bibliotheek.",
+    "cancel": "Deze installatie annuleren?",
+    "cancel_now": "Installatie annuleren",
+    "start": "Deze installatie nu starten?",
+    "start_now": "Nu starten",
+    "left": "nog {}"
+  },
+  "settings": {
+    "server": "Server",
+    "installs": "Installaties",
+    "app": "App",
+    "name": "Deze Switch",
+    "repair": "Opnieuw koppelen",
+    "forget": "Deze server vergeten",
+    "forget_confirm": "Deze server vergeten en de volgende keer opnieuw koppelen?",
+    "target": "Standaardopslag",
+    "verify": "NCA-hashes controleren",
+    "version": "App-versie",
+    "update": "Controleren op updates",
+    "update_none": "Je hebt al de nieuwste ondertekende uitgave.",
+    "update_available": "Er staat een nieuwere ondertekende build op GitHub. Downloaden en vervangen?",
+    "update_available_server": "Er staat een nieuwere ondertekende build op je bibliotheekserver. Downloaden en vervangen?",
+    "update_done": "Bijgewerkt. Start NSLibrary opnieuw via het Homebrew-menu.",
+    "update_check_server": "Bibliotheekserver op updates controleren",
+    "update_check_github": "GitHub op updates controleren",
+    "update_downloading": "NSLibrary {} downloaden",
+    "update_downloading_server": "NSLibrary {} downloaden van de bibliotheek",
+    "log": "Logbestand",
+    "clear_firmware": "Firmwarevereiste wissen"
+  }
+}

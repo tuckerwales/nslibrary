@@ -1,0 +1,147 @@
+@import "tailwindcss";
+@import "@fontsource-variable/archivo/wdth.css";
+
+:root {
+  --ground: #e6eaee;
+  --panel: #f6f8f9;
+  --ink: #17202c;
+  --muted: #566271;
+  --line: #cdd3da;
+  --accent: #2446c7;
+  --accent-ink: #ffffff;
+  --update: #0d766e;
+  --dlc: #8f5a0c;
+  --danger: #b3261e;
+  --danger-soft: #f7e4e2;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #11161d;
+    --panel: #19202a;
+    --ink: #e3e8ee;
+    --muted: #93a0ae;
+    --line: #2b3441;
+    --accent: #8aa2ff;
+    --accent-ink: #0d1330;
+    --update: #43b8ab;
+    --dlc: #e0a33a;
+    --danger: #f2776c;
+    --danger-soft: #3a1f1d;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-update: var(--update);
+  --color-dlc: var(--dlc);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+}
+
+@theme {
+  --font-sans: "Archivo Variable", "Archivo", ui-sans-serif, system-ui, sans-serif;
+  /* Scale: 12 · 13 · 15 · 18 · 24 · 36 · 48 */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 19px;
+  --text-base: 15px;
+  --text-base--line-height: 23px;
+  --text-lg: 18px;
+  --text-lg--line-height: 24px;
+  --text-xl: 24px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 36px;
+  --text-2xl--line-height: 38px;
+  --text-3xl: 48px;
+  --text-3xl--line-height: 48px;
+}
+
+@utility condensed {
+  font-stretch: 72%;
+}
+
+@utility semi-condensed {
+  font-stretch: 86%;
+}
+
+@layer base {
+  html {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-stretch: 72%;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Placeholder tile for titles without an icon; hue comes from the title ID. */
+.title-tile {
+  background: oklch(0.87 0.045 var(--hue));
+  color: oklch(0.36 0.08 var(--hue));
+}
+
+@media (prefers-color-scheme: dark) {
+  .title-tile {
+    background: oklch(0.33 0.05 var(--hue));
+    color: oklch(0.86 0.06 var(--hue));
+  }
+}
+
+@keyframes scan-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.scan-sweep {
+  animation: scan-sweep 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component styles */
+    animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component styles */
+    transition: none !important;
+  }
+}
+
+/* The mobile nav scrolls sideways; fade its edge so it's clear more items are off-screen. */
+@media (max-width: 47.999rem) {
+  .nav-scroll {
+    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+    scrollbar-width: none;
+    /* Room for the last item to scroll clear of the fade. */
+    padding-right: 2rem;
+  }
+}
