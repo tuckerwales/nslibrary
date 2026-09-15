@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "PAIR_CODE_EXPIRED",
+    "msg": "Pairing code has expired"
+  }
+}

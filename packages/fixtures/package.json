@@ -1,0 +1,10 @@
+{
+  "name": "@nslib/fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Synthetic Switch container builders for tests. Produces no copyrighted content.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

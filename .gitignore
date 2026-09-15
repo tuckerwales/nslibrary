@@ -1,0 +1,18 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.env
+
+# Switch build outputs
+switch/build/
+*.nro
+*.elf
+*.nacp
+
+# Never commit keys or real game files
+*.keys
+*.nsp
+*.nsz
+*.xci
+*.xcz

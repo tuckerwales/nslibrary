@@ -1,0 +1,55 @@
+[
+  {
+    "name": "request-hello",
+    "kind": "Request",
+    "requestId": 1,
+    "status": 0,
+    "flags": 0,
+    "json": {
+      "m": "GET",
+      "p": "/hello"
+    },
+    "payloadHex": "",
+    "hex": "4e534c55010001000100000000000000180000000000000000000000000000007b226d223a22474554222c2270223a222f68656c6c6f227d"
+  },
+  {
+    "name": "request-file-range",
+    "kind": "Request",
+    "requestId": 258,
+    "status": 0,
+    "flags": 0,
+    "json": {
+      "m": "GET",
+      "p": "/files/42",
+      "h": {
+        "range": "bytes=0-3"
+      }
+    },
+    "payloadHex": "",
+    "hex": "4e534c55010001000201000000000000350000000000000000000000000000007b226d223a22474554222c2270223a222f66696c65732f3432222c2268223a7b2272616e6765223a2262797465733d302d33227d7d"
+  },
+  {
+    "name": "response-file-range",
+    "kind": "Response",
+    "requestId": 258,
+    "status": 206,
+    "flags": 1,
+    "json": {
+      "h": {
+        "content-range": "bytes 0-3/4096"
+      }
+    },
+    "payloadHex": "50465330",
+    "hex": "4e534c550100020102010000ce000000280000000000000004000000000000007b2268223a7b22636f6e74656e742d72616e6765223a22627974657320302d332f34303936227d7d50465330"
+  },
+  {
+    "name": "ping",
+    "kind": "Ping",
+    "requestId": 3735928559,
+    "status": 0,
+    "flags": 0,
+    "json": null,
+    "payloadHex": "",
+    "hex": "4e534c5501000400efbeadde0000000000000000000000000000000000000000"
+  }
+]

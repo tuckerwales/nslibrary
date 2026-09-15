@@ -1,0 +1,23 @@
+{
+  "cursor": "17",
+  "ev": [
+    {
+      "t": "job.queued",
+      "job": {
+        "id": 7,
+        "contentMetaId": 13,
+        "fileId": 9,
+        "titleId": "0100000000010800",
+        "version": 393216,
+        "type": "patch",
+        "name": "Example Homebrew Game",
+        "size": 734003200,
+        "format": "nsp",
+        "target": "auto",
+        "status": "queued"
+      }
+    },
+    { "t": "job.cancel", "id": 6 },
+    { "t": "catalog", "rev": 43 }
+  ]
+}
