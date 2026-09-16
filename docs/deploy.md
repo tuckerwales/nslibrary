@@ -14,6 +14,7 @@ The web UI is not a static site. Coolify (or any host) must run the **Node serve
    | `NSLIB_TRUST_PROXY` | `true` |
    | `NSLIB_POLLING` | `true` if your games live on NFS/SMB |
    | `PUID` / `PGID` | UID/GID that should own `/data` (default `1000`) |
+   | `NSLIB_SEED` | `true` (default in the image) attaches a synthetic demo library on first boot |
 
    Coolify’s `PORT` is honoured if set; otherwise the app listens on 8465.
 
@@ -23,7 +24,7 @@ The web UI is not a static site. Coolify (or any host) must run the **Node serve
 
 6. Enable the HTTP proxy / domain as usual. WebSockets (`/api/v1/ws`) use the same host; Coolify’s Traefik proxies them.
 
-7. After the first deploy, open the URL, create the admin account, then in **Folders** add `/library/games` (the path *inside* the container).
+7. After the first deploy, open the URL and create the admin account. A **Demo library** folder is attached automatically (`/library/demo`) so you can browse the UI without real dumps. Add `/library/games` when you mount your own files. Set `NSLIB_SEED=false` to skip the demo.
 
 Do not use Nixpacks/static for this app. Native `better-sqlite3` needs the Docker build.
 
@@ -33,7 +34,9 @@ Do not use Nixpacks/static for this app. Native `better-sqlite3` needs the Docke
 docker compose up --build
 ```
 
-Then open `http://localhost:8465`. Mount your dumps as `/library/games` (read-only) and add that path in **Folders**.
+Then open `http://localhost:8465`, create an admin account, and browse the demo library. Mount your dumps as `/library/games` (read-only) and add that path in **Folders**.
+
+Locally without Docker: `pnpm seed && NSLIB_SEED=true NSLIB_SEED_DIR="$PWD/data/demo-library" NSLIB_SEED_KEYS="$PWD/data/keys/prod.keys" pnpm start`.
 
 ## What is not in this image yet
 

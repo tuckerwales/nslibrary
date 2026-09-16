@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
+    "seed": "tsx src/seed/cli.ts",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

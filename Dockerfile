@@ -16,6 +16,7 @@ COPY . .
 RUN pnpm --filter @nslib/web build \
   && mkdir -p packages/server/public \
   && cp -r packages/web/dist/. packages/server/public/
+RUN pnpm --filter @nslib/server seed -- /demo/library /demo/prod.keys
 RUN pnpm --filter @nslib/server deploy --prod /out \
   && mkdir -p /out/public /out/drizzle \
   && cp -r packages/server/public/. /out/public/ \
@@ -27,14 +28,20 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out /app
+COPY --from=build /demo/library /library/demo
+COPY --from=build /demo/prod.keys /app/demo.keys
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+  && chmod 644 /app/demo.keys
 
 ENV NODE_ENV=production \
     NSLIB_DATA_DIR=/data \
     NSLIB_HOST=0.0.0.0 \
     NSLIB_PORT=8465 \
-    NSLIB_TRUST_PROXY=true
+    NSLIB_TRUST_PROXY=true \
+    NSLIB_SEED=true \
+    NSLIB_SEED_DIR=/library/demo \
+    NSLIB_SEED_KEYS=/app/demo.keys
 
 EXPOSE 8465
 VOLUME ["/data"]

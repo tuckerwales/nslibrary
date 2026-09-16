@@ -11,6 +11,7 @@ import { EventBus } from "./events";
 import { KeyStore } from "./keys/store";
 import { LibraryRepository } from "./library/repository";
 import { LibraryScanner } from "./library/scanner";
+import { applyDemoSeed } from "./seed/bootstrap";
 import { TitledbService } from "./titledb/service";
 
 const MISSING_FILE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -88,6 +89,7 @@ export async function createServer(
       runMaintenance();
       maintenance = setInterval(runMaintenance, MAINTENANCE_INTERVAL_MS);
       maintenance.unref();
+      await applyDemoSeed({ config, repo, scanner, keys, log });
       for (const root of repo.listRoots()) await scanner.watchRoot(root);
       scanner.scanAll().catch((err) => log("Startup scan failed", err));
     },

@@ -20,6 +20,10 @@ export interface ServerConfig {
   trustProxy: boolean;
   /** Overrides the default logger for background work (scans, watchers). */
   log?: LogFn;
+  /** Attach the demo library and keys on first start when no folders exist yet. */
+  seed: boolean;
+  seedLibraryDir: string | null;
+  seedKeysPath: string | null;
 }
 
 const WEB_DIR_CANDIDATES = [
@@ -53,5 +57,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     stabilityThresholdMs: positiveInt("NSLIB_STABILITY_MS", env.NSLIB_STABILITY_MS, 5000),
     logLevel: env.NSLIB_LOG_LEVEL ?? "info",
     trustProxy: flag(env.NSLIB_TRUST_PROXY),
+    seed: flag(env.NSLIB_SEED),
+    seedLibraryDir: env.NSLIB_SEED_DIR ? resolve(env.NSLIB_SEED_DIR) : null,
+    seedKeysPath: env.NSLIB_SEED_KEYS ? resolve(env.NSLIB_SEED_KEYS) : null,
   };
 }

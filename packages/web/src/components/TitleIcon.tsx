@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
 
 function hueFor(seed: string): number {
   let hash = 0;
@@ -27,7 +27,8 @@ export function TitleIcon({
   size?: number;
 }) {
   const box = { width: size, height: size };
-  if (url) {
+  const [failed, setFailed] = useState(false);
+  if (url && !failed) {
     return (
       <img
         src={url}
@@ -36,6 +37,7 @@ export function TitleIcon({
         height={size}
         className="shrink-0 rounded-md object-cover"
         style={box}
+        onError={() => setFailed(true)}
       />
     );
   }

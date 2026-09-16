@@ -56,6 +56,9 @@ export function testConfig(dataDir: string, overrides: Partial<ServerConfig> = {
     stabilityThresholdMs: 100,
     logLevel: false,
     trustProxy: false,
+    seed: false,
+    seedLibraryDir: null,
+    seedKeysPath: null,
     log: () => {},
     ...overrides,
   };
