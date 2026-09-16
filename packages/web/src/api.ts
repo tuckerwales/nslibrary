@@ -355,8 +355,8 @@ export async function downloadForwarder(body?: { titleId?: string; name?: string
   const response = await fetch(`${API_BASE}/forwarder`, {
     method: "POST",
     credentials: "same-origin",
-    headers: body ? { "content-type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : "{}",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body ?? {}),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);

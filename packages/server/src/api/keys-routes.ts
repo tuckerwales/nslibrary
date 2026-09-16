@@ -14,6 +14,20 @@ import { EmptyKeysetError } from "../keys/store";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
 
+function jsonObject(body: unknown): unknown {
+  if (body === undefined || body === null || body === "") return {};
+  if (typeof body === "string") {
+    const trimmed = body.trim();
+    if (trimmed === "") return {};
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      throw new ApiError("BAD_REQUEST", "Request body must be JSON");
+    }
+  }
+  return body;
+}
+
 export async function registerKeysRoutes(api: FastifyInstance, ctx: AppContext): Promise<void> {
   api.get("/keys/status", async (): Promise<KeyStatus> => ctx.keys.status());
 
@@ -55,7 +69,7 @@ export async function registerKeysRoutes(api: FastifyInstance, ctx: AppContext):
   });
 
   api.post("/forwarder", async (request, reply) => {
-    const body = parseWith(CreateForwarderRequestSchema, request.body ?? {});
+    const body = parseWith(CreateForwarderRequestSchema, jsonObject(request.body));
     const { nsp, loader } = packForwarder(ctx.config, ctx.keys.get(), body);
     const name = (body.name ?? "NSLibrary").replace(/[^\w.-]+/g, "_");
     reply

@@ -67,5 +67,16 @@ describe("forwarder HTTP", () => {
     expect(packed.headers["content-type"]).toMatch(/octet-stream/);
     expect(packed.rawPayload.length).toBeGreaterThan(0x400);
     await writeFile(join(dir, "NSLibrary.nsp"), packed.rawPayload);
+
+    // Browser fetch() with a string body and no Content-Type sends text/plain.
+    const asText = await server.app.inject({
+      method: "POST",
+      url: "/api/v1/forwarder",
+      cookies: { [SESSION_COOKIE]: cookie.value },
+      headers: { "content-type": "text/plain;charset=UTF-8" },
+      payload: "{}",
+    });
+    expect(asText.statusCode).toBe(200);
+    expect(asText.rawPayload.length).toBeGreaterThan(0x400);
   });
 });
