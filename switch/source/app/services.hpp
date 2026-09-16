@@ -11,6 +11,10 @@ void servicesExit();
 
 std::string firmwareVersion();
 std::string atmosphereVersion();
+uint32_t currentFirmwarePacked();
+unsigned batteryPercent();
+bool batteryCharging();
+bool isAppletMode();
 DeviceInfo currentDeviceInfo(const std::string& uuid, const std::string& name);
 
 } // namespace nslib

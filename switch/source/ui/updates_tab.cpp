@@ -1,6 +1,7 @@
 #include "ui/main_activity.hpp"
 
 #include "app/session.hpp"
+#include "ui/detail.hpp"
 
 #include <borealis.hpp>
 #include <unordered_map>
@@ -35,12 +36,8 @@ UpdatesTab::UpdatesTab() {
         auto* cell = new brls::DetailCell();
         cell->setText(app.name);
         cell->setDetailText("v" + std::to_string(newest));
-        const int64_t id = app.updates.front().contentMetaId;
-        cell->registerClickAction([app, id](brls::View*) {
-            auto* dialog = new brls::Dialog("app/library/install"_i18n + std::string("\n") + app.name);
-            dialog->addButton("hints/ok"_i18n, [id]() { Session::instance().queueInstall(id, "sd"); });
-            dialog->addButton("hints/cancel"_i18n, []() {});
-            dialog->open();
+        cell->registerClickAction([app](brls::View*) {
+            brls::Application::pushActivity(new TitleDetailActivity(app));
             return true;
         });
         list->addView(cell);

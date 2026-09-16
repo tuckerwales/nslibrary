@@ -21,20 +21,36 @@
     "enter": "Enter pairing code"
   },
   "library": {
-    "install": "Install to SD?",
-    "nothing": "This title has no installable content."
+    "install": "Install?",
+    "nothing": "This title has no installable content.",
+    "empty": "The library is empty."
+  },
+  "detail": {
+    "base": "Install base",
+    "update": "Install update",
+    "dlc": "Install DLC",
+    "sd": "SD card",
+    "nand": "NAND",
+    "auto": "Auto",
+    "install_body": "Install to which storage?",
+    "installed": "Installed",
+    "not_installed": "Not on this Switch",
+    "firmware": "Requires firmware"
   },
   "updates": {
     "intro": "Updates in the library that look newer than what is installed."
   },
   "queue": {
-    "empty": "No jobs yet. Send a title from the web UI, or install from Library."
+    "empty": "No jobs yet. Send a title from the web UI, or install from Library.",
+    "cancel": "Cancel this install?"
   },
   "settings": {
     "url": "Server",
     "name": "This Switch",
     "repair": "Pair again",
     "forget": "Forget this server",
-    "version": "App version"
+    "version": "App version",
+    "target": "Default storage",
+    "verify": "Verify NCA hashes"
   }
 }

@@ -17,17 +17,22 @@ public:
         : std::runtime_error(msg), result(std::move(result)) {}
 };
 
+struct InstallOptions {
+    bool verifyHash = true;
+};
+
 class InstallEngine {
 public:
     using ProgressFn = std::function<void(const JobProgress&)>;
 
-    InstallEngine(DeviceApiClient& client, std::atomic<bool>* cancel = nullptr);
+    InstallEngine(DeviceApiClient& client, std::atomic<bool>* cancel = nullptr, InstallOptions opt = {});
 
     void install(const Job& job, ProgressFn progress);
 
 private:
     DeviceApiClient& client_;
     std::atomic<bool>* cancel_;
+    InstallOptions opt_;
 };
 
 } // namespace nslib

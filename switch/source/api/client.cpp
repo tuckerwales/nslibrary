@@ -90,6 +90,16 @@ void DeviceApiClient::complete(int64_t id, const JobComplete& c) {
     if (res.status != 204 && res.status != 200) expectJson(res);
 }
 
+std::vector<uint8_t> DeviceApiClient::getIcon(const std::string& appId, std::optional<int64_t> rev) {
+    std::string path = "/icons/" + appId;
+    if (rev) path += "?v=" + std::to_string(*rev);
+    const auto res = call("GET", path, nullptr, true);
+    if (res.status != 200) {
+        throw ApiError(res.status, "NOT_FOUND", "icon HTTP " + std::to_string(res.status));
+    }
+    return std::vector<uint8_t>(res.body.begin(), res.body.end());
+}
+
 void DeviceApiClient::getFile(int64_t fileId, uint64_t offset, uint64_t length,
     const std::function<void(const uint8_t*, size_t)>& sink)
 {

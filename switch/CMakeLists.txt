@@ -7,6 +7,8 @@ if (PLATFORM_SWITCH)
     if (NOT EXISTS "${BOREALIS_LIBRARY}/CMakeLists.txt")
         message(FATAL_ERROR "Borealis submodule is missing. Run: git submodule update --init switch/lib/borealis")
     endif()
+    # Sets BRLS_* / USE_* options the library CMakeLists expects (e.g. BRLS_UNITY_BUILD).
+    include("${BOREALIS_LIBRARY}/cmake/commonOption.cmake")
     include("${BOREALIS_LIBRARY}/cmake/toolchain.cmake")
 endif()
 
@@ -27,9 +29,15 @@ set(NSLIB_COMMON_SRC
     source/formats/cnmt.cpp
     source/formats/ticket.cpp
     source/formats/meta.cpp
+    source/formats/crypto.cpp
+    source/formats/xci.cpp
+    source/formats/ncz.cpp
+    source/formats/container.cpp
     source/api/json.cpp
     source/api/protocol.cpp
     source/api/url.cpp
+    source/install/preflight.cpp
+    source/install/pipeline.cpp
 )
 
 if (PLATFORM_SWITCH)
@@ -40,6 +48,9 @@ if (PLATFORM_SWITCH)
     set(PROJECT_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/img/icon.jpg")
     set(PROJECT_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/resources")
     set(PROJECT_TITLEID ${NSLIB_TITLEID})
+
+    # newlib does not declare fileno/fdopen the way fmt's os.cc expects.
+    set(FMT_OS OFF CACHE BOOL "Disable fmt OS APIs on Switch/newlib" FORCE)
 
     add_subdirectory("${BOREALIS_LIBRARY}" EXCLUDE_FROM_ALL)
 
@@ -59,8 +70,9 @@ if (PLATFORM_SWITCH)
         source/api/poller.cpp
         source/install/engine.cpp
         source/install/app_record.cpp
-        source/install/ncz.cpp
         source/installed/scanner.cpp
+        source/ui/detail.cpp
+        source/ui/icon_cache.cpp
         source/ui/connect.cpp
         source/ui/pair.cpp
         source/ui/library_tab.cpp
@@ -118,6 +130,10 @@ if (PLATFORM_SWITCH)
         COMMENT "Building ${PROJECT_NAME}.nro"
     )
 else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(ZSTD REQUIRED libzstd)
+    find_package(Threads REQUIRED)
+
     add_executable(nslib-switch-tests
         ${NSLIB_COMMON_SRC}
         tests/main.cpp
@@ -128,13 +144,25 @@ else()
         tests/protocol_test.cpp
         tests/url_test.cpp
         tests/meta_test.cpp
+        tests/crypto_test.cpp
+        tests/hfs0_test.cpp
+        tests/xci_test.cpp
+        tests/ncz_test.cpp
+        tests/preflight_test.cpp
+        tests/pipeline_test.cpp
     )
-    target_include_directories(nslib-switch-tests PRIVATE source tests)
+    target_include_directories(nslib-switch-tests PRIVATE
+        source
+        tests
+        ${ZSTD_INCLUDE_DIRS}
+    )
     target_compile_definitions(nslib-switch-tests PRIVATE
         GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../packages/shared/golden"
         FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/golden"
         NSLIB_VERSION="${NSLIB_VERSION}"
     )
+    target_link_libraries(nslib-switch-tests PRIVATE ${ZSTD_LIBRARIES} Threads::Threads)
+    target_link_directories(nslib-switch-tests PRIVATE ${ZSTD_LIBRARY_DIRS})
     enable_testing()
     add_test(NAME nslib-switch-tests COMMAND nslib-switch-tests)
 endif()

@@ -42,6 +42,10 @@ void Settings::load() {
         if (v["token"].isString()) token = v["token"].asString();
         if (v["uuid"].isString()) uuid = v["uuid"].asString();
         if (v["name"].isString() && !v["name"].asString().empty()) name = v["name"].asString();
+        if (v["defaultTarget"].isString() && !v["defaultTarget"].asString().empty()) {
+            defaultTarget = v["defaultTarget"].asString();
+        }
+        if (v["verifyHash"].isBool()) verifyHash = v["verifyHash"].asBool();
     } catch (...) {
     }
     ensureUuid();
@@ -55,6 +59,8 @@ void Settings::save() const {
     o.set("token", Json::string(token));
     o.set("uuid", Json::string(uuid));
     o.set("name", Json::string(name));
+    o.set("defaultTarget", Json::string(defaultTarget));
+    o.set("verifyHash", Json::boolean(verifyHash));
     std::ofstream out(kPath, std::ios::trunc);
     out << o.dump();
 }

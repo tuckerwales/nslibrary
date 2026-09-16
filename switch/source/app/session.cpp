@@ -10,6 +10,7 @@
 #include <borealis.hpp>
 #endif
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <thread>
@@ -35,6 +36,16 @@ Session& Session::instance() {
 void Session::setStatus(std::string s) {
     std::lock_guard<std::mutex> lock(mutex_);
     status_ = std::move(s);
+}
+
+void Session::upsertJob(const Job& job) {
+    for (auto& j : jobs_) {
+        if (j.id == job.id) {
+            j = job;
+            return;
+        }
+    }
+    jobs_.push_back(job);
 }
 
 void Session::setUrl(std::string url) {
@@ -128,6 +139,17 @@ std::string Session::status() const {
     return status_;
 }
 
+JobProgress Session::progressSnapshot() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return progress_;
+}
+
+std::optional<Job> Session::currentJob() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!installing_) return std::nullopt;
+    return currentJob_;
+}
+
 void Session::refreshCatalog() {
     ensureClient();
     std::vector<CatalogApp> apps;
@@ -163,18 +185,54 @@ void Session::refreshInstalled() {
 
 void Session::queueInstall(int64_t contentMetaId, const std::string& target) {
     ensureClient();
-    Job job = client_->createJob(contentMetaId, target);
+    const std::string t = target.empty() ? settings.defaultTarget : target;
+    Job job = client_->createJob(contentMetaId, t);
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        jobs_.push_back(job);
+        upsertJob(job);
     }
     std::thread([this, job]() mutable {
         try {
             job = client_->claimJob(job.id);
+        } catch (const ApiError& e) {
+            uiNotify(e.what());
+            return;
+        }
+        enqueueClaimed(std::move(job));
+    }).detach();
+}
+
+void Session::cancelJob(int64_t jobId) {
+    bool current = false;
+    Job waiting;
+    bool hadWaiting = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (installing_ && currentJob_.id == jobId) {
+            current = true;
+            cancel_ = true;
+        }
+        auto it = std::find_if(pending_.begin(), pending_.end(), [&](const Job& j) { return j.id == jobId; });
+        if (it != pending_.end()) {
+            waiting = *it;
+            hadWaiting = true;
+            pending_.erase(it);
+        }
+        for (auto& j : jobs_) {
+            if (j.id == jobId) j.status = "cancelled";
+        }
+    }
+    if (current) uiNotify("Cancelling install");
+    if (hadWaiting) {
+        JobComplete done;
+        done.ok = false;
+        done.result = "cancelled";
+        done.msg = "cancelled";
+        try {
+            client_->complete(waiting.id, done);
         } catch (...) {
         }
-        runInstall(std::move(job));
-    }).detach();
+    }
 }
 
 void Session::onEvent(const DeviceEvent& ev) {
@@ -192,7 +250,7 @@ void Session::onEvent(const DeviceEvent& ev) {
         Job job = *ev.job;
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            jobs_.push_back(job);
+            upsertJob(job);
         }
         std::thread([this, job]() mutable {
             try {
@@ -201,22 +259,52 @@ void Session::onEvent(const DeviceEvent& ev) {
                 uiNotify(e.what());
                 return;
             }
-            runInstall(std::move(job));
+            enqueueClaimed(std::move(job));
         }).detach();
         return;
     }
     if (ev.t == "job.cancel") {
-        if (currentJob_.id == ev.id) cancel_ = true;
+        cancelJob(ev.id);
     }
 }
 
-void Session::runInstall(Job job) {
-    if (installing_.exchange(true)) {
-        uiNotify("Already installing; wait for the current job");
-        return;
+void Session::enqueueClaimed(Job job) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        job.status = "claimed";
+        upsertJob(job);
+        pending_.push_back(std::move(job));
     }
-    currentJob_ = job;
-    cancel_ = false;
+    pump();
+}
+
+void Session::pump() {
+    Job next;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (installing_ || pending_.empty()) return;
+        next = pending_.front();
+        pending_.pop_front();
+        installing_ = true;
+        currentJob_ = next;
+        cancel_ = false;
+    }
+    std::thread([this, next]() {
+        runInstall(next);
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            installing_ = false;
+        }
+        pump();
+    }).detach();
+}
+
+std::vector<uint8_t> Session::fetchIcon(const std::string& appId, std::optional<int64_t> rev) {
+    ensureClient();
+    return client_->getIcon(appId, rev);
+}
+
+void Session::runInstall(Job job) {
     setStatus("Installing " + job.name);
 #ifdef __SWITCH__
     showProgress("Installing " + job.name);
@@ -227,8 +315,14 @@ void Session::runInstall(Job job) {
     done.ok = false;
     try {
         auto last = std::chrono::steady_clock::now();
-        InstallEngine engine(*client_, &cancel_);
+        InstallOptions opt;
+        opt.verifyHash = settings.verifyHash;
+        InstallEngine engine(*client_, &cancel_, opt);
         engine.install(job, [&](const JobProgress& p) {
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                progress_ = p;
+            }
             const auto now = std::chrono::steady_clock::now();
             if (now - last >= std::chrono::seconds(1)) {
                 last = now;
@@ -237,7 +331,7 @@ void Session::runInstall(Job job) {
                 } catch (...) {
                 }
             }
-            char line[128];
+            char line[160];
             std::snprintf(line, sizeof(line), "%s %llu / %llu", p.phase.c_str(),
                 static_cast<unsigned long long>(p.done), static_cast<unsigned long long>(p.total));
             setStatus(line);
@@ -251,7 +345,8 @@ void Session::runInstall(Job job) {
     } catch (const InstallError& e) {
         done.result = e.result;
         done.msg = e.what();
-        uiNotify(std::string(e.what()));
+        if (e.result == "cancelled") uiNotify("Cancelled " + job.name);
+        else uiNotify(std::string(e.what()));
     } catch (const std::exception& e) {
         done.msg = e.what();
         uiNotify(e.what());
@@ -265,7 +360,12 @@ void Session::runInstall(Job job) {
         refreshInstalled();
     } catch (...) {
     }
-    installing_ = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto& j : jobs_) {
+            if (j.id == job.id) j.status = done.ok ? "done" : (done.result == "cancelled" ? "cancelled" : "failed");
+        }
+    }
     setStatus(done.ok ? "Idle" : "Install failed");
 #ifdef __SWITCH__
     hideProgress();

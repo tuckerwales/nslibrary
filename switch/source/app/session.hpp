@@ -7,8 +7,10 @@
 #include "transport/http.hpp"
 
 #include <atomic>
+#include <deque>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -29,7 +31,6 @@ public:
     HelloResponse hello();
     PairResponse pair(const std::string& code);
 
-    /** hello + installed snapshot + catalog + event poller. */
     void start();
     void stop();
 
@@ -37,10 +38,15 @@ public:
     std::vector<Job> jobsSnapshot() const;
     DeviceState installedSnapshot() const;
     std::string status() const;
+    JobProgress progressSnapshot() const;
+    std::optional<Job> currentJob() const;
 
     void refreshCatalog();
     void refreshInstalled();
-    void queueInstall(int64_t contentMetaId, const std::string& target = "sd");
+    void queueInstall(int64_t contentMetaId, const std::string& target);
+    void cancelJob(int64_t jobId);
+
+    std::vector<uint8_t> fetchIcon(const std::string& appId, std::optional<int64_t> rev);
 
     bool isInstalling() const { return installing_; }
 
@@ -55,17 +61,22 @@ private:
     std::unique_ptr<EventPoller> poller_;
     std::vector<CatalogApp> catalog_;
     std::vector<Job> jobs_;
+    std::deque<Job> pending_;
     DeviceState installed_;
     int64_t catalogRev_ = 0;
     std::string status_;
+    JobProgress progress_;
     std::atomic<bool> installing_{false};
     std::atomic<bool> cancel_{false};
     Job currentJob_{};
 
     void ensureClient();
     void onEvent(const DeviceEvent& ev);
+    void enqueueClaimed(Job job);
+    void pump();
     void runInstall(Job job);
     void setStatus(std::string s);
+    void upsertJob(const Job& job);
 };
 
 } // namespace nslib

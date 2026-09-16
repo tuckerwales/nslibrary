@@ -1,33 +1,59 @@
 #include "ui/main_activity.hpp"
 
 #include "app/session.hpp"
+#include "ui/detail.hpp"
+#include "ui/icon_cache.hpp"
 
+#include <atomic>
 #include <borealis.hpp>
-#include <cstdio>
+#include <memory>
 
 using namespace brls::literals;
 
 namespace nslib {
 namespace {
 
-std::string formatAppDetail(const CatalogApp& app) {
-    std::string d = app.id;
-    if (app.base) d += "  base";
-    if (!app.updates.empty()) {
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), "  u%u", app.updates.front().version);
-        d += buf;
-    }
-    if (!app.dlc.empty()) d += "  dlc " + std::to_string(app.dlc.size());
-    return d;
-}
+constexpr int kCols = 5;
+constexpr float kCellW = 210;
+constexpr float kCellH = 230;
+constexpr float kIcon = 128;
 
-int64_t defaultMetaId(const CatalogApp& app) {
-    if (app.base) return app.base->contentMetaId;
-    if (!app.updates.empty()) return app.updates.front().contentMetaId;
-    if (!app.dlc.empty()) return app.dlc.front().contentMetaId;
-    return 0;
-}
+class TitleCell : public brls::Box {
+public:
+    explicit TitleCell(CatalogApp app)
+        : brls::Box(brls::Axis::COLUMN), app_(std::move(app)), alive_(std::make_shared<std::atomic<bool>>(true))
+    {
+        this->setWidth(kCellW);
+        this->setHeight(kCellH);
+        this->setAlignItems(brls::AlignItems::CENTER);
+        this->setJustifyContent(brls::JustifyContent::FLEX_START);
+        this->setFocusable(true);
+        this->setPadding(8);
+
+        auto* img = new brls::Image();
+        img->setWidth(kIcon);
+        img->setHeight(kIcon);
+        img->setScalingType(brls::ImageScalingType::FILL);
+        this->addView(img);
+        loadAppIcon(img, alive_, app_.id, app_.iconRev);
+
+        auto* label = new brls::Label();
+        label->setText(app_.name.empty() ? app_.id : app_.name);
+        label->setHorizontalAlign(brls::HorizontalAlign::CENTER);
+        this->addView(label);
+
+        this->registerClickAction([this](brls::View*) {
+            brls::Application::pushActivity(new TitleDetailActivity(app_));
+            return true;
+        });
+    }
+
+    ~TitleCell() override { alive_->store(false); }
+
+private:
+    CatalogApp app_;
+    std::shared_ptr<std::atomic<bool>> alive_;
+};
 
 } // namespace
 
@@ -38,23 +64,24 @@ LibraryTab::LibraryTab() {
     if (status) status->setText(Session::instance().status());
     if (!list) return;
 
-    for (const auto& app : Session::instance().catalogSnapshot()) {
-        auto* cell = new brls::DetailCell();
-        cell->setText(app.name.empty() ? app.id : app.name);
-        cell->setDetailText(formatAppDetail(app));
-        cell->registerClickAction([app](brls::View*) {
-            const int64_t id = defaultMetaId(app);
-            if (!id) {
-                showError("app/library/nothing"_i18n);
-                return true;
-            }
-            auto* dialog = new brls::Dialog("app/library/install"_i18n + std::string("\n") + app.name);
-            dialog->addButton("hints/ok"_i18n, [id]() { Session::instance().queueInstall(id, "sd"); });
-            dialog->addButton("hints/cancel"_i18n, []() {});
-            dialog->open();
-            return true;
-        });
-        list->addView(cell);
+    const auto apps = Session::instance().catalogSnapshot();
+    if (apps.empty()) {
+        auto* empty = new brls::Label();
+        empty->setText("app/library/empty"_i18n);
+        list->addView(empty);
+        return;
+    }
+
+    brls::Box* row = nullptr;
+    int col = 0;
+    for (const auto& app : apps) {
+        if (!row || col == kCols) {
+            row = new brls::Box(brls::Axis::ROW);
+            list->addView(row);
+            col = 0;
+        }
+        row->addView(new TitleCell(app));
+        col++;
     }
 }
 

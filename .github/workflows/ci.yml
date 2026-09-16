@@ -20,6 +20,8 @@ jobs:
       - run: pnpm test
       - name: Switch host tests
         run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libzstd-dev pkg-config
           cmake -B switch/build-host -S switch
           cmake --build switch/build-host --target nslib-switch-tests -j"$(nproc)"
           switch/build-host/nslib-switch-tests

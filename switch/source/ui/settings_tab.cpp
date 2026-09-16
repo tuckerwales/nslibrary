@@ -32,6 +32,25 @@ SettingsTab::SettingsTab() {
     }, "", "", 32);
     list->addView(name);
 
+    int targetSel = 0;
+    if (session.settings.defaultTarget == "nand") targetSel = 1;
+    else if (session.settings.defaultTarget == "auto") targetSel = 2;
+    auto* target = new brls::SelectorCell();
+    target->init("app/settings/target"_i18n,
+        {"app/detail/sd"_i18n, "app/detail/nand"_i18n, "app/detail/auto"_i18n}, targetSel, [](int i) {
+            static const char* k[] = {"sd", "nand", "auto"};
+            Session::instance().settings.defaultTarget = k[i];
+            Session::instance().settings.save();
+        });
+    list->addView(target);
+
+    auto* hash = new brls::BooleanCell();
+    hash->init("app/settings/verify"_i18n, session.settings.verifyHash, [](bool on) {
+        Session::instance().settings.verifyHash = on;
+        Session::instance().settings.save();
+    });
+    list->addView(hash);
+
     auto* pair = new brls::DetailCell();
     pair->setText("app/settings/repair"_i18n);
     pair->registerClickAction([](brls::View*) {

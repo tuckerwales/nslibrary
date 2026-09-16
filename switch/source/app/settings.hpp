@@ -9,6 +9,8 @@ struct Settings {
     std::string token;
     std::string uuid;
     std::string name = "Switch";
+    std::string defaultTarget = "sd";
+    bool verifyHash = true;
 
     void load();
     void save() const;

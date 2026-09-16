@@ -49,6 +49,27 @@ private:
     size_t size_;
 };
 
+/** Sequential view of `[base, base+len)` inside another reader. */
+class SliceReader : public Reader {
+public:
+    SliceReader(const Reader& inner, uint64_t base, uint64_t len)
+        : inner_(&inner), base_(base), size_(len) {}
+
+    uint64_t size() const override { return size_; }
+
+    void read(uint64_t offset, void* dst, size_t n) const override {
+        if (offset + n > size_) {
+            throw FormatError("TRUNCATED", "read past end of slice");
+        }
+        inner_->read(base_ + offset, dst, n);
+    }
+
+private:
+    const Reader* inner_;
+    uint64_t base_;
+    uint64_t size_;
+};
+
 inline uint16_t readU16(const uint8_t* p) {
     return uint16_t(p[0]) | (uint16_t(p[1]) << 8);
 }

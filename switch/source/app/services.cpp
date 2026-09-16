@@ -15,9 +15,11 @@ void servicesInit() {
     nsInitialize();
     esInitialize();
     splInitialize();
+    psmInitialize();
 }
 
 void servicesExit() {
+    psmExit();
     splExit();
     esExit();
     nsExit();
@@ -44,12 +46,36 @@ std::string atmosphereVersion() {
     return buf;
 }
 
+uint32_t currentFirmwarePacked() {
+    SetSysFirmwareVersion fw{};
+    if (R_FAILED(setsysGetFirmwareVersion(&fw))) return 0;
+    return (uint32_t(fw.major) << 16) | (uint32_t(fw.minor) << 8) | uint32_t(fw.micro);
+}
+
+unsigned batteryPercent() {
+    u32 pct = 100;
+    psmGetBatteryChargePercentage(&pct);
+    return unsigned(pct);
+}
+
+bool batteryCharging() {
+    PsmChargerType type = PsmChargerType_Unconnected;
+    psmGetChargerType(&type);
+    return type != PsmChargerType_Unconnected;
+}
+
+bool isAppletMode() { return appletGetAppletType() != AppletType_Application; }
+
 #else
 
 void servicesInit() {}
 void servicesExit() {}
 std::string firmwareVersion() { return "0.0.0"; }
 std::string atmosphereVersion() { return "0.0.0"; }
+uint32_t currentFirmwarePacked() { return 0; }
+unsigned batteryPercent() { return 100; }
+bool batteryCharging() { return true; }
+bool isAppletMode() { return true; }
 
 #endif
 

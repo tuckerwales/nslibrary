@@ -13,7 +13,7 @@ There are no download sources, no shop scraping, and no title keys handed out. K
 - **Discovery** — UDP `NSLIB?1` on port 8466. You can always type an IP by hand.
 - **Demo data** — Synthetic containers and a fake keyset so the UI is usable without real dumps. No copyrighted content.
 
-The Switch homebrew client (C++ / [Borealis](https://github.com/xfangfang/borealis)) streams NSP installs into console storage without copying the whole file to the SD card first. USB transport, NSZ/XCI, and a desktop Electron wrapper are later milestones.
+The Switch homebrew client (C++ / [Borealis](https://github.com/xfangfang/borealis)) streams NSP, NSZ, XCI, and XCZ installs into SD or NAND without copying the whole file to the SD card first. USB transport and a desktop Electron wrapper are later milestones.
 
 ## Quick start
 
@@ -77,7 +77,7 @@ pnpm --filter @nslib/device-sim start -- hello --token <token>
 
 ### Switch client
 
-Host-native tests (no devkitPro) cover PFS0, CNMT, tickets, JSON, and the device-API codec against the same golden files as TypeScript:
+Host-native tests (no devkitPro) cover PFS0, HFS0/XCI, NCZ, CNMT, tickets, JSON, the device-API codec, and the install pipeline against the same golden files as TypeScript:
 
 ```bash
 cmake -S switch -B switch/build-host
@@ -91,7 +91,7 @@ The `.nro` is a CMake Switch build (`-DPLATFORM_SWITCH=ON`) against the [xfangfa
 git submodule update --init switch/lib/borealis
 ```
 
-You need [devkitPro](https://devkitpro.org) with `switch-curl` and `switch-zstd`. See [docs/switch.md](docs/switch.md) for pairing, `nxlink -s`, and the NSP→SD install path. USB, NSZ/XCI, and the 3-thread pipeline are later milestones.
+You need [devkitPro](https://devkitpro.org) with `switch-curl` and `switch-zstd`. See [docs/switch.md](docs/switch.md) for pairing, `nxlink -s`, and NSP/NSZ/XCI installs to SD or NAND. USB is a later milestone. Host tests need `libzstd-dev`.
 
 ## Configuration
 

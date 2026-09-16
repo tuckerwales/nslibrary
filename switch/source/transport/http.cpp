@@ -4,6 +4,7 @@
 
 #include <curl/curl.h>
 #include <stdexcept>
+#include <sys/socket.h>
 #include <vector>
 
 namespace nslib {
@@ -71,6 +72,13 @@ curl_slist* appendHeaders(curl_slist* list, const std::string& token,
     return list;
 }
 
+int sockoptLargeBuffers(void*, curl_socket_t fd, curlsocktype) {
+    const int sz = 1024 * 1024;
+    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &sz, sizeof(sz));
+    setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sz, sizeof(sz));
+    return CURL_SOCKOPT_OK;
+}
+
 } // namespace
 
 HttpTransport::HttpTransport(std::string baseUrl) : baseUrl_(normalizeServerUrl(std::move(baseUrl))) {
@@ -102,6 +110,7 @@ HttpResponse HttpTransport::request(
     curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
     curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(curl_, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl_, CURLOPT_BUFFERSIZE, 1024L * 1024L);
     curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, writeBody);
     curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &out.body);
     curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, writeHeaders);
@@ -152,6 +161,8 @@ int HttpTransport::stream(
         curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
         curl_easy_setopt(curl_, CURLOPT_TCP_KEEPALIVE, 1L);
         curl_easy_setopt(curl_, CURLOPT_NOSIGNAL, 1L);
+        curl_easy_setopt(curl_, CURLOPT_BUFFERSIZE, 1024L * 1024L);
+        curl_easy_setopt(curl_, CURLOPT_SOCKOPTFUNCTION, sockoptLargeBuffers);
         curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, writeStream);
         curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &st);
         curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, writeHeaders);
