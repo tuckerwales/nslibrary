@@ -9,6 +9,7 @@
 #include "formats/pfs0.hpp"
 #include "formats/ticket.hpp"
 #include "install/app_record.hpp"
+#include "install/es.hpp"
 #include "install/pipeline.hpp"
 #include "install/preflight.hpp"
 

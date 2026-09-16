@@ -10,13 +10,7 @@ Needs `libzstd` (headers + library) and CMake. From the repo root:
 pnpm test:switch
 ```
 
-or:
-
-```bash
-cmake -B switch/build-host -S switch
-cmake --build switch/build-host --target nslib-switch-tests -j"$(nproc)"
-switch/build-host/nslib-switch-tests
-```
+or `./scripts/build-switch.sh --test`.
 
 These parse `packages/shared/golden/device-api/` and `switch/tests/golden/` (PFS0, HFS0/XCI, NCZ, CNMT, ticket, pipeline).
 
@@ -36,10 +30,10 @@ switch-mesa switch-libdrm_nouveau switch-curl switch-mbedtls switch-zstd
 ```
 
 ```bash
-git submodule update --init switch/lib/borealis
-cmake -B switch/build -S switch -DPLATFORM_SWITCH=ON
-cmake --build switch/build --target nslibrary.nro -j"$(nproc)"
+./scripts/build-switch.sh
 ```
+
+That inits the Borealis submodule if needed, configures CMake, and writes `switch/build/nslibrary.nro`. Useful flags: `--clean`, `--nxlink`, `--forwarder`, `-j N`. `./scripts/build-switch.sh --help` lists them.
 
 Copy `switch/build/nslibrary.nro` to `sdmc:/switch/nslibrary/nslibrary.nro`.
 

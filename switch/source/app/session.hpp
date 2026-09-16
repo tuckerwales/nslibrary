@@ -39,6 +39,8 @@ public:
 
     void start();
     void stop();
+    bool isReady() const;
+    void setStatus(std::string s);
 
     std::vector<CatalogApp> catalogSnapshot() const;
     std::vector<Job> jobsSnapshot() const;
@@ -84,6 +86,8 @@ private:
     JobProgress progress_;
     std::atomic<bool> installing_{false};
     std::atomic<bool> cancel_{false};
+    bool starting_ = false;
+    bool ready_ = false;
     Job currentJob_{};
 
     void ensureClient();
@@ -91,7 +95,6 @@ private:
     void enqueueClaimed(Job job);
     void pump();
     void runInstall(Job job);
-    void setStatus(std::string s);
     void upsertJob(const Job& job);
 };
 

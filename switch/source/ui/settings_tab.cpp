@@ -23,6 +23,7 @@ SettingsTab::SettingsTab() {
     auto* url = new brls::InputCell();
     url->init("app/settings/url"_i18n, session.settings.url, [](std::string text) {
         Session::instance().setUrl(std::move(text));
+        if (Session::instance().hasToken()) enterPairedSession();
     }, "https://…", "", 80);
     list->addView(url);
 
@@ -144,20 +145,48 @@ void showError(const std::string& message) {
 }
 
 void enterPairedSession() {
-    try {
-        Session::instance().start();
-        brls::Application::pushActivity(new MainActivity());
-    } catch (const ApiError& e) {
-        if (e.code == "UNAUTHORIZED" || e.code == "DEVICE_REVOKED") {
-            Session::instance().forgetDevice();
-            showError(e.what());
-            brls::Application::pushActivity(new PairActivity());
-            return;
+    auto& session = Session::instance();
+    if (!session.isReady()) session.setStatus("app/connect/connecting"_i18n);
+    brls::Application::pushActivity(new MainActivity());
+    if (session.isReady()) return;
+
+    std::thread([] {
+        try {
+            Session::instance().start();
+            brls::sync([] { refreshLibraryTab(); });
+        } catch (const ApiError& e) {
+            const std::string code = e.code;
+            const std::string msg = e.what();
+            brls::sync([code, msg] {
+                Session::instance().setStatus(msg);
+                refreshLibraryTab();
+                if (code == "UNAUTHORIZED" || code == "DEVICE_REVOKED") {
+                    Session::instance().forgetDevice();
+                    showError(msg);
+                    brls::Application::pushActivity(new PairActivity());
+                    return;
+                }
+                auto* dialog = new brls::Dialog(msg);
+                dialog->addButton("hints/ok"_i18n, []() {});
+                dialog->addButton("app/connect/change"_i18n, []() {
+                    brls::Application::pushActivity(new ConnectActivity());
+                });
+                dialog->open();
+            });
+        } catch (const std::exception& e) {
+            const std::string msg = e.what();
+            brls::sync([msg] {
+                Session::instance().setStatus(msg);
+                refreshLibraryTab();
+                auto* dialog = new brls::Dialog(msg);
+                dialog->addButton("hints/ok"_i18n, []() {});
+                dialog->addButton("app/connect/change"_i18n, []() {
+                    brls::Application::pushActivity(new ConnectActivity());
+                });
+                dialog->open();
+            });
         }
-        showError(e.what());
-    } catch (const std::exception& e) {
-        showError(e.what());
-    }
+    }).detach();
 }
 
 } // namespace nslib

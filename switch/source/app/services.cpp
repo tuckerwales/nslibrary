@@ -1,6 +1,7 @@
 #include "app/services.hpp"
 
 #ifdef __SWITCH__
+#include "install/es.hpp"
 #include <switch.h>
 #endif
 

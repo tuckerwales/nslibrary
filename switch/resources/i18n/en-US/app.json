@@ -16,7 +16,9 @@
     "manual": "Enter address",
     "hint": "IP, hostname, or URL",
     "usb": "USB cable",
-    "usb_hint": "This computer is running NSLibrary"
+    "usb_hint": "This computer is running NSLibrary",
+    "connecting": "Connecting to the library\u2026",
+    "change": "Change server"
   },
   "pair": {
     "title": "Pair",

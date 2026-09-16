@@ -8,6 +8,7 @@
 
 #ifdef __SWITCH__
 #include "transport/usb.hpp"
+#include "ui/main_activity.hpp"
 #include "ui/progress.hpp"
 #include "update/apply.hpp"
 #include <borealis.hpp>
@@ -64,6 +65,11 @@ void Session::setUrl(std::string url) {
     client_.reset();
     pollTransport_.reset();
     pollClient_.reset();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ready_ = false;
+        starting_ = false;
+    }
 }
 
 void Session::setUsb(bool on) {
@@ -74,6 +80,11 @@ void Session::setUsb(bool on) {
     client_.reset();
     pollTransport_.reset();
     pollClient_.reset();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ready_ = false;
+        starting_ = false;
+    }
 }
 
 void Session::forgetDevice() {
@@ -84,6 +95,11 @@ void Session::forgetDevice() {
     client_.reset();
     pollTransport_.reset();
     pollClient_.reset();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ready_ = false;
+        starting_ = false;
+    }
 }
 
 void Session::ensureClient() {
@@ -144,20 +160,39 @@ PairResponse Session::usbHello() {
 }
 
 void Session::start() {
-    ensureClient();
-    hello();
-    refreshInstalled();
-    refreshCatalog();
-    const int wait = settings.useUsb ? 0 : 25;
-    if (settings.useUsb) {
-        poller_ = std::make_unique<EventPoller>(*client_, [this](const DeviceEvent& ev) { onEvent(ev); }, wait);
-    } else {
-        pollTransport_ = std::make_unique<HttpTransport>(settings.url);
-        pollTransport_->setToken(settings.token);
-        pollClient_ = std::make_unique<DeviceApiClient>(*pollTransport_, settings.token);
-        poller_ = std::make_unique<EventPoller>(*pollClient_, [this](const DeviceEvent& ev) { onEvent(ev); }, wait);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (ready_ || starting_) return;
+        starting_ = true;
     }
-    poller_->start();
+    try {
+        ensureClient();
+        hello();
+        refreshInstalled();
+        refreshCatalog();
+        const int wait = settings.useUsb ? 0 : 25;
+        if (settings.useUsb) {
+            poller_ = std::make_unique<EventPoller>(*client_, [this](const DeviceEvent& ev) { onEvent(ev); }, wait);
+        } else {
+            pollTransport_ = std::make_unique<HttpTransport>(settings.url);
+            pollTransport_->setToken(settings.token);
+            pollClient_ = std::make_unique<DeviceApiClient>(*pollTransport_, settings.token);
+            poller_ = std::make_unique<EventPoller>(*pollClient_, [this](const DeviceEvent& ev) { onEvent(ev); }, wait);
+        }
+        poller_->start();
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            ready_ = true;
+            starting_ = false;
+        }
+    } catch (...) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            ready_ = false;
+            starting_ = false;
+        }
+        throw;
+    }
 }
 
 void Session::stop() {
@@ -166,6 +201,16 @@ void Session::stop() {
     poller_.reset();
     pollTransport_.reset();
     pollClient_.reset();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ready_ = false;
+        starting_ = false;
+    }
+}
+
+bool Session::isReady() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return ready_;
 }
 
 std::vector<CatalogApp> Session::catalogSnapshot() const {
@@ -294,7 +339,7 @@ void Session::onEvent(const DeviceEvent& ev) {
         } catch (...) {
         }
 #ifdef __SWITCH__
-        brls::sync([] {});
+        brls::sync([] { refreshLibraryTab(); });
 #endif
         return;
     }

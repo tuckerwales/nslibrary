@@ -6,13 +6,14 @@ namespace nslib {
 
 class MainActivity : public brls::Activity {
 public:
-    CONTENT_FROM_XML_RES("xml/activity/main.xml");
+    CONTENT_FROM_XML_RES("activity/main.xml");
 };
 
 class LibraryTab : public brls::Box {
 public:
     LibraryTab();
     static brls::View* create();
+    void rebuild();
 };
 
 class UpdatesTab : public brls::Box {
@@ -47,5 +48,6 @@ public:
 
 void showError(const std::string& message);
 void enterPairedSession();
+void refreshLibraryTab();
 
 } // namespace nslib

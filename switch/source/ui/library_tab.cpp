@@ -59,15 +59,25 @@ private:
 
 LibraryTab::LibraryTab() {
     this->inflateFromXMLRes("xml/tabs/library.xml");
+    rebuild();
+}
+
+void LibraryTab::rebuild() {
     auto* list = dynamic_cast<brls::Box*>(this->getView("list"));
     auto* status = dynamic_cast<brls::Label*>(this->getView("status"));
-    if (status) status->setText(Session::instance().status());
+    auto& session = Session::instance();
+    if (status) {
+        const auto line = session.status();
+        status->setText(line.empty() ? "app/connect/connecting"_i18n : line);
+    }
     if (!list) return;
+    list->clearViews();
 
-    const auto apps = Session::instance().catalogSnapshot();
+    const auto apps = session.catalogSnapshot();
     if (apps.empty()) {
         auto* empty = new brls::Label();
-        empty->setText("app/library/empty"_i18n);
+        if (session.isReady()) empty->setText("app/library/empty"_i18n);
+        else empty->setText(session.status().empty() ? "app/connect/connecting"_i18n : session.status());
         list->addView(empty);
         return;
     }
@@ -82,6 +92,15 @@ LibraryTab::LibraryTab() {
         }
         row->addView(new TitleCell(app));
         col++;
+    }
+}
+
+void refreshLibraryTab() {
+    for (auto* activity : brls::Application::getActivitiesStack()) {
+        if (auto* lib = dynamic_cast<LibraryTab*>(activity->getView("library"))) {
+            lib->rebuild();
+            return;
+        }
     }
 }
 

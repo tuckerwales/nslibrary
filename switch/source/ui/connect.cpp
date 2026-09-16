@@ -37,14 +37,12 @@ void afterUrl() {
 } // namespace
 
 brls::View* ConnectActivity::createContentView() {
-    auto* frame = new brls::AppletFrame();
-    frame->setTitle("app/connect/title"_i18n);
-
     auto* scroll = new brls::ScrollingFrame();
     auto* box = new brls::Box(brls::Axis::COLUMN);
     box->setPadding(30, 40, 30, 40);
     scroll->setContentView(box);
-    frame->setContentView(scroll);
+    auto* frame = new brls::AppletFrame(scroll);
+    frame->setTitle("app/connect/title"_i18n);
 
     auto* intro = new brls::Label();
     intro->setText("app/connect/intro"_i18n);

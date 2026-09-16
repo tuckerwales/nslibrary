@@ -20,7 +20,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(NSLIB_VERSION_MAJOR 0)
 set(NSLIB_VERSION_MINOR 1)
-set(NSLIB_VERSION_PATCH 0)
+set(NSLIB_VERSION_PATCH 1)
 set(NSLIB_VERSION "${NSLIB_VERSION_MAJOR}.${NSLIB_VERSION_MINOR}.${NSLIB_VERSION_PATCH}")
 set(NSLIB_TITLEID "01004E534C494200")
 set_source_files_properties(source/update/tweetnacl.c PROPERTIES
@@ -82,6 +82,7 @@ if (PLATFORM_SWITCH)
         source/api/poller.cpp
         source/install/engine.cpp
         source/install/app_record.cpp
+        source/install/es.cpp
         source/installed/scanner.cpp
         source/ui/detail.cpp
         source/ui/icon_cache.cpp

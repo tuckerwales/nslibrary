@@ -1,6 +1,7 @@
 #pragma once
 
 #include "api/protocol.hpp"
+#include "api/url.hpp"
 
 #include <string>
 #include <vector>

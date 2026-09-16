@@ -11,9 +11,6 @@ using namespace brls::literals;
 namespace nslib {
 
 brls::View* PairActivity::createContentView() {
-    auto* frame = new brls::AppletFrame();
-    frame->setTitle("app/pair/title"_i18n);
-
     auto* box = new brls::Box(brls::Axis::COLUMN);
     box->setPadding(40);
     auto* intro = new brls::Label();
@@ -41,7 +38,8 @@ brls::View* PairActivity::createContentView() {
 
     auto* scroll = new brls::ScrollingFrame();
     scroll->setContentView(box);
-    frame->setContentView(scroll);
+    auto* frame = new brls::AppletFrame(scroll);
+    frame->setTitle("app/pair/title"_i18n);
     return frame;
 }
 

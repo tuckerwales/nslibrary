@@ -69,14 +69,12 @@ TitleDetailActivity::TitleDetailActivity(CatalogApp app) : app_(std::move(app)) 
 TitleDetailActivity::~TitleDetailActivity() { alive_->store(false); }
 
 brls::View* TitleDetailActivity::createContentView() {
-    auto* frame = new brls::AppletFrame();
-    frame->setTitle(app_.name.empty() ? app_.id : app_.name);
-
     auto* scroll = new brls::ScrollingFrame();
     auto* box = new brls::Box(brls::Axis::COLUMN);
     box->setPadding(20, 40, 20, 40);
     scroll->setContentView(box);
-    frame->setContentView(scroll);
+    auto* frame = new brls::AppletFrame(scroll);
+    frame->setTitle(app_.name.empty() ? app_.id : app_.name);
 
     auto* header = new brls::Box(brls::Axis::ROW);
     header->setAlignItems(brls::AlignItems::CENTER);

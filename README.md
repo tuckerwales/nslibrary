@@ -84,18 +84,16 @@ pnpm --filter @nslib/device-sim start -- hello --token <token>
 Host-native tests (no devkitPro) cover PFS0, HFS0/XCI, NCZ, CNMT, tickets, JSON, the device-API codec, USB frames, and the install pipeline against the same golden files as TypeScript:
 
 ```bash
-cmake -S switch -B switch/build-host
-cmake --build switch/build-host
-ctest --test-dir switch/build-host --output-on-failure
+pnpm test:switch
 ```
 
-The `.nro` is a CMake Switch build (`-DPLATFORM_SWITCH=ON`) against the [xfangfang/borealis](https://github.com/xfangfang/borealis) submodule. Init it with:
+The `.nro` needs [devkitPro](https://devkitpro.org) (`switch-curl`, `switch-libzstd`). From the repo root:
 
 ```bash
-git submodule update --init switch/lib/borealis
+./scripts/build-switch.sh
 ```
 
-You need [devkitPro](https://devkitpro.org) with `switch-curl` and `switch-zstd`. See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/XCI installs to SD or NAND. Host tests need `libzstd-dev`. Desktop: `pnpm dev:desktop` (see [docs/desktop.md](docs/desktop.md)).
+See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/XCI installs to SD or NAND. Host tests need `libzstd-dev`. Desktop: `pnpm dev:desktop` (see [docs/desktop.md](docs/desktop.md)).
 
 ## Configuration
 

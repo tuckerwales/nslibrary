@@ -6,7 +6,7 @@
         icon="@res/img/icon.jpg">
 
         <brls:Tab label="@i18n/app/tabs/library">
-            <LibraryTab />
+            <LibraryTab id="library" />
         </brls:Tab>
 
         <brls:Tab label="@i18n/app/tabs/updates">
