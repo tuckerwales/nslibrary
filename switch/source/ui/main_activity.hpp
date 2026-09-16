@@ -26,6 +26,7 @@ class QueueTab : public brls::Box {
 public:
     QueueTab();
     static brls::View* create();
+    void rebuild();
 };
 
 class InstalledTab : public brls::Box {
@@ -49,5 +50,6 @@ public:
 void showError(const std::string& message);
 void enterPairedSession();
 void refreshLibraryTab();
+void refreshQueueTab();
 
 } // namespace nslib

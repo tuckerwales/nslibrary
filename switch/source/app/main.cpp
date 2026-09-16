@@ -1,3 +1,4 @@
+#include "app/file_log.hpp"
 #include "app/services.hpp"
 #include "app/session.hpp"
 #include "ui/connect.hpp"
@@ -17,13 +18,27 @@ int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
 
+    brls::Logger::setLogLevel(brls::LogLevel::LOG_INFO);
+    nslib::fileLogInit();
+    brls::Logger::info("nslibrary {} starting", NSLIB_VERSION);
 #ifdef __SWITCH__
-    nxlinkStdio();
+    {
+        const char* mode = "applet";
+        switch (appletGetAppletType()) {
+            case AppletType_Application:
+            case AppletType_SystemApplication:
+                mode = "application";
+                break;
+            default:
+                break;
+        }
+        brls::Logger::info("log={} mode={}", nslib::fileLogPath(), mode);
+    }
 #endif
 
-    brls::Logger::setLogLevel(brls::LogLevel::LOG_INFO);
     if (!brls::Application::init()) {
         brls::Logger::error("Unable to init Borealis");
+        nslib::fileLogExit();
         return EXIT_FAILURE;
     }
 
@@ -41,11 +56,15 @@ int main(int argc, char* argv[]) {
     brls::Application::registerXMLView("SettingsTab", nslib::SettingsTab::create);
 
     auto& session = nslib::Session::instance();
+    brls::Logger::info("boot url={} token={}", session.hasUrl(), session.hasToken());
     if (!session.hasUrl()) {
+        brls::Logger::info("screen=connect");
         brls::Application::pushActivity(new nslib::ConnectActivity());
     } else if (!session.hasToken()) {
+        brls::Logger::info("screen=pair");
         brls::Application::pushActivity(new nslib::PairActivity());
     } else {
+        brls::Logger::info("screen=session");
         nslib::enterPairedSession();
     }
 
@@ -54,6 +73,7 @@ int main(int argc, char* argv[]) {
 
     session.stop();
     nslib::servicesExit();
+    nslib::fileLogExit();
     return EXIT_SUCCESS;
 }
 

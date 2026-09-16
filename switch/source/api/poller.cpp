@@ -28,6 +28,8 @@ void EventPoller::loop() {
                 if (!running_) break;
                 if (handler_) handler_(ev);
             }
+            if (waitSeconds_ <= 0)
+                std::this_thread::sleep_for(std::chrono::seconds(1));
         } catch (...) {
             if (!running_) break;
             std::this_thread::sleep_for(std::chrono::seconds(2));

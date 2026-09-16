@@ -41,6 +41,8 @@ public:
     void stop();
     bool isReady() const;
     void setStatus(std::string s);
+    void pollEventsOnce();
+    void scheduleEvents();
 
     std::vector<CatalogApp> catalogSnapshot() const;
     std::vector<Job> jobsSnapshot() const;
@@ -52,6 +54,7 @@ public:
     void refreshCatalog();
     void refreshInstalled();
     void queueInstall(int64_t contentMetaId, const std::string& target);
+    void claimAndInstall(Job job);
     void cancelJob(int64_t jobId);
 
     std::vector<uint8_t> fetchIcon(const std::string& appId, std::optional<int64_t> rev);
@@ -88,6 +91,7 @@ private:
     std::atomic<bool> cancel_{false};
     bool starting_ = false;
     bool ready_ = false;
+    std::string eventCursor_;
     Job currentJob_{};
 
     void ensureClient();

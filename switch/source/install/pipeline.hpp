@@ -62,7 +62,8 @@ using WriteFn = std::function<void(uint64_t offset, const uint8_t* p, size_t n)>
 using ProgressFn = std::function<void(uint64_t done, uint64_t total)>;
 
 /**
- * Three threads: reader (Range GET) → decoder (NCZ or passthrough + SHA) → writer.
+ * Reader (Range GET) → decoder (NCZ or passthrough + SHA) → writer.
+ * On Switch the reader runs on the calling thread so libcurl stays on main.
  * `expectedNcaSize` is 0 when unknown. `maxWindow` is the zstd budget for NCZ.
  */
 PipelineStats runPipeline(const ReadFn& readAll, const WriteFn& write, bool isNcz, uint64_t expectedNcaSize,

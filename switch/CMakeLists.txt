@@ -71,6 +71,7 @@ if (PLATFORM_SWITCH)
     set(NSLIB_SWITCH_SRC
         ${NSLIB_COMMON_SRC}
         source/app/main.cpp
+        source/app/file_log.cpp
         source/app/services.cpp
         source/app/settings.cpp
         source/app/session.cpp
@@ -97,7 +98,7 @@ if (PLATFORM_SWITCH)
         source/ui/progress.cpp
         source/update/http_get.cpp
         source/update/apply.cpp
-        "${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c"
+        source/app/switch_wrapper.c
     )
 
     program_target(${PROJECT_NAME} "${NSLIB_SWITCH_SRC}")

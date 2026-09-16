@@ -1,5 +1,6 @@
 #include "ui/main_activity.hpp"
 
+#include "app/file_log.hpp"
 #include "app/session.hpp"
 #include "ui/connect.hpp"
 #include "ui/pair.hpp"
@@ -76,6 +77,11 @@ SettingsTab::SettingsTab() {
     ver->setDetailText(NSLIB_VERSION);
     list->addView(ver);
 
+    auto* log = new brls::DetailCell();
+    log->setText("Log file");
+    log->setDetailText(fileLogPath());
+    list->addView(log);
+
     auto* update = new brls::DetailCell();
     update->setText("app/settings/update"_i18n);
     update->setDetailText(NSLIB_VERSION);
@@ -146,47 +152,64 @@ void showError(const std::string& message) {
 
 void enterPairedSession() {
     auto& session = Session::instance();
+    brls::Logger::info("enterPairedSession ready={}", session.isReady());
     if (!session.isReady()) session.setStatus("app/connect/connecting"_i18n);
     brls::Application::pushActivity(new MainActivity());
+    brls::Logger::info("MainActivity pushed");
     if (session.isReady()) return;
 
-    std::thread([] {
+    // libcurl/mbedTLS on Switch is not safe off the main thread. Pairing already
+    // used curl here; hello/catalog/events must stay on this thread too.
+    brls::sync([] {
+        brls::Logger::info("session start on main");
         try {
             Session::instance().start();
-            brls::sync([] { refreshLibraryTab(); });
+            try {
+                Session::instance().refreshInstalled();
+            } catch (const std::exception& e) {
+                brls::Logger::error("refreshInstalled: {}", e.what());
+            } catch (...) {
+                brls::Logger::error("refreshInstalled: unknown");
+            }
+            brls::Logger::info("refresh library tab");
+            refreshLibraryTab();
+            brls::Logger::info("library tab ready");
         } catch (const ApiError& e) {
             const std::string code = e.code;
             const std::string msg = e.what();
-            brls::sync([code, msg] {
-                Session::instance().setStatus(msg);
-                refreshLibraryTab();
-                if (code == "UNAUTHORIZED" || code == "DEVICE_REVOKED") {
-                    Session::instance().forgetDevice();
-                    showError(msg);
-                    brls::Application::pushActivity(new PairActivity());
-                    return;
-                }
-                auto* dialog = new brls::Dialog(msg);
-                dialog->addButton("hints/ok"_i18n, []() {});
-                dialog->addButton("app/connect/change"_i18n, []() {
-                    brls::Application::pushActivity(new ConnectActivity());
-                });
-                dialog->open();
+            brls::Logger::error("session ApiError {} {}", code, msg);
+            Session::instance().setStatus(msg);
+            refreshLibraryTab();
+            if (code == "UNAUTHORIZED" || code == "DEVICE_REVOKED") {
+                Session::instance().forgetDevice();
+                showError(msg);
+                brls::Application::pushActivity(new PairActivity());
+                return;
+            }
+            auto* dialog = new brls::Dialog(msg);
+            dialog->addButton("hints/ok"_i18n, []() {});
+            dialog->addButton("app/connect/change"_i18n, []() {
+                brls::Application::pushActivity(new ConnectActivity());
             });
+            dialog->open();
         } catch (const std::exception& e) {
             const std::string msg = e.what();
-            brls::sync([msg] {
-                Session::instance().setStatus(msg);
-                refreshLibraryTab();
-                auto* dialog = new brls::Dialog(msg);
-                dialog->addButton("hints/ok"_i18n, []() {});
-                dialog->addButton("app/connect/change"_i18n, []() {
-                    brls::Application::pushActivity(new ConnectActivity());
-                });
-                dialog->open();
+            brls::Logger::error("session error {}", msg);
+            Session::instance().setStatus(msg);
+            refreshLibraryTab();
+            auto* dialog = new brls::Dialog(msg);
+            dialog->addButton("hints/ok"_i18n, []() {});
+            dialog->addButton("app/connect/change"_i18n, []() {
+                brls::Application::pushActivity(new ConnectActivity());
             });
+            dialog->open();
+        } catch (...) {
+            brls::Logger::error("session error unknown");
+            Session::instance().setStatus("Connection failed");
+            refreshLibraryTab();
+            showError("Connection failed");
         }
-    }).detach();
+    });
 }
 
 } // namespace nslib

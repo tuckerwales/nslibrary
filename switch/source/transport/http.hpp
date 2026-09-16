@@ -2,6 +2,7 @@
 
 #include "transport/ITransport.hpp"
 
+#include <atomic>
 #include <mutex>
 #include <string>
 
@@ -19,6 +20,8 @@ public:
 
     void setToken(std::string token) override { token_ = std::move(token); }
     void setTimeoutMs(long ms) override { timeoutMs_ = ms; }
+    void abort() override { abort_ = true; }
+    bool aborted() const { return abort_; }
 
     HttpResponse request(
         const std::string& method,
@@ -39,6 +42,7 @@ private:
     long timeoutMs_ = 30000;
     CURL* curl_ = nullptr;
     std::mutex mutex_;
+    std::atomic<bool> abort_{false};
 };
 
 } // namespace nslib

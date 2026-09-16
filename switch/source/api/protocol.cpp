@@ -172,12 +172,17 @@ EventsResponse parseEvents(const Json& v) {
     r.cursor = reqString(v["cursor"], "cursor");
     if (v.has("ev") && v["ev"].isArray()) {
         for (const auto& e : v["ev"].items()) {
+            if (!e.isObject() || !e.has("t") || !e["t"].isString()) continue;
             DeviceEvent ev;
-            ev.t = reqString(e["t"], "t");
-            if (ev.t == "job.queued") ev.job = parseJob(e["job"]);
-            else if (ev.t == "job.cancel") ev.id = reqInt(e["id"], "id");
-            else if (ev.t == "catalog") ev.rev = reqInt(e["rev"], "rev");
-            else throw JsonError("unknown event type " + ev.t);
+            ev.t = e["t"].asString();
+            try {
+                if (ev.t == "job.queued") ev.job = parseJob(e["job"]);
+                else if (ev.t == "job.cancel") ev.id = reqInt(e["id"], "id");
+                else if (ev.t == "catalog") ev.rev = reqInt(e["rev"], "rev");
+                else continue;
+            } catch (const JsonError&) {
+                continue;
+            }
             r.ev.push_back(std::move(ev));
         }
     }

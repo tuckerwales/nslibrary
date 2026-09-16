@@ -14,6 +14,7 @@
 #include "install/preflight.hpp"
 
 #ifdef __SWITCH__
+#include <borealis.hpp>
 #include <dirent.h>
 #include <switch.h>
 #include <sys/stat.h>
@@ -310,6 +311,10 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
     clock.start = std::chrono::steady_clock::now();
     clock.emit("preflight", "", 0, job.size);
 
+#ifdef __SWITCH__
+    brls::Logger::info("install format={} size={} fileId={}", job.format, job.size, job.fileId);
+#endif
+
     if (job.format == "nro") {
         installNro(client_, job, cancel, clock);
         clock.emit("record", job.name, job.size, job.size);
@@ -317,7 +322,9 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
     }
 
     JobFileReader reader(client_, job.fileId, job.size);
+    brls::Logger::info("install list entries");
     const Partition entries = listInstallEntries(reader, job.format);
+    brls::Logger::info("install entries={}", entries.entries.size());
 
     const auto sd = spaceOf(NcmStorageId_SdCard);
     SpaceAvail nand{};

@@ -3,10 +3,11 @@
 #include "app/session.hpp"
 
 #include <borealis.hpp>
+#include <deque>
 #include <fstream>
 #include <iterator>
+#include <mutex>
 #include <sys/stat.h>
-#include <thread>
 
 namespace nslib {
 namespace {
@@ -31,31 +32,68 @@ void writeFile(const std::string& path, const std::vector<uint8_t>& bytes) {
     out.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
 }
 
+struct IconJob {
+    brls::Image* image = nullptr;
+    std::shared_ptr<std::atomic<bool>> alive;
+    std::string appId;
+    std::optional<int64_t> rev;
+    std::string path;
+};
+
+std::mutex g_mu;
+std::deque<IconJob> g_q;
+bool g_pumping = false;
+
+void pumpIcons() {
+    IconJob job;
+    {
+        std::lock_guard<std::mutex> lock(g_mu);
+        if (g_q.empty()) {
+            g_pumping = false;
+            return;
+        }
+        job = std::move(g_q.front());
+        g_q.pop_front();
+    }
+    if (job.alive && job.alive->load() && job.image) {
+        try {
+            auto bytes = Session::instance().fetchIcon(job.appId, job.rev);
+            const bool jpeg = bytes.size() >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8;
+            if (jpeg && job.alive->load()) {
+                writeFile(job.path, bytes);
+                job.image->setImageFromMem(bytes.data(), int(bytes.size()));
+            }
+        } catch (...) {
+        }
+    }
+    brls::delay(0, [] { pumpIcons(); });
+}
+
 } // namespace
 
 void loadAppIcon(brls::Image* image, std::shared_ptr<std::atomic<bool>> alive, const std::string& appId,
-    std::optional<int64_t> rev)
+    std::optional<int64_t> rev, bool fetchRemote)
 {
     if (!image || !alive) return;
     const std::string path = iconPath(appId, rev);
     auto cached = readFile(path);
     if (!cached.empty()) {
-        image->setImageFromMem(cached.data(), int(cached.size()));
+        const bool jpeg = cached.size() >= 3 && cached[0] == 0xff && cached[1] == 0xd8;
+        if (jpeg) image->setImageFromMem(cached.data(), int(cached.size()));
         return;
     }
+    if (!fetchRemote) return;
 
-    std::thread([image, appId, rev, path, alive] {
-        try {
-            auto bytes = Session::instance().fetchIcon(appId, rev);
-            if (bytes.empty() || !alive->load()) return;
-            writeFile(path, bytes);
-            brls::sync([image, bytes, alive] {
-                if (!alive->load()) return;
-                image->setImageFromMem(bytes.data(), int(bytes.size()));
-            });
-        } catch (...) {
+    bool startPump = false;
+    {
+        std::lock_guard<std::mutex> lock(g_mu);
+        g_q.push_back(IconJob{image, std::move(alive), appId, rev, path});
+        if (!g_pumping) {
+            g_pumping = true;
+            startPump = true;
         }
-    }).detach();
+    }
+    if (startPump) brls::delay(0, [] { pumpIcons(); });
 }
 
 } // namespace nslib

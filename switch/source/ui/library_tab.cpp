@@ -35,7 +35,7 @@ public:
         img->setHeight(kIcon);
         img->setScalingType(brls::ImageScalingType::FILL);
         this->addView(img);
-        loadAppIcon(img, alive_, app_.id, app_.iconRev);
+        loadAppIcon(img, alive_, app_.id, app_.iconRev, false);
 
         auto* label = new brls::Label();
         label->setText(app_.name.empty() ? app_.id : app_.name);

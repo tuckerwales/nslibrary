@@ -2,7 +2,10 @@
 
 #include "api/url.hpp"
 #include "transport/resume.hpp"
+#include "ui/progress.hpp"
 
+#include <atomic>
+#include <borealis.hpp>
 #include <curl/curl.h>
 #include <stdexcept>
 #include <sys/socket.h>
@@ -43,10 +46,19 @@ size_t writeHeaders(char* ptr, size_t size, size_t nmemb, void* userdata) {
 struct StreamState {
     const ByteSink* sink = nullptr;
     uint64_t written = 0;
+    std::atomic<bool>* abort = nullptr;
 };
+
+int xferinfo(void* userdata, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
+    auto* st = static_cast<StreamState*>(userdata);
+    if (st->abort && st->abort->load()) return 1;
+    pumpProgressUi();
+    return 0;
+}
 
 size_t writeStream(char* ptr, size_t size, size_t nmemb, void* userdata) {
     auto* st = static_cast<StreamState*>(userdata);
+    if (st->abort && st->abort->load()) return 0;
     const size_t n = size * nmemb;
     try {
         (*st->sink)(reinterpret_cast<const uint8_t*>(ptr), n);
@@ -124,12 +136,15 @@ HttpResponse HttpTransport::request(
         curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, jsonBody->c_str());
         curl_easy_setopt(curl_, CURLOPT_POSTFIELDSIZE, long(jsonBody->size()));
     }
+    brls::Logger::info("HTTP {} {}", method, path);
     const CURLcode rc = curl_easy_perform(curl_);
     curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &out.status);
     curl_slist_free_all(hdr);
     if (rc != CURLE_OK) {
+        brls::Logger::error("HTTP {} {} curl {}", method, path, curl_easy_strerror(rc));
         throw std::runtime_error(std::string("HTTP ") + method + " " + path + ": " + curl_easy_strerror(rc));
     }
+    brls::Logger::info("HTTP {} {} -> {}", method, path, out.status);
     return out;
 }
 
@@ -141,6 +156,8 @@ int HttpTransport::stream(
     const std::function<void(const uint8_t*, size_t)>& sink)
 {
     std::lock_guard<std::mutex> lock(mutex_);
+    abort_ = false;
+    brls::Logger::info("HTTP stream {} off={} len={}", path, offset, length);
     const std::string url = joinUrl(baseUrl_, std::string(kDeviceApiBasePath) + path);
     return streamResuming(offset, length, sink,
         [&](uint64_t start, uint64_t remain, const ByteSink& emit) {
@@ -149,6 +166,7 @@ int HttpTransport::stream(
             StreamState st;
             st.sink = &emit;
             st.written = 0;
+            st.abort = &abort_;
             HttpResponse hdrs;
             long status = 0;
             curl_easy_reset(curl_);
@@ -166,6 +184,9 @@ int HttpTransport::stream(
             curl_easy_setopt(curl_, CURLOPT_SOCKOPTFUNCTION, sockoptLargeBuffers);
             curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, writeStream);
             curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &st);
+            curl_easy_setopt(curl_, CURLOPT_NOPROGRESS, 0L);
+            curl_easy_setopt(curl_, CURLOPT_XFERINFOFUNCTION, xferinfo);
+            curl_easy_setopt(curl_, CURLOPT_XFERINFODATA, &st);
             curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, writeHeaders);
             curl_easy_setopt(curl_, CURLOPT_HEADERDATA, &hdrs.headers);
             curl_slist* hdr = appendHeaders(nullptr, token_, headers, false);
@@ -173,6 +194,7 @@ int HttpTransport::stream(
             const CURLcode rc = curl_easy_perform(curl_);
             curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &status);
             curl_slist_free_all(hdr);
+            if (abort_) throw std::runtime_error("cancelled");
             if (rc != CURLE_OK && st.written == 0) {
                 throw std::runtime_error(std::string("Range GET ") + path + ": " + curl_easy_strerror(rc));
             }

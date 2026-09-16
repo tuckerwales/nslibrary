@@ -14,7 +14,7 @@
         </brls:Tab>
 
         <brls:Tab label="@i18n/app/tabs/queue">
-            <QueueTab />
+            <QueueTab id="queue" />
         </brls:Tab>
 
         <brls:Tab label="@i18n/app/tabs/installed">

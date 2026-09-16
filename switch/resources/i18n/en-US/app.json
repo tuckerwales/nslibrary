@@ -51,7 +51,8 @@
   },
   "queue": {
     "empty": "No jobs yet. Send a title from the web UI, or install from Library.",
-    "cancel": "Cancel this install?"
+    "cancel": "Cancel this install?",
+    "start": "Start this install now?"
   },
   "settings": {
     "url": "Server",

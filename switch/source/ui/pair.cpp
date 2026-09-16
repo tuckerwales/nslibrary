@@ -24,12 +24,19 @@ brls::View* PairActivity::createContentView() {
             [](long number) {
                 char buf[8];
                 std::snprintf(buf, sizeof(buf), "%06ld", number);
-                try {
-                    Session::instance().pair(buf);
-                    enterPairedSession();
-                } catch (const std::exception& e) {
-                    showError(e.what());
-                }
+                const std::string code = buf;
+                // swkbd is still open until this callback returns. Do the HTTP
+                // and activity push on the next frame, after swkbdClose.
+                brls::sync([code] {
+                    try {
+                        brls::Logger::info("pair submit");
+                        Session::instance().pair(code);
+                        enterPairedSession();
+                    } catch (const std::exception& e) {
+                        brls::Logger::error("pair failed: {}", e.what());
+                        showError(e.what());
+                    }
+                });
             },
             "app/pair/enter"_i18n, "", 6);
         return true;

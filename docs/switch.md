@@ -37,6 +37,8 @@ That inits the Borealis submodule if needed, configures CMake, and writes `switc
 
 Copy `switch/build/nslibrary.nro` to `sdmc:/switch/nslibrary/nslibrary.nro`.
 
+Each launch overwrites `sdmc:/config/nslibrary/nslibrary.log` (same folder as `config.json`). Lines are flushed as they are written, so the last line is the last thing the app did before a crash. Pull that file off the SD card after a crash. Settings also shows the path.
+
 CI builds the same target in `devkitpro/devkita64` and uploads the artifact.
 
 ## Pair and install
@@ -72,7 +74,7 @@ With the Switch on the same LAN:
 nxlink -s switch/build/nslibrary.nro
 ```
 
-(`-s` redirects stdout to your terminal.) The app calls `nxlinkStdio()` on launch.
+(`-s` redirects stdout to your terminal.) File logs on the SD card are usually more useful than nxlink after a crash.
 
 ## Hardware check (PLAN)
 

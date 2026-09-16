@@ -128,7 +128,7 @@ PipelineStats runPipeline(const ReadFn& readAll, const WriteFn& write, bool isNc
         plain.abort(ep);
     };
 
-    std::thread reader([&] {
+    auto runReader = [&] {
         try {
             readAll([&](const uint8_t* p, size_t n) {
                 cancel.check();
@@ -138,7 +138,7 @@ PipelineStats runPipeline(const ReadFn& readAll, const WriteFn& write, bool isNc
         } catch (...) {
             capture(std::current_exception());
         }
-    });
+    };
 
     std::thread decoder([&] {
         try {
@@ -183,7 +183,14 @@ PipelineStats runPipeline(const ReadFn& readAll, const WriteFn& write, bool isNc
         }
     });
 
+#ifdef __SWITCH__
+    // libcurl/mbedTLS on Switch is not safe off the main thread. The HTTP Range
+    // GET (readAll) must run here; decode/write stay on worker threads.
+    runReader();
+#else
+    std::thread reader(runReader);
     reader.join();
+#endif
     decoder.join();
     writer.join();
     if (fail) std::rethrow_exception(fail);

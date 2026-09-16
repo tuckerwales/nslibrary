@@ -11,6 +11,10 @@ namespace nslib {
 
 QueueTab::QueueTab() {
     this->inflateFromXMLRes("xml/tabs/list.xml");
+    rebuild();
+}
+
+void QueueTab::rebuild() {
     auto* list = dynamic_cast<brls::Box*>(this->getView("list"));
     auto* status = dynamic_cast<brls::Label*>(this->getView("status"));
     auto& session = Session::instance();
@@ -26,6 +30,7 @@ QueueTab::QueueTab() {
         }
     }
     if (!list) return;
+    list->clearViews();
 
     const auto jobs = session.jobsSnapshot();
     if (jobs.empty()) {
@@ -41,6 +46,13 @@ QueueTab::QueueTab() {
         cell->setDetailText(detail);
         cell->registerClickAction([job](brls::View*) {
             if (job.status == "done" || job.status == "failed" || job.status == "cancelled") return true;
+            if (job.status == "queued" || job.status == "interrupted") {
+                auto* dialog = new brls::Dialog("app/queue/start"_i18n + std::string("\n") + job.name);
+                dialog->addButton("hints/ok"_i18n, [job]() { Session::instance().claimAndInstall(job); });
+                dialog->addButton("hints/cancel"_i18n, []() {});
+                dialog->open();
+                return true;
+            }
             auto* dialog = new brls::Dialog("app/queue/cancel"_i18n + std::string("\n") + job.name);
             dialog->addButton("hints/ok"_i18n, [id = job.id]() { Session::instance().cancelJob(id); });
             dialog->addButton("hints/cancel"_i18n, []() {});
@@ -48,6 +60,15 @@ QueueTab::QueueTab() {
             return true;
         });
         list->addView(cell);
+    }
+}
+
+void refreshQueueTab() {
+    for (auto* activity : brls::Application::getActivitiesStack()) {
+        if (auto* q = dynamic_cast<QueueTab*>(activity->getView("queue"))) {
+            q->rebuild();
+            return;
+        }
     }
 }
 

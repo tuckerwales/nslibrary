@@ -121,6 +121,7 @@ void Session::ensureClient() {
 }
 
 HelloResponse Session::hello() {
+    brls::Logger::info("hello begin");
     ensureClient();
     auto h = client_->hello();
     {
@@ -132,10 +133,12 @@ HelloResponse Session::hello() {
         }
     }
     setStatus("Connected to " + h.serverName);
+    brls::Logger::info("hello ok server={} rev={}", h.serverName, h.catalogRev);
     return h;
 }
 
 PairResponse Session::pair(const std::string& code) {
+    brls::Logger::info("pair begin");
     ensureClient();
     PairRequest req;
     req.code = code;
@@ -145,6 +148,7 @@ PairResponse Session::pair(const std::string& code) {
     settings.save();
     transport_->setToken(settings.token);
     client_->setToken(settings.token);
+    brls::Logger::info("pair ok server={}", res.serverName);
     return res;
 }
 
@@ -166,31 +170,24 @@ void Session::start() {
         starting_ = true;
     }
     try {
+        brls::Logger::info("session start");
         ensureClient();
         hello();
-        refreshInstalled();
         refreshCatalog();
-        const int wait = settings.useUsb ? 0 : 25;
-        if (settings.useUsb) {
-            poller_ = std::make_unique<EventPoller>(*client_, [this](const DeviceEvent& ev) { onEvent(ev); }, wait);
-        } else {
-            pollTransport_ = std::make_unique<HttpTransport>(settings.url);
-            pollTransport_->setToken(settings.token);
-            pollClient_ = std::make_unique<DeviceApiClient>(*pollTransport_, settings.token);
-            poller_ = std::make_unique<EventPoller>(*pollClient_, [this](const DeviceEvent& ev) { onEvent(ev); }, wait);
-        }
-        poller_->start();
         {
             std::lock_guard<std::mutex> lock(mutex_);
             ready_ = true;
             starting_ = false;
         }
+        brls::Logger::info("session ready, scheduling events");
+        scheduleEvents();
     } catch (...) {
         {
             std::lock_guard<std::mutex> lock(mutex_);
             ready_ = false;
             starting_ = false;
         }
+        brls::Logger::error("session start failed");
         throw;
     }
 }
@@ -205,12 +202,42 @@ void Session::stop() {
         std::lock_guard<std::mutex> lock(mutex_);
         ready_ = false;
         starting_ = false;
+        eventCursor_.clear();
     }
 }
 
 bool Session::isReady() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return ready_;
+}
+
+void Session::pollEventsOnce() {
+    if (!client_) return;
+    brls::Logger::info("events poll cursor={}", eventCursor_.empty() ? "(none)" : eventCursor_);
+    auto page = client_->events(eventCursor_, 0);
+    eventCursor_ = page.cursor;
+    brls::Logger::info("events ok n={} cursor={}", page.ev.size(), eventCursor_);
+    for (const auto& ev : page.ev) {
+        brls::Logger::info("event t={}", ev.t);
+        onEvent(ev);
+    }
+}
+
+void Session::scheduleEvents() {
+#ifdef __SWITCH__
+    brls::delay(1000, [] {
+        auto& session = Session::instance();
+        if (!session.isReady()) return;
+        try {
+            session.pollEventsOnce();
+        } catch (const std::exception& e) {
+            brls::Logger::error("events poll: {}", e.what());
+        } catch (...) {
+            brls::Logger::error("events poll: unknown");
+        }
+        session.scheduleEvents();
+    });
+#endif
 }
 
 std::vector<CatalogApp> Session::catalogSnapshot() const {
@@ -245,6 +272,7 @@ std::optional<Job> Session::currentJob() const {
 }
 
 void Session::refreshCatalog() {
+    brls::Logger::info("catalog begin");
     ensureClient();
     std::vector<CatalogApp> apps;
     std::string cursor;
@@ -264,10 +292,20 @@ void Session::refreshCatalog() {
         catalogRev_ = rev;
         status_ = "Library revision " + std::to_string(catalogRev_);
     }
+    brls::Logger::info("catalog ok apps={} rev={}", catalogSnapshot().size(), rev);
 }
 
 void Session::refreshInstalled() {
-    auto state = scanInstalled();
+    brls::Logger::info("scan installed begin");
+    DeviceState state;
+    try {
+        state = scanInstalled();
+    } catch (...) {
+        brls::Logger::error("scan installed threw");
+        state.fw = firmwareVersion();
+        state.ams = atmosphereVersion();
+    }
+    brls::Logger::info("scan installed titles={}", state.titles.size());
     ensureClient();
     try {
         client_->putState(state);
@@ -285,15 +323,12 @@ void Session::queueInstall(int64_t contentMetaId, const std::string& target) {
         std::lock_guard<std::mutex> lock(mutex_);
         upsertJob(job);
     }
-    std::thread([this, job]() mutable {
-        try {
-            job = client_->claimJob(job.id);
-        } catch (const ApiError& e) {
-            uiNotify(e.what());
-            return;
-        }
+    try {
+        job = client_->claimJob(job.id);
         enqueueClaimed(std::move(job));
-    }).detach();
+    } catch (const ApiError& e) {
+        uiNotify(e.what());
+    }
 }
 
 void Session::cancelJob(int64_t jobId) {
@@ -334,6 +369,10 @@ void Session::cancelJob(int64_t jobId) {
 
 void Session::onEvent(const DeviceEvent& ev) {
     if (ev.t == "catalog") {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (ev.rev == catalogRev_) return;
+        }
         try {
             refreshCatalog();
         } catch (...) {
@@ -344,24 +383,35 @@ void Session::onEvent(const DeviceEvent& ev) {
         return;
     }
     if (ev.t == "job.queued" && ev.job) {
-        Job job = *ev.job;
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            upsertJob(job);
-        }
-        std::thread([this, job]() mutable {
-            try {
-                job = client_->claimJob(job.id);
-            } catch (const ApiError& e) {
-                uiNotify(e.what());
-                return;
-            }
-            enqueueClaimed(std::move(job));
-        }).detach();
+        claimAndInstall(*ev.job);
         return;
     }
     if (ev.t == "job.cancel") {
         cancelJob(ev.id);
+    }
+}
+
+void Session::claimAndInstall(Job job) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        upsertJob(job);
+        if (installing_ && currentJob_.id == job.id) return;
+        for (const auto& p : pending_) {
+            if (p.id == job.id) return;
+        }
+    }
+    try {
+        brls::Logger::info("claim job {} {}", job.id, job.name);
+        if (job.status == "queued" || job.status == "interrupted" || job.status.empty()) {
+            job = client_->claimJob(job.id);
+        }
+        enqueueClaimed(std::move(job));
+#ifdef __SWITCH__
+        brls::sync([] { refreshQueueTab(); });
+#endif
+    } catch (const ApiError& e) {
+        brls::Logger::error("claim job {}: {}", job.id, e.what());
+        uiNotify(e.what());
     }
 }
 
@@ -386,6 +436,20 @@ void Session::pump() {
         currentJob_ = next;
         cancel_ = false;
     }
+#ifdef __SWITCH__
+    brls::Logger::info("install schedule {}", next.name);
+    brls::delay(0, [this, next]() {
+        brls::Logger::info("install run {}", next.name);
+        runInstall(next);
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            installing_ = false;
+        }
+        brls::Logger::info("install done {}", next.name);
+        refreshQueueTab();
+        pump();
+    });
+#else
     std::thread([this, next]() {
         runInstall(next);
         {
@@ -394,6 +458,7 @@ void Session::pump() {
         }
         pump();
     }).detach();
+#endif
 }
 
 std::vector<uint8_t> Session::fetchIcon(const std::string& appId, std::optional<int64_t> rev) {
@@ -484,7 +549,7 @@ void Session::runInstall(Job job) {
     JobComplete done;
     done.ok = false;
     try {
-        auto last = std::chrono::steady_clock::now();
+        brls::Logger::info("install engine {}", job.name);
         InstallOptions opt;
         opt.verifyHash = settings.verifyHash;
         InstallEngine engine(*client_, &cancel_, opt);
@@ -493,33 +558,33 @@ void Session::runInstall(Job job) {
                 std::lock_guard<std::mutex> lock(mutex_);
                 progress_ = p;
             }
-            const auto now = std::chrono::steady_clock::now();
-            if (now - last >= std::chrono::seconds(1)) {
-                last = now;
-                try {
-                    client_->progress(job.id, p);
-                } catch (...) {
-                }
-            }
             char line[160];
-            std::snprintf(line, sizeof(line), "%s %llu / %llu", p.phase.c_str(),
+            std::snprintf(line, sizeof(line), "%s  %llu / %llu", p.phase.c_str(),
                 static_cast<unsigned long long>(p.done), static_cast<unsigned long long>(p.total));
             setStatus(line);
 #ifdef __SWITCH__
-            updateProgress(line);
+            updateProgress(line, p.done, p.total);
 #endif
         });
         done.ok = true;
         done.msg = "installed";
+        brls::Logger::info("install engine ok {}", job.name);
         uiNotify("Installed " + job.name);
     } catch (const InstallError& e) {
+        brls::Logger::error("install engine: {}", e.what());
         done.result = e.result;
         done.msg = e.what();
         if (e.result == "cancelled") uiNotify("Cancelled " + job.name);
         else uiNotify(std::string(e.what()));
     } catch (const std::exception& e) {
+        brls::Logger::error("install engine: {}", e.what());
         done.msg = e.what();
-        uiNotify(e.what());
+        if (cancel_ || std::string(e.what()) == "cancelled") {
+            done.result = "cancelled";
+            uiNotify("Cancelled " + job.name);
+        } else {
+            uiNotify(e.what());
+        }
     }
 
     try {

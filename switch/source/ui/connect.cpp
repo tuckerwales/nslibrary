@@ -85,9 +85,12 @@ brls::View* ConnectActivity::createContentView() {
         brls::Application::getImeManager()->openForText(
             [cell](const std::string text) {
                 if (text.empty()) return;
-                Session::instance().setUrl(text);
-                cell->setDetailText(Session::instance().settings.url);
-                afterUrl();
+                const std::string url = text;
+                brls::sync([cell, url] {
+                    Session::instance().setUrl(url);
+                    cell->setDetailText(Session::instance().settings.url);
+                    afterUrl();
+                });
             },
             "app/connect/manual"_i18n, "app/connect/hint"_i18n, 80, Session::instance().settings.url);
         return true;
