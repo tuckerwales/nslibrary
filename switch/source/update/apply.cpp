@@ -10,10 +10,29 @@
 #include <vector>
 
 #ifdef __SWITCH__
+#include <switch.h>
 #include <sys/stat.h>
 #endif
 
 namespace nslib {
+
+#ifdef __SWITCH__
+namespace {
+
+/**
+ * RomFS is mounted from the running .nro and keeps that file open, and the SD card refuses to rename an
+ * open file. Release it for the swap; remounting afterwards picks up whichever .nro is now in place.
+ */
+class RomfsReleased {
+public:
+    RomfsReleased() { romfsExit(); }
+    ~RomfsReleased() { romfsInit(); }
+    RomfsReleased(const RomfsReleased&) = delete;
+    RomfsReleased& operator=(const RomfsReleased&) = delete;
+};
+
+} // namespace
+#endif
 
 AvailableUpdate fetchSignedUpdate(const std::string& currentVersion, const std::atomic<bool>* cancel) {
     std::string error;
@@ -44,6 +63,7 @@ void installVerifiedNro(const UpdateManifest& manifest, const std::vector<uint8_
 #ifdef __SWITCH__
     mkdir("sdmc:/switch", 0777);
     mkdir("sdmc:/switch/nslibrary", 0777);
+    RomfsReleased romfs;
 #endif
     writeFileAtomic(destPath, nro.data(), nro.size());
 }
