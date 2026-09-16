@@ -57,8 +57,11 @@
     "repair": "다시 페어링",
     "forget": "이 서버 잊기",
     "version": "앱 버전",
-    "update": "서버에서 업데이트 받기",
-    "update_none": "이 서버에 더 새로운 앱이 없습니다.",
+    "update": "GitHub에서 업데이트 확인",
+    "update_checking": "최신 서명 릴리스를 확인하는 중…",
+    "update_none": "이미 최신 서명 릴리스입니다.",
+    "update_available": "GitHub에 더 새로운 서명 빌드가 있습니다. 받아 바꿀까요?",
+    "update_github_failed": "GitHub에 연결할 수 없습니다. 라이브러리 서버의 복사본을 쓸까요?",
     "update_done": "업데이트했습니다. Homebrew Menu에서 NSLibrary를 다시 실행하세요.",
     "target": "기본 저장소",
     "verify": "NCA 해시 검증"

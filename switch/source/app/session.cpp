@@ -9,6 +9,7 @@
 #ifdef __SWITCH__
 #include "transport/usb.hpp"
 #include "ui/progress.hpp"
+#include "update/apply.hpp"
 #include <borealis.hpp>
 #endif
 
@@ -365,15 +366,35 @@ bool Session::canUpdate() const {
     return canUpdate_;
 }
 
-std::string Session::applyUpdate() {
+#ifdef __SWITCH__
+AvailableUpdate Session::checkGithubUpdate() { return fetchSignedUpdate(NSLIB_VERSION); }
+
+void Session::installGithubUpdate(const AvailableUpdate& update) {
+    showProgress("Downloading NSLibrary " + update.manifest.version);
+    try {
+        installSignedNro(update, kSwitchNroPath, [](uint64_t done, uint64_t total) {
+            char line[80];
+            std::snprintf(line, sizeof(line), "Downloading %llu / %llu",
+                static_cast<unsigned long long>(done), static_cast<unsigned long long>(total));
+            updateProgress(line);
+        });
+    } catch (...) {
+        hideProgress();
+        throw;
+    }
+    hideProgress();
+}
+#endif
+
+std::string Session::applyServerUpdate() {
     ensureClient();
     hello();
-    if (!canUpdate()) throw std::runtime_error("The server has no Switch app to download");
+    if (!canUpdate()) throw std::runtime_error("The library server has no Switch app to download");
 #ifdef __SWITCH__
     mkdir("sdmc:/switch", 0777);
     mkdir("sdmc:/switch/nslibrary", 0777);
-    const char* part = "sdmc:/switch/nslibrary/nslibrary.nro.part";
-    const char* dest = "sdmc:/switch/nslibrary/nslibrary.nro";
+    const char* part = kSwitchNroPartPath;
+    const char* dest = kSwitchNroPath;
     FILE* f = fopen(part, "wb");
     if (!f) throw std::runtime_error("Could not write the update file");
     try {
@@ -394,6 +415,17 @@ std::string Session::applyUpdate() {
     return dest;
 #else
     throw std::runtime_error("Updates install only on the Switch");
+#endif
+}
+
+std::string Session::applyUpdate() {
+#ifdef __SWITCH__
+    const auto found = checkGithubUpdate();
+    if (!found.newer) return {};
+    installGithubUpdate(found);
+    return kSwitchNroPath;
+#else
+    return applyServerUpdate();
 #endif
 }
 

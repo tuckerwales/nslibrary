@@ -133,3 +133,4 @@ Without keys the library still lists files from containers, tickets, and filenam
 - [Device API](docs/device-api.md) — pairing, catalog, jobs, Range downloads
 - [USB protocol](docs/usb-protocol.md) — frame layout (same messages as HTTP)
 - [Keys](docs/keys.md) — `prod.keys` and filename mode
+- [Switch updates](docs/updates.md) — signed GitHub Releases for the `.nro`

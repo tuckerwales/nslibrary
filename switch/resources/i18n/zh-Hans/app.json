@@ -57,8 +57,11 @@
     "repair": "重新配对",
     "forget": "忘记此服务器",
     "version": "应用版本",
-    "update": "从服务器下载更新",
-    "update_none": "此服务器没有更新的应用。",
+    "update": "在 GitHub 检查更新",
+    "update_checking": "正在查询最新的签名发布…",
+    "update_none": "已是最新的签名版本。",
+    "update_available": "GitHub 上有更新的签名构建。下载并替换？",
+    "update_github_failed": "无法访问 GitHub。改用资料库服务器上的副本？",
     "update_done": "已更新。请从 Homebrew Menu 重新启动 NSLibrary。",
     "target": "默认存储",
     "verify": "校验 NCA 哈希"

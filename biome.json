@@ -7,7 +7,8 @@
       "!**/node_modules",
       "!switch/lib",
       "!switch/build",
-      "!switch/build-host"
+      "!switch/build-host",
+      "!switch/tests/golden"
     ]
   },
   "formatter": {

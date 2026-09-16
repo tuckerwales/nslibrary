@@ -60,7 +60,9 @@ NSP, NSZ, XCI, and XCZ all install, including **split** dumps (`Title.nsp/00`, `
 
 If a transfer drops, Range GET retries up to five times. A USB unplug marks the running job **interrupted**; reconnect (or **Resume** in the web History page) claims it again. NCAs already registered on the console are skipped.
 
-**HOME menu:** Settings in the web UI can download an NSP forwarder (needs `prod.keys`). Install that NSP and keep `nslibrary.nro` at `sdmc:/switch/nslibrary/nslibrary.nro`. **Update:** Settings on the Switch downloads a newer `.nro` from the server when `NSLIB_NRO_PATH` (or `data/update/nslibrary.nro`) is set.
+**HOME menu:** Settings in the web UI can download an NSP forwarder (needs `prod.keys`). Install that NSP and keep `nslibrary.nro` at `sdmc:/switch/nslibrary/nslibrary.nro`.
+
+**Self-update:** Settings → **Check GitHub for updates** downloads the latest GitHub Release, checks an Ed25519 signature on `update.json`, then checks the `.nro` SHA-256. If GitHub is unreachable and your library server has an `.nro`, you can fall back to that copy. See [updates.md](updates.md).
 
 The UI follows the console language (English, Japanese, Chinese, German, French, Spanish, Italian, Portuguese, Russian, Korean, Dutch).
 

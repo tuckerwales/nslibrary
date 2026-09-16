@@ -20,7 +20,7 @@ A fake Switch for tests and debugging is `packages/device-sim` (`nslib-sim`).
 | `GET` | `/catalog?since&cursor&limit` | yes | Compact catalog. If `since` is the current revision, the body is an empty delta (`full: false`). Otherwise a paginated full listing (`full: true`) |
 | `GET` | `/icons/:appId?v=` | yes | 128px-class JPEG, immutable |
 | `GET` | `/files/:fileId` | yes | Range downloads (206), `ETag`, `If-Range`, `If-Match` → `FILE_CHANGED`, missing → `FILE_MISSING` |
-| `GET` | `/update` | yes | Latest `nslibrary.nro` when the server has one |
+| `GET` | `/update` | yes | Latest `nslibrary.nro` when the server has one (LAN fallback; the Switch prefers a signed GitHub Release) |
 | `GET` | `/events?cursor&wait=25` | yes | Long-poll. Omitting `cursor` returns queued **and interrupted** jobs plus a catalog event. `wait` is seconds, 0–30 |
 | `POST` | `/jobs` | yes | Queue an install started on the Switch |
 | `POST` | `/jobs/:id/claim` | yes | Claim a queued or interrupted job for this device |

@@ -57,8 +57,11 @@
     "repair": "Opnieuw koppelen",
     "forget": "Deze server vergeten",
     "version": "App-versie",
-    "update": "Update van server downloaden",
-    "update_none": "Deze server heeft geen nieuwere app.",
+    "update": "GitHub controleren op updates",
+    "update_checking": "De nieuwste ondertekende uitgave opzoeken…",
+    "update_none": "Je hebt al de nieuwste ondertekende uitgave.",
+    "update_available": "Er staat een nieuwere ondertekende build op GitHub. Downloaden en vervangen?",
+    "update_github_failed": "GitHub is niet bereikbaar. De kopie op de bibliotheekserver gebruiken?",
     "update_done": "Bijgewerkt. Start NSLibrary opnieuw via het Homebrew-menu.",
     "target": "Standaardopslag",
     "verify": "NCA-hashes controleren"

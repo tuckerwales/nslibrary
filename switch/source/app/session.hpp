@@ -6,6 +6,10 @@
 #include "app/settings.hpp"
 #include "transport/ITransport.hpp"
 
+#ifdef __SWITCH__
+#include "update/apply.hpp"
+#endif
+
 #include <atomic>
 #include <deque>
 #include <memory>
@@ -54,6 +58,11 @@ public:
     std::string serverAppLatest() const;
     bool canUpdate() const;
     std::string applyUpdate();
+    std::string applyServerUpdate();
+#ifdef __SWITCH__
+    AvailableUpdate checkGithubUpdate();
+    void installGithubUpdate(const AvailableUpdate& update);
+#endif
 
 private:
     Session() = default;

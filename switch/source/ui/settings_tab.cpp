@@ -5,6 +5,8 @@
 #include "ui/pair.hpp"
 
 #include <borealis.hpp>
+#include <string>
+#include <thread>
 
 using namespace brls::literals;
 
@@ -75,21 +77,59 @@ SettingsTab::SettingsTab() {
 
     auto* update = new brls::DetailCell();
     update->setText("app/settings/update"_i18n);
-    const std::string latest = session.serverAppLatest();
-    update->setDetailText(latest.empty() ? NSLIB_VERSION : latest);
+    update->setDetailText(NSLIB_VERSION);
     update->registerClickAction([](brls::View*) {
-        try {
-            Session::instance().hello();
-            auto& s = Session::instance();
-            if (!s.canUpdate()) {
-                showError("app/settings/update_none"_i18n);
-                return true;
+#ifdef __SWITCH__
+        brls::Application::notify("app/settings/update_checking"_i18n);
+        std::thread([] {
+            try {
+                const auto found = Session::instance().checkGithubUpdate();
+                brls::sync([found] {
+                    if (!found.newer) {
+                        showError("app/settings/update_none"_i18n);
+                        return;
+                    }
+                    auto* dialog = new brls::Dialog(
+                        std::string("app/settings/update_available"_i18n) + "\n" + found.manifest.version);
+                    dialog->addButton("hints/ok"_i18n, [found] {
+                        std::thread([found] {
+                            try {
+                                Session::instance().installGithubUpdate(found);
+                                brls::sync([] { brls::Application::notify("app/settings/update_done"_i18n); });
+                            } catch (const std::exception& e) {
+                                brls::sync([msg = std::string(e.what())] { showError(msg); });
+                            }
+                        }).detach();
+                    });
+                    dialog->addButton("hints/cancel"_i18n, [] {});
+                    dialog->open();
+                });
+            } catch (const std::exception& e) {
+                const std::string msg = e.what();
+                brls::sync([msg] {
+                    if (!Session::instance().canUpdate()) {
+                        showError(msg);
+                        return;
+                    }
+                    auto* dialog = new brls::Dialog("app/settings/update_github_failed"_i18n);
+                    dialog->addButton("hints/ok"_i18n, [] {
+                        std::thread([] {
+                            try {
+                                Session::instance().applyServerUpdate();
+                                brls::sync([] { brls::Application::notify("app/settings/update_done"_i18n); });
+                            } catch (const std::exception& e) {
+                                brls::sync([msg = std::string(e.what())] { showError(msg); });
+                            }
+                        }).detach();
+                    });
+                    dialog->addButton("hints/cancel"_i18n, [] {});
+                    dialog->open();
+                });
             }
-            s.applyUpdate();
-            brls::Application::notify("app/settings/update_done"_i18n);
-        } catch (const std::exception& e) {
-            showError(e.what());
-        }
+        }).detach();
+#else
+        (void)0;
+#endif
         return true;
     });
     list->addView(update);

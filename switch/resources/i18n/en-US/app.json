@@ -57,8 +57,11 @@
     "repair": "Pair again",
     "forget": "Forget this server",
     "version": "App version",
-    "update": "Download update from server",
-    "update_none": "This server has no newer app to install.",
+    "update": "Check GitHub for updates",
+    "update_checking": "Looking up the latest signed release…",
+    "update_none": "You're already on the latest signed release.",
+    "update_available": "A newer signed build is on GitHub. Download and replace this app?",
+    "update_github_failed": "Couldn't reach GitHub. Download the copy on your library server instead?",
     "update_done": "Updated. Restart NSLibrary from the Homebrew Menu.",
     "target": "Default storage",
     "verify": "Verify NCA hashes"

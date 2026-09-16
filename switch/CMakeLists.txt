@@ -23,6 +23,9 @@ set(NSLIB_VERSION_MINOR 1)
 set(NSLIB_VERSION_PATCH 0)
 set(NSLIB_VERSION "${NSLIB_VERSION_MAJOR}.${NSLIB_VERSION_MINOR}.${NSLIB_VERSION_PATCH}")
 set(NSLIB_TITLEID "01004E534C494200")
+set_source_files_properties(source/update/tweetnacl.c PROPERTIES
+    INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/source/update"
+)
 
 set(NSLIB_COMMON_SRC
     source/formats/pfs0.cpp
@@ -40,6 +43,11 @@ set(NSLIB_COMMON_SRC
     source/install/pipeline.cpp
     source/transport/usb_frame.cpp
     source/transport/resume.cpp
+    source/update/tweetnacl.c
+    source/update/randombytes.c
+    source/update/ed25519.cpp
+    source/update/manifest.cpp
+    source/update/verify.cpp
 )
 
 if (PLATFORM_SWITCH)
@@ -86,6 +94,8 @@ if (PLATFORM_SWITCH)
         source/ui/missing_tab.cpp
         source/ui/settings_tab.cpp
         source/ui/progress.cpp
+        source/update/http_get.cpp
+        source/update/apply.cpp
         "${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c"
     )
 
@@ -100,6 +110,7 @@ if (PLATFORM_SWITCH)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
         NSLIB_VERSION="${NSLIB_VERSION}"
         NSLIB_TITLEID="${NSLIB_TITLEID}"
+        NSLIB_GITHUB_REPO="tuckerwales/nslibrary"
     )
     target_compile_options(${PROJECT_NAME} PRIVATE
         -ffunction-sections
@@ -167,6 +178,7 @@ else()
         tests/pipeline_test.cpp
         tests/usb_frame_test.cpp
         tests/resume_test.cpp
+        tests/update_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source
@@ -177,6 +189,7 @@ else()
         GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../packages/shared/golden"
         FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/golden"
         NSLIB_VERSION="${NSLIB_VERSION}"
+        NSLIB_GITHUB_REPO="tuckerwales/nslibrary"
     )
     target_link_libraries(nslib-switch-tests PRIVATE ${ZSTD_LIBRARIES} Threads::Threads)
     target_link_directories(nslib-switch-tests PRIVATE ${ZSTD_LIBRARY_DIRS})
