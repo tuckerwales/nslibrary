@@ -20,6 +20,11 @@ namespace {
 struct ProgressUi {
     std::string title;
     std::string detail;
+    std::string warning;
+    std::function<void()> onCancel;
+    std::function<void()> tick;
+    std::chrono::steady_clock::time_point lastTick{};
+    bool ticking = false;
     uint64_t done = 0;
     uint64_t total = 0;
     bool visible = false;
@@ -35,8 +40,27 @@ struct ProgressUi {
 ProgressUi g;
 
 void requestCancel() {
+    if (g.onCancel) {
+        g.onCancel();
+        return;
+    }
     auto job = Session::instance().currentJob();
     if (job) Session::instance().cancelJob(job->id);
+}
+
+void runProgressTick(std::chrono::steady_clock::time_point now) {
+    if (!g.tick || g.ticking) return;
+    if (g.lastTick.time_since_epoch().count() != 0 && now - g.lastTick < std::chrono::seconds(2)) return;
+    g.lastTick = now;
+    g.ticking = true;
+    try {
+        g.tick();
+    } catch (const std::exception& e) {
+        brls::Logger::error("progress tick: {}", e.what());
+    } catch (...) {
+        brls::Logger::error("progress tick: unknown");
+    }
+    g.ticking = false;
 }
 
 void drawOverlay() {
@@ -96,6 +120,12 @@ void drawOverlay() {
         nvgText(vg, cx, cy + 48, pct, nullptr);
     }
 
+    if (!g.warning.empty()) {
+        nvgFontSize(vg, 18);
+        nvgFillColor(vg, nvgRGB(255, 196, 0));
+        nvgText(vg, cx, cy + 118, g.warning.c_str(), nullptr);
+    }
+
     nvgFontSize(vg, 18);
     nvgFillColor(vg, nvgRGB(160, 160, 160));
     nvgText(vg, cx, cy + 84, "Press B to cancel", nullptr);
@@ -106,10 +136,10 @@ void drawOverlay() {
 
 } // namespace
 
-void pumpProgressUi(bool force) {
+void pumpProgressUi(bool force, bool runTick) {
     if (g.uiThread != std::thread::id() && std::this_thread::get_id() != g.uiThread) return;
     if (!g.visible) return;
-    if (g.pumping) return;
+    if (g.pumping || g.ticking) return;
     const auto now = std::chrono::steady_clock::now();
     if (!force && g.lastPump.time_since_epoch().count() != 0 &&
         now - g.lastPump < std::chrono::milliseconds(50))
@@ -118,7 +148,7 @@ void pumpProgressUi(bool force) {
     g.pumping = true;
 
     auto p = Session::instance().progressSnapshot();
-    if (!p.phase.empty()) {
+    if (!g.onCancel && !p.phase.empty()) {
         char line[160];
         std::snprintf(line, sizeof(line), "%s  %llu / %llu", p.phase.c_str(),
             static_cast<unsigned long long>(p.done), static_cast<unsigned long long>(p.total));
@@ -144,11 +174,14 @@ void pumpProgressUi(bool force) {
     brls::Ticking::updateTickings();
     drawOverlay();
     g.pumping = false;
+    if (runTick) runProgressTick(now);
 }
 
-void showProgress(const std::string& title) {
+void showProgress(const std::string& title, std::function<void()> onCancel) {
     g.uiThread = std::this_thread::get_id();
     g.visible = true;
+    g.onCancel = std::move(onCancel);
+    g.warning.clear();
     g.title = title;
     g.detail = "Starting…";
     g.done = 0;
@@ -164,8 +197,20 @@ void updateProgress(const std::string& line, uint64_t done, uint64_t total) {
     pumpProgressUi();
 }
 
+void setProgressWarning(const std::string& text) {
+    if (g.uiThread != std::thread::id() && std::this_thread::get_id() != g.uiThread) return;
+    g.warning = text;
+    pumpProgressUi(true);
+}
+
+bool progressVisible() { return g.visible; }
+
+void setProgressTick(std::function<void()> fn) { g.tick = std::move(fn); }
+
 void hideProgress() {
     g.visible = false;
+    g.onCancel = nullptr;
+    g.warning.clear();
     g.title.clear();
     g.detail.clear();
     g.done = 0;

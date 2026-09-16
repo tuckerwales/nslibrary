@@ -65,7 +65,21 @@ bool batteryCharging() {
     return type != PsmChargerType_Unconnected;
 }
 
-bool isAppletMode() { return appletGetAppletType() != AppletType_Application; }
+bool isAppletMode() {
+    const AppletType type = appletGetAppletType();
+    return type != AppletType_Application && type != AppletType_SystemApplication;
+}
+
+std::optional<SpacePair> storageSpace(bool nand) {
+    NcmContentStorage cs{};
+    if (R_FAILED(ncmOpenContentStorage(&cs, nand ? NcmStorageId_BuiltInUser : NcmStorageId_SdCard))) return std::nullopt;
+    s64 free = 0, total = 0;
+    const Result a = ncmContentStorageGetFreeSpaceSize(&cs, &free);
+    const Result b = ncmContentStorageGetTotalSpaceSize(&cs, &total);
+    ncmContentStorageClose(&cs);
+    if (R_FAILED(a) || R_FAILED(b)) return std::nullopt;
+    return SpacePair{uint64_t(free), uint64_t(total)};
+}
 
 #else
 
@@ -77,6 +91,7 @@ uint32_t currentFirmwarePacked() { return 0; }
 unsigned batteryPercent() { return 100; }
 bool batteryCharging() { return true; }
 bool isAppletMode() { return true; }
+std::optional<SpacePair> storageSpace(bool) { return std::nullopt; }
 
 #endif
 

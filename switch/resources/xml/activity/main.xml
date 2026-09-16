@@ -10,7 +10,7 @@
         </brls:Tab>
 
         <brls:Tab label="@i18n/app/tabs/updates">
-            <UpdatesTab />
+            <UpdatesTab id="updates" />
         </brls:Tab>
 
         <brls:Tab label="@i18n/app/tabs/queue">
@@ -18,11 +18,11 @@
         </brls:Tab>
 
         <brls:Tab label="@i18n/app/tabs/installed">
-            <InstalledTab />
+            <InstalledTab id="installed" />
         </brls:Tab>
 
         <brls:Tab label="@i18n/app/tabs/missing">
-            <MissingTab />
+            <MissingTab id="missing" />
         </brls:Tab>
 
         <brls:Separator />

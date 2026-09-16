@@ -1,6 +1,6 @@
 # Switch app updates
 
-The homebrew app can replace itself from a **signed GitHub Release**. TLS to GitHub is not trusted (the Switch CA store is incomplete); authenticity comes from Ed25519.
+The homebrew app can replace itself from your **library server** or from a **signed GitHub Release**. Neither source is trusted on its own: TLS to GitHub is not verified (the Switch CA store is incomplete) and the server could be anyone on the LAN. Authenticity comes from Ed25519.
 
 ## Release assets
 
@@ -43,6 +43,29 @@ The public key is compiled into the app (`switch/source/update/verify.cpp`). A r
 
 ## On the Switch
 
-Settings → **Check GitHub for updates**. The console needs internet access (not only LAN to your library). If GitHub is blocked, the app can offer the `.nro` from your library server (`NSLIB_NRO_PATH` / `data/update/nslibrary.nro`) as a fallback — that path is **not** GitHub-signed.
+Settings → **Check for updates**:
 
-The new `.nro` is written to `sdmc:/switch/nslibrary/nslibrary.nro`. Restart from the Homebrew Menu (or the HOME-menu forwarder).
+1. If the Switch is paired (or on USB), it asks the library server first. This works without internet access.
+2. If the server has nothing newer, or no signed app, it checks GitHub.
+
+## Serving the app from the library server
+
+Copy the three release assets into one folder on the server: `data/update/` by default, or the folder of `NSLIB_NRO_PATH`:
+
+```
+data/update/nslibrary.nro
+data/update/update.json
+data/update/update.json.sig
+```
+
+The Switch then updates itself through the device API (HTTP or USB):
+
+| Call | Returns |
+|---|---|
+| `GET /hello` | `caps` includes `update`, and `appLatest` is the version in `update.json` |
+| `GET /update/manifest`, `GET /update/signature` | Exact `update.json` and `update.json.sig` bytes |
+| `GET /update` | The `.nro` |
+
+The server only advertises `update` when all three files exist and the `.nro` matches the manifest's size and SHA-256, so a half-copied set is not offered. Files are re-read on each `hello`, so replacing them does not need a restart. The Switch still checks the signature itself, refuses a version that is not newer than the running app, and checks the `.nro` SHA-256 before replacing itself. A copy without a valid signature is rejected.
+
+The new `.nro` is written to `sdmc:/switch/nslibrary/nslibrary.nro`. The old file is moved to `nslibrary.nro.old` until the swap finishes, so a crash mid-update never leaves the folder empty (the next launch restores it if needed). Restart from the Homebrew Menu (or the HOME-menu forwarder).

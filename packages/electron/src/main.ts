@@ -77,7 +77,6 @@ async function boot(): Promise<void> {
     tlsCert: null,
     nroPath: null,
     forwarderMainPath: null,
-    appVersion: "0.1.0",
   });
   await server.app.listen({ host, port });
   await server.start();

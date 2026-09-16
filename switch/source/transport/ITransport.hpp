@@ -25,7 +25,11 @@ public:
     virtual ~ITransport() = default;
     virtual void setToken(std::string token) = 0;
     virtual void setTimeoutMs(long ms) = 0;
+    /** How long to wait for the connection itself (TCP connect, TLS handshake, USB host ready). */
+    virtual void setConnectTimeoutMs(long ms) { (void)ms; }
     virtual void abort() {}
+    /** Body of the last stream() answered with a non-2xx status (usually a JSON error). */
+    virtual std::string lastStreamError() const { return {}; }
     virtual HttpResponse request(
         const std::string& method,
         const std::string& path,

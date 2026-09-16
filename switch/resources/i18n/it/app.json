@@ -57,11 +57,11 @@
     "repair": "Associa di nuovo",
     "forget": "Dimentica questo server",
     "version": "Versione app",
-    "update": "Cerca aggiornamenti su GitHub",
+    "update": "Cerca aggiornamenti",
     "update_checking": "Cerco l’ultima versione firmata…",
     "update_none": "Hai già l’ultima versione firmata.",
     "update_available": "Su GitHub c’è una build firmata più recente. Scaricare e sostituire?",
-    "update_github_failed": "GitHub non è raggiungibile. Usare la copia sul server della libreria?",
+    "update_available_server": "Sul server della libreria c'è una build firmata più recente. Scaricarla e sostituire l'app?",
     "update_done": "Aggiornato. Riavvia NSLibrary dal menu Homebrew.",
     "target": "Memoria predefinita",
     "verify": "Verifica hash NCA"

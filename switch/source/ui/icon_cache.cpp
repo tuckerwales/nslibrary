@@ -55,6 +55,13 @@ void pumpIcons() {
         job = std::move(g_q.front());
         g_q.pop_front();
     }
+    if (Session::instance().isOffline() || Session::instance().isInstalling()) {
+        // Drop the queue: blocking connects to a dead server would freeze the UI once per icon.
+        std::lock_guard<std::mutex> lock(g_mu);
+        g_q.clear();
+        g_pumping = false;
+        return;
+    }
     if (job.alive && job.alive->load() && job.image) {
         try {
             auto bytes = Session::instance().fetchIcon(job.appId, job.rev);
@@ -63,7 +70,8 @@ void pumpIcons() {
                 writeFile(job.path, bytes);
                 job.image->setImageFromMem(bytes.data(), int(bytes.size()));
             }
-        } catch (...) {
+        } catch (const std::exception& e) {
+            brls::Logger::warning("icon {}: {}", job.appId, e.what());
         }
     }
     brls::delay(0, [] { pumpIcons(); });

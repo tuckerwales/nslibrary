@@ -7,24 +7,91 @@
 
 #include <borealis.hpp>
 #include <string>
-#include <thread>
 
 using namespace brls::literals;
 
 namespace nslib {
+
+namespace {
+
+void offerUpdate(const AvailableUpdate& found) {
+    const char* key = found.fromServer ? "app/settings/update_available_server" : "app/settings/update_available";
+    auto* dialog = new brls::Dialog(brls::getStr(key) + "\n" + found.manifest.version);
+    dialog->addButton("hints/ok"_i18n, [found] {
+        brls::sync([found] {
+            try {
+                Session::instance().installUpdate(found);
+                brls::Application::notify("app/settings/update_done"_i18n);
+            } catch (const std::exception& e) {
+                if (std::string(e.what()) != "cancelled") showError(e.what());
+            }
+        });
+    });
+    dialog->addButton("hints/cancel"_i18n, [] {});
+    dialog->open();
+}
+
+/**
+ * Runs on the UI thread: curl on Switch must stay on main, and the progress overlay keeps frames coming.
+ * The library server is asked first (it works without internet access), then GitHub.
+ */
+void checkForUpdates() {
+    auto& session = Session::instance();
+    std::string serverError;
+    bool serverCurrent = false;
+    if (session.settings.useUsb || session.hasToken()) {
+        try {
+            const auto found = session.checkServerUpdate();
+            if (found.newer) {
+                offerUpdate(found);
+                return;
+            }
+            serverCurrent = true;
+        } catch (const std::exception& e) {
+            if (std::string(e.what()) == "cancelled") return;
+            serverError = e.what();
+        }
+    }
+
+    try {
+        const auto found = session.checkGithubUpdate();
+        if (found.newer) {
+            offerUpdate(found);
+            return;
+        }
+        showError("app/settings/update_none"_i18n);
+    } catch (const std::exception& e) {
+        const std::string msg = e.what();
+        if (msg == "cancelled") return;
+        // Offline from the internet but the library server is up to date: that is the answer.
+        if (serverCurrent) {
+            showError("app/settings/update_none"_i18n);
+            return;
+        }
+        showError(serverError.empty() ? msg : serverError + "\n\n" + msg);
+    }
+}
+
+} // namespace
 
 SettingsTab::SettingsTab() {
     this->inflateFromXMLRes("xml/tabs/list.xml");
     auto* list = dynamic_cast<brls::Box*>(this->getView("list"));
     auto* status = dynamic_cast<brls::Label*>(this->getView("status"));
     auto& session = Session::instance();
-    if (status) status->setText(session.settings.url);
+    if (status) status->setText(session.settings.useUsb ? std::string("app/connect/usb"_i18n) : session.settings.url);
     if (!list) return;
 
     auto* url = new brls::InputCell();
     url->init("app/settings/url"_i18n, session.settings.url, [](std::string text) {
-        Session::instance().setUrl(std::move(text));
-        if (Session::instance().hasToken()) enterPairedSession();
+        if (text.empty()) return;
+        brls::sync([text] {
+            auto& s = Session::instance();
+            s.setUrl(text);
+            // Same server keeps its token; a different one drops it and needs pairing.
+            if (s.hasToken()) enterPairedSession();
+            else showScreen(Screen::Pair);
+        });
     }, "https://…", "", 80);
     list->addView(url);
 
@@ -66,8 +133,10 @@ SettingsTab::SettingsTab() {
     auto* forget = new brls::DetailCell();
     forget->setText("app/settings/forget"_i18n);
     forget->registerClickAction([](brls::View*) {
-        Session::instance().forgetDevice();
-        brls::Application::pushActivity(new ConnectActivity());
+        brls::sync([] {
+            Session::instance().forgetDevice();
+            showScreen(Screen::Connect);
+        });
         return true;
     });
     list->addView(forget);
@@ -78,7 +147,7 @@ SettingsTab::SettingsTab() {
     list->addView(ver);
 
     auto* log = new brls::DetailCell();
-    log->setText("Log file");
+    log->setText("app/settings/log"_i18n);
     log->setDetailText(fileLogPath());
     list->addView(log);
 
@@ -87,55 +156,7 @@ SettingsTab::SettingsTab() {
     update->setDetailText(NSLIB_VERSION);
     update->registerClickAction([](brls::View*) {
 #ifdef __SWITCH__
-        brls::Application::notify("app/settings/update_checking"_i18n);
-        std::thread([] {
-            try {
-                const auto found = Session::instance().checkGithubUpdate();
-                brls::sync([found] {
-                    if (!found.newer) {
-                        showError("app/settings/update_none"_i18n);
-                        return;
-                    }
-                    auto* dialog = new brls::Dialog(
-                        std::string("app/settings/update_available"_i18n) + "\n" + found.manifest.version);
-                    dialog->addButton("hints/ok"_i18n, [found] {
-                        std::thread([found] {
-                            try {
-                                Session::instance().installGithubUpdate(found);
-                                brls::sync([] { brls::Application::notify("app/settings/update_done"_i18n); });
-                            } catch (const std::exception& e) {
-                                brls::sync([msg = std::string(e.what())] { showError(msg); });
-                            }
-                        }).detach();
-                    });
-                    dialog->addButton("hints/cancel"_i18n, [] {});
-                    dialog->open();
-                });
-            } catch (const std::exception& e) {
-                const std::string msg = e.what();
-                brls::sync([msg] {
-                    if (!Session::instance().canUpdate()) {
-                        showError(msg);
-                        return;
-                    }
-                    auto* dialog = new brls::Dialog("app/settings/update_github_failed"_i18n);
-                    dialog->addButton("hints/ok"_i18n, [] {
-                        std::thread([] {
-                            try {
-                                Session::instance().applyServerUpdate();
-                                brls::sync([] { brls::Application::notify("app/settings/update_done"_i18n); });
-                            } catch (const std::exception& e) {
-                                brls::sync([msg = std::string(e.what())] { showError(msg); });
-                            }
-                        }).detach();
-                    });
-                    dialog->addButton("hints/cancel"_i18n, [] {});
-                    dialog->open();
-                });
-            }
-        }).detach();
-#else
-        (void)0;
+        brls::sync([] { checkForUpdates(); });
 #endif
         return true;
     });
@@ -143,73 +164,5 @@ SettingsTab::SettingsTab() {
 }
 
 brls::View* SettingsTab::create() { return new SettingsTab(); }
-
-void showError(const std::string& message) {
-    auto* dialog = new brls::Dialog(message);
-    dialog->addButton("hints/ok"_i18n, []() {});
-    dialog->open();
-}
-
-void enterPairedSession() {
-    auto& session = Session::instance();
-    brls::Logger::info("enterPairedSession ready={}", session.isReady());
-    if (!session.isReady()) session.setStatus("app/connect/connecting"_i18n);
-    brls::Application::pushActivity(new MainActivity());
-    brls::Logger::info("MainActivity pushed");
-    if (session.isReady()) return;
-
-    // libcurl/mbedTLS on Switch is not safe off the main thread. Pairing already
-    // used curl here; hello/catalog/events must stay on this thread too.
-    brls::sync([] {
-        brls::Logger::info("session start on main");
-        try {
-            Session::instance().start();
-            try {
-                Session::instance().refreshInstalled();
-            } catch (const std::exception& e) {
-                brls::Logger::error("refreshInstalled: {}", e.what());
-            } catch (...) {
-                brls::Logger::error("refreshInstalled: unknown");
-            }
-            brls::Logger::info("refresh library tab");
-            refreshLibraryTab();
-            brls::Logger::info("library tab ready");
-        } catch (const ApiError& e) {
-            const std::string code = e.code;
-            const std::string msg = e.what();
-            brls::Logger::error("session ApiError {} {}", code, msg);
-            Session::instance().setStatus(msg);
-            refreshLibraryTab();
-            if (code == "UNAUTHORIZED" || code == "DEVICE_REVOKED") {
-                Session::instance().forgetDevice();
-                showError(msg);
-                brls::Application::pushActivity(new PairActivity());
-                return;
-            }
-            auto* dialog = new brls::Dialog(msg);
-            dialog->addButton("hints/ok"_i18n, []() {});
-            dialog->addButton("app/connect/change"_i18n, []() {
-                brls::Application::pushActivity(new ConnectActivity());
-            });
-            dialog->open();
-        } catch (const std::exception& e) {
-            const std::string msg = e.what();
-            brls::Logger::error("session error {}", msg);
-            Session::instance().setStatus(msg);
-            refreshLibraryTab();
-            auto* dialog = new brls::Dialog(msg);
-            dialog->addButton("hints/ok"_i18n, []() {});
-            dialog->addButton("app/connect/change"_i18n, []() {
-                brls::Application::pushActivity(new ConnectActivity());
-            });
-            dialog->open();
-        } catch (...) {
-            brls::Logger::error("session error unknown");
-            Session::instance().setStatus("Connection failed");
-            refreshLibraryTab();
-            showError("Connection failed");
-        }
-    });
-}
 
 } // namespace nslib

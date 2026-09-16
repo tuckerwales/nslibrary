@@ -1,4 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { readFileSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   applicationIdForPatch,
   type CatalogQuery,
@@ -85,9 +87,26 @@ export interface DeviceApiOptions {
   now?: () => number;
   serverName: string;
   catalogRev: () => number;
-  appVersion?: string;
   nroPath?: string | null;
   tls?: boolean;
+}
+
+export interface ServerUpdate {
+  version: string;
+  sha256: string;
+  size: number;
+}
+
+function parseUpdateManifest(text: string): ServerUpdate | null {
+  try {
+    const value = JSON.parse(text) as Partial<ServerUpdate>;
+    if (typeof value.version !== "string" || value.version.length === 0) return null;
+    if (typeof value.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(value.sha256)) return null;
+    if (!Number.isSafeInteger(value.size) || (value.size as number) <= 0) return null;
+    return { version: value.version, sha256: value.sha256, size: value.size as number };
+  } catch {
+    return null;
+  }
 }
 
 export class DeviceApiService {
@@ -97,8 +116,8 @@ export class DeviceApiService {
   readonly #now: () => number;
   readonly #serverName: string;
   readonly #catalogRev: () => number;
-  readonly #appVersion: string;
   readonly #nroPath: string | null;
+  #nroHash: { key: string; sha256: string } | null = null;
   readonly tls: boolean;
   readonly #waiters = new Map<number, number>();
   readonly #lastProgressAt = new Map<number, number>();
@@ -112,7 +131,6 @@ export class DeviceApiService {
     this.#now = options.now ?? Date.now;
     this.#serverName = options.serverName;
     this.#catalogRev = options.catalogRev;
-    this.#appVersion = options.appVersion ?? "0.1.0";
     this.#nroPath = options.nroPath ?? null;
     this.tls = options.tls ?? false;
     this.#serverId = this.#loadOrCreateServerId();
@@ -336,16 +354,52 @@ export class DeviceApiService {
     return this.#nroPath;
   }
 
+  /**
+   * Signed release metadata that sits next to the `.nro` (`update.json` and `update.json.sig`
+   * from a GitHub release). The Switch refuses a server copy without them.
+   */
+  updateFilePath(kind: "manifest" | "signature"): string | null {
+    if (!this.#nroPath) return null;
+    return join(dirname(this.#nroPath), kind === "manifest" ? "update.json" : "update.json.sig");
+  }
+
+  /**
+   * The Switch app this server can hand out, or null. Only a complete signed set counts: the `.nro`,
+   * `update.json`, and `update.json.sig`, with the `.nro` matching the manifest's size and SHA-256.
+   * The Switch still verifies the signature itself; this keeps a stale or half-copied set from being
+   * advertised.
+   */
+  serverUpdate(): ServerUpdate | null {
+    const manifestPath = this.updateFilePath("manifest");
+    const signaturePath = this.updateFilePath("signature");
+    if (!this.#nroPath || !manifestPath || !signaturePath) return null;
+    try {
+      const nro = statSync(this.#nroPath);
+      if (statSync(signaturePath).size !== 64) return null;
+      const manifest = parseUpdateManifest(readFileSync(manifestPath, "utf8"));
+      if (!manifest || manifest.size !== nro.size) return null;
+      const key = `${nro.size}:${nro.mtimeMs}`;
+      if (this.#nroHash?.key !== key) {
+        const sha256 = createHash("sha256").update(readFileSync(this.#nroPath)).digest("hex");
+        this.#nroHash = { key, sha256 };
+      }
+      return this.#nroHash.sha256 === manifest.sha256 ? manifest : null;
+    } catch {
+      return null;
+    }
+  }
+
   hello(): HelloResponse {
     const caps: string[] = [...DEVICE_CAPABILITIES];
-    if (this.#nroPath) caps.push("update");
+    const update = this.serverUpdate();
+    if (update) caps.push("update");
     return {
       serverId: this.#serverId,
       serverName: this.serverName,
       proto: DEVICE_API_PROTOCOL_VERSION,
       catalogRev: this.#catalogRev(),
       caps,
-      appLatest: this.#appVersion,
+      ...(update ? { appLatest: update.version } : {}),
     };
   }
 

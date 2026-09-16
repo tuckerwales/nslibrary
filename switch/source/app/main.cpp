@@ -1,9 +1,15 @@
+#include "app/atomic_file.hpp"
 #include "app/file_log.hpp"
 #include "app/services.hpp"
 #include "app/session.hpp"
+#include "install/engine.hpp"
 #include "ui/connect.hpp"
 #include "ui/main_activity.hpp"
 #include "ui/pair.hpp"
+
+#ifdef __SWITCH__
+#include "update/apply.hpp"
+#endif
 
 #include <borealis.hpp>
 #include <cstdlib>
@@ -23,16 +29,7 @@ int main(int argc, char* argv[]) {
     brls::Logger::info("nslibrary {} starting", NSLIB_VERSION);
 #ifdef __SWITCH__
     {
-        const char* mode = "applet";
-        switch (appletGetAppletType()) {
-            case AppletType_Application:
-            case AppletType_SystemApplication:
-                mode = "application";
-                break;
-            default:
-                break;
-        }
-        brls::Logger::info("log={} mode={}", nslib::fileLogPath(), mode);
+        brls::Logger::info("log={} mode={}", nslib::fileLogPath(), nslib::isAppletMode() ? "applet" : "application");
     }
 #endif
 
@@ -47,6 +44,11 @@ int main(int argc, char* argv[]) {
 
     nslib::servicesInit();
     nslib::Session::instance().settings.load();
+#ifdef __SWITCH__
+    // A crash during a self-update swap leaves nslibrary.nro.old; put it back if the new file is missing.
+    nslib::recoverReplacedFile(nslib::kSwitchNroPath);
+#endif
+    nslib::cleanupStalePlaceholders();
 
     brls::Application::registerXMLView("LibraryTab", nslib::LibraryTab::create);
     brls::Application::registerXMLView("UpdatesTab", nslib::UpdatesTab::create);

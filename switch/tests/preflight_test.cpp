@@ -5,8 +5,17 @@ using namespace nslib;
 
 TEST(preflight_pack_firmware) {
     CHECK_EQ(packFirmware(12, 0, 0), 0x0c0000u);
-    CHECK(firmwareTooNew(packFirmware(20, 0, 0), packFirmware(19, 0, 1)));
-    CHECK(!firmwareTooNew(packFirmware(19, 0, 0), packFirmware(19, 0, 1)));
+    // CNMT stores major<<26 | minor<<20 | micro<<16.
+    const uint32_t fw20 = uint32_t(20) << 26;
+    const uint32_t fw19 = uint32_t(19) << 26;
+    const uint32_t fw12_1_2 = (uint32_t(12) << 26) | (uint32_t(1) << 20) | (uint32_t(2) << 16);
+    CHECK_EQ(packSystemVersion(fw12_1_2), packFirmware(12, 1, 2));
+    CHECK(firmwareTooNew(fw20, packFirmware(19, 0, 1)));
+    CHECK(!firmwareTooNew(fw19, packFirmware(19, 0, 1)));
+    CHECK(!firmwareTooNew(fw12_1_2, packFirmware(12, 1, 2)));
+    CHECK(firmwareTooNew(fw12_1_2, packFirmware(12, 1, 1)));
+    // Unknown current firmware never warns.
+    CHECK(!firmwareTooNew(fw20, 0));
 }
 
 TEST(preflight_battery) {

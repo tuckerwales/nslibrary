@@ -154,10 +154,12 @@ Result waitTransfer(UsbDsEndpoint* ep, void* buffer, size_t size, u32* transferr
     return usbDsParseReportData(&report, urbId, nullptr, transferred);
 }
 
-void transferAll(UsbDsEndpoint* ep, u8* bounce, void* buf, size_t n, uint64_t timeoutNs, bool writing) {
+void transferAll(UsbDsEndpoint* ep, u8* bounce, void* buf, size_t n, uint64_t timeoutNs, uint64_t readyTimeoutNs,
+    bool writing)
+{
     auto* p = static_cast<u8*>(buf);
-    Result ready = usbDsWaitReady(timeoutNs);
-    if (R_FAILED(ready)) fail("usbDsWaitReady", ready);
+    Result ready = usbDsWaitReady(readyTimeoutNs);
+    if (R_FAILED(ready)) throw std::runtime_error("The USB cable is not connected to a computer running NSLibrary");
     while (n) {
         u8* xfer = p;
         size_t chunk = n;
@@ -174,7 +176,8 @@ void transferAll(UsbDsEndpoint* ep, u8* bounce, void* buf, size_t n, uint64_t ti
         if (got == 0) throw std::runtime_error("USB transfer returned 0 bytes");
         p += got;
         n -= got;
-        if (got < chunk) throw std::runtime_error("USB short transfer");
+        // A short read only marks the end of one host transfer; keep reading. A short write is an error.
+        if (writing && got < chunk) throw std::runtime_error("USB short transfer");
     }
 }
 
@@ -265,26 +268,28 @@ void usbDsStop() {
 #endif
 }
 
-void usbDsReadAll(void* dst, size_t n, uint64_t timeoutNs) {
+void usbDsReadAll(void* dst, size_t n, uint64_t timeoutNs, uint64_t readyTimeoutNs) {
 #ifdef __SWITCH__
     if (!g_started || !g_epOut) throw std::runtime_error("USB not started");
-    transferAll(g_epOut, g_bounceOut, dst, n, timeoutNs, false);
+    transferAll(g_epOut, g_bounceOut, dst, n, timeoutNs, readyTimeoutNs, false);
 #else
     (void)dst;
     (void)n;
     (void)timeoutNs;
+    (void)readyTimeoutNs;
     throw std::runtime_error("USB transport requires a Switch");
 #endif
 }
 
-void usbDsWriteAll(const void* src, size_t n, uint64_t timeoutNs) {
+void usbDsWriteAll(const void* src, size_t n, uint64_t timeoutNs, uint64_t readyTimeoutNs) {
 #ifdef __SWITCH__
     if (!g_started || !g_epIn) throw std::runtime_error("USB not started");
-    transferAll(g_epIn, g_bounceIn, const_cast<void*>(src), n, timeoutNs, true);
+    transferAll(g_epIn, g_bounceIn, const_cast<void*>(src), n, timeoutNs, readyTimeoutNs, true);
 #else
     (void)src;
     (void)n;
     (void)timeoutNs;
+    (void)readyTimeoutNs;
     throw std::runtime_error("USB transport requires a Switch");
 #endif
 }

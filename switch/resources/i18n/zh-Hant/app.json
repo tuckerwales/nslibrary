@@ -57,11 +57,11 @@
     "repair": "重新配對",
     "forget": "忘記此伺服器",
     "version": "應用程式版本",
-    "update": "在 GitHub 檢查更新",
+    "update": "檢查更新",
     "update_checking": "正在查詢最新的簽署發行…",
     "update_none": "已是最新的簽署版本。",
     "update_available": "GitHub 上有較新的簽署建置。下載並取代？",
-    "update_github_failed": "無法連到 GitHub。改用資料庫伺服器上的副本？",
+    "update_available_server": "媒體庫伺服器上有較新的已簽署版本。要下載並取代嗎？",
     "update_done": "已更新。請從 Homebrew Menu 重新啟動 NSLibrary。",
     "target": "預設儲存空間",
     "verify": "驗證 NCA 雜湊"

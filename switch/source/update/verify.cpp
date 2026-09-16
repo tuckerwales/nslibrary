@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <stdexcept>
 
 namespace nslib {
 namespace {
@@ -27,6 +28,23 @@ bool verifyUpdateDocument(
 {
     if (!json || !sig || !pk || jsonLen == 0 || sigLen != kEd25519SignatureSize) return false;
     return ed25519Verify(pk, json, jsonLen, sig);
+}
+
+UpdateManifest verifySignedManifest(const uint8_t* json, size_t jsonLen, const uint8_t* sig, size_t sigLen,
+    const uint8_t pk[kEd25519PublicKeySize])
+{
+    if (!verifyUpdateDocument(json, jsonLen, sig, sigLen, pk)) {
+        throw std::runtime_error("update.json is not signed with the NSLibrary update key");
+    }
+    UpdateManifest manifest;
+    std::string error;
+    if (!parseUpdateManifest(std::string(reinterpret_cast<const char*>(json), jsonLen), manifest, error)) {
+        throw std::runtime_error(error);
+    }
+    if (manifest.size == 0 || manifest.size > kMaxUpdateNroBytes) {
+        throw std::runtime_error("update.json size is not plausible");
+    }
+    return manifest;
 }
 
 bool nroMatchesManifest(const uint8_t* nro, size_t nroLen, const UpdateManifest& manifest, std::string& error) {

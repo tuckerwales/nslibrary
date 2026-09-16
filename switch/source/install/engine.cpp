@@ -1,5 +1,6 @@
 #include "install/engine.hpp"
 
+#include "app/atomic_file.hpp"
 #include "app/services.hpp"
 #include "formats/cnmt.hpp"
 #include "formats/container.hpp"
@@ -11,6 +12,7 @@
 #include "install/app_record.hpp"
 #include "install/es.hpp"
 #include "install/pipeline.hpp"
+#include "install/placeholder_journal.hpp"
 #include "install/preflight.hpp"
 
 #ifdef __SWITCH__
@@ -140,7 +142,7 @@ std::vector<uint8_t> readCnmtFs(const char* mount, const char* pathLabel) {
             fseek(f, 0, SEEK_SET);
             if (sz > 0) {
                 out.resize(size_t(sz));
-                fread(out.data(), 1, size_t(sz), f);
+                if (fread(out.data(), 1, size_t(sz), f) != size_t(sz)) out.clear();
             }
             fclose(f);
             break;
@@ -150,23 +152,47 @@ std::vector<uint8_t> readCnmtFs(const char* mount, const char* pathLabel) {
     return out;
 }
 
-std::vector<uint8_t> readCnmtFromPlaceholder(NcmContentStorage* cs, const NcmPlaceHolderId* ph, u64 titleId) {
-    char path[FS_MAX_PATH]{};
-    check(ncmContentStorageGetPlaceHolderPath(cs, path, sizeof(path), ph), "ncmContentStorageGetPlaceHolderPath");
+constexpr const char* kCnmtMount = "nslibcnmt";
+
+/** Mounts a ContentMeta filesystem and always unmounts it, even when reading throws. */
+class CnmtMount {
+public:
+    explicit CnmtMount(FsFileSystem fs) {
+        if (fsdevMountDevice(kCnmtMount, fs) < 0) {
+            fsFsClose(&fs);
+            throw InstallError("0x0", "could not mount the CNMT filesystem");
+        }
+    }
+    ~CnmtMount() { fsdevUnmountDevice(kCnmtMount); }
+    CnmtMount(const CnmtMount&) = delete;
+    CnmtMount& operator=(const CnmtMount&) = delete;
+};
+
+std::vector<uint8_t> readCnmtAt(const char* path, u64 titleId, const char* label) {
     FsFileSystem fs{};
     Result rc = fsOpenFileSystemWithId(&fs, titleId, FsFileSystemType_ContentMeta, path, FsContentAttributes_None);
-    if (R_FAILED(rc)) {
+    if (R_FAILED(rc) && titleId != 0) {
         rc = fsOpenFileSystemWithId(&fs, 0, FsFileSystemType_ContentMeta, path, FsContentAttributes_None);
     }
     check(rc, "fsOpenFileSystemWithId(ContentMeta)");
-    if (fsdevMountDevice("nslibcnmt", fs) < 0) {
-        fsFsClose(&fs);
-        throw InstallError("0x0", "could not mount CNMT filesystem");
-    }
-    std::vector<uint8_t> out = readCnmtFs("nslibcnmt:/", "CNMT filesystem");
-    fsdevUnmountDevice("nslibcnmt");
-    if (out.empty()) throw InstallError("0x0", "no .cnmt inside meta NCA");
+    // A crash mid-install can leave the device name registered; clear it before mounting.
+    fsdevUnmountDevice(kCnmtMount);
+    CnmtMount mount(fs);
+    std::vector<uint8_t> out = readCnmtFs("nslibcnmt:/", label);
+    if (out.empty()) throw InstallError("0x0", std::string("no .cnmt inside ") + label);
     return out;
+}
+
+std::vector<uint8_t> readCnmtFromPlaceholder(NcmContentStorage* cs, const NcmPlaceHolderId* ph) {
+    char path[FS_MAX_PATH]{};
+    check(ncmContentStorageGetPlaceHolderPath(cs, path, sizeof(path), ph), "ncmContentStorageGetPlaceHolderPath");
+    return readCnmtAt(path, 0, "meta NCA");
+}
+
+std::vector<uint8_t> readInstalledCnmt(NcmContentStorage* cs, const NcmContentId* id) {
+    char path[FS_MAX_PATH]{};
+    check(ncmContentStorageGetPath(cs, path, sizeof(path), id), "ncmContentStorageGetPath");
+    return readCnmtAt(path, 0, "installed meta NCA");
 }
 
 NcmContentId contentIdFromHex(const std::string& hex) {
@@ -176,17 +202,6 @@ NcmContentId contentIdFromHex(const std::string& hex) {
         id.c[i] = uint8_t(strtoul(byte, nullptr, 16));
     }
     return id;
-}
-
-std::optional<SpaceAvail> spaceOf(NcmStorageId storage) {
-    NcmContentStorage cs{};
-    if (R_FAILED(ncmOpenContentStorage(&cs, storage))) return std::nullopt;
-    s64 free = 0, total = 0;
-    const Result a = ncmContentStorageGetFreeSpaceSize(&cs, &free);
-    const Result b = ncmContentStorageGetTotalSpaceSize(&cs, &total);
-    ncmContentStorageClose(&cs);
-    if (R_FAILED(a) || R_FAILED(b)) return std::nullopt;
-    return SpaceAvail{uint64_t(free), uint64_t(total)};
 }
 
 NcmStorageId ncmId(StorageTarget t) {
@@ -204,16 +219,81 @@ std::string sanitizeName(std::string s) {
     return s;
 }
 
+JournalEntry journalEntry(NcmStorageId storage, const NcmPlaceHolderId& ph) {
+    JournalEntry e;
+    e.storage = uint8_t(storage);
+    std::memcpy(e.id.data(), ph.uuid.uuid, 16);
+    return e;
+}
+
+/**
+ * Undoes a title that did not finish. Each title in a container is committed on its own,
+ * so a failure in the second title never removes the first one's content.
+ */
 struct Rollback {
     NcmContentStorage* cs = nullptr;
+    NcmStorageId storage = NcmStorageId_SdCard;
+    PlaceholderJournal journal{kPlaceholderJournalPath};
     std::vector<NcmPlaceHolderId> placeholders;
     std::vector<NcmContentId> registered;
-    bool committed = false;
+    std::optional<NcmContentMetaKey> metaKey;
+
+    NcmPlaceHolderId createPlaceholder(const NcmContentId& id, uint64_t size) {
+        NcmPlaceHolderId ph{};
+        check(ncmContentStorageGeneratePlaceHolderId(cs, &ph), "ncmContentStorageGeneratePlaceHolderId");
+        try {
+            journal.add(journalEntry(storage, ph));
+        } catch (const std::exception& e) {
+            brls::Logger::warning("placeholder journal: {}", e.what());
+        }
+        placeholders.push_back(ph);
+        check(ncmContentStorageCreatePlaceHolder(cs, &id, &ph, s64(size)), "ncmContentStorageCreatePlaceHolder");
+        return ph;
+    }
+
+    void registerPlaceholder(const NcmContentId& id, const NcmPlaceHolderId& ph, const char* what) {
+        check(ncmContentStorageFlushPlaceHolder(cs), "ncmContentStorageFlushPlaceHolder");
+        check(ncmContentStorageRegister(cs, &id, &ph), what);
+        forgetPlaceholder(ph);
+        registered.push_back(id);
+    }
+
+    void forgetPlaceholder(const NcmPlaceHolderId& ph) {
+        for (auto it = placeholders.begin(); it != placeholders.end(); ++it) {
+            if (std::memcmp(it->uuid.uuid, ph.uuid.uuid, 16) == 0) {
+                placeholders.erase(it);
+                break;
+            }
+        }
+        try {
+            journal.remove(journalEntry(storage, ph));
+        } catch (...) {
+        }
+    }
+
+    /** The title is fully recorded; nothing of it should be undone any more. */
+    void titleCommitted() {
+        placeholders.clear();
+        registered.clear();
+        metaKey.reset();
+    }
+
     ~Rollback() {
         if (!cs) return;
-        if (!committed) {
-            for (auto& ph : placeholders) ncmContentStorageDeletePlaceHolder(cs, &ph);
-            for (auto& id : registered) ncmContentStorageDelete(cs, &id);
+        for (auto& ph : placeholders) {
+            ncmContentStorageDeletePlaceHolder(cs, &ph);
+            try {
+                journal.remove(journalEntry(storage, ph));
+            } catch (...) {
+            }
+        }
+        for (auto& id : registered) ncmContentStorageDelete(cs, &id);
+        if (metaKey) {
+            NcmContentMetaDatabase db{};
+            if (R_SUCCEEDED(ncmOpenContentMetaDatabase(&db, storage))) {
+                if (R_SUCCEEDED(ncmContentMetaDatabaseRemove(&db, &*metaKey))) ncmContentMetaDatabaseCommit(&db);
+                ncmContentMetaDatabaseClose(&db);
+            }
         }
         ncmContentStorageClose(cs);
         cs = nullptr;
@@ -225,7 +305,7 @@ struct InstallGuard {
     InstallGuard() {
         appletSetMediaPlaybackState(true);
         appletSetCpuBoostMode(ApmCpuBoostMode_FastLoad);
-        titleOverride = appletGetAppletType() == AppletType_Application;
+        titleOverride = !isAppletMode();
         if (titleOverride) {
             appletSetAutoSleepDisabled(true);
             appletBeginBlockingHomeButton(0);
@@ -283,17 +363,41 @@ void installNro(DeviceApiClient& client, const Job& job, CancelToken cancel, Pro
         std::remove(part.c_str());
         throw;
     }
-    fclose(f);
-    std::remove(dest.c_str());
-    if (std::rename(part.c_str(), dest.c_str()) != 0) {
+    if (fclose(f) != 0) {
         std::remove(part.c_str());
-        throw InstallError("0x0", "could not finalize " + dest);
+        throw InstallError("0x0", "could not write " + part);
+    }
+    try {
+        replaceFile(part, dest);
+    } catch (const std::exception& e) {
+        throw InstallError("0x0", e.what());
     }
 }
 
 #endif
 
 } // namespace
+
+void cleanupStalePlaceholders() {
+#ifdef __SWITCH__
+    PlaceholderJournal journal(kPlaceholderJournalPath);
+    const auto entries = journal.load();
+    if (entries.empty()) return;
+    brls::Logger::warning("cleaning up {} placeholder(s) from an interrupted install", entries.size());
+    for (const auto& e : entries) {
+        NcmContentStorage cs{};
+        if (R_FAILED(ncmOpenContentStorage(&cs, NcmStorageId(e.storage)))) continue;
+        NcmPlaceHolderId ph{};
+        std::memcpy(ph.uuid.uuid, e.id.data(), 16);
+        bool has = false;
+        if (R_SUCCEEDED(ncmContentStorageHasPlaceHolder(&cs, &has, &ph)) && has) {
+            ncmContentStorageDeletePlaceHolder(&cs, &ph);
+        }
+        ncmContentStorageClose(&cs);
+    }
+    journal.clear();
+#endif
+}
 
 InstallEngine::InstallEngine(DeviceApiClient& client, std::atomic<bool>* cancel, InstallOptions opt)
     : client_(client), cancel_(cancel), opt_(opt) {}
@@ -326,13 +430,39 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
     const Partition entries = listInstallEntries(reader, job.format);
     brls::Logger::info("install entries={}", entries.entries.size());
 
-    const auto sd = spaceOf(NcmStorageId_SdCard);
-    SpaceAvail nand{};
-    if (auto n = spaceOf(NcmStorageId_BuiltInUser)) nand = *n;
-    StorageTarget storage = pickStorage(job.target.empty() ? "sd" : job.target, job.size, sd, nand);
+    // job.size is the compressed size for NSZ/XCZ. Size storage by the NCAs that will be written.
+    uint64_t need = 0;
+    for (const auto& e : entries.entries) {
+        if (e.kind != EntryKind::Nca && e.kind != EntryKind::Ncz && e.kind != EntryKind::Cnmt) continue;
+        cancel.check();
+        need += ncaSizeForEntry(reader, e);
+    }
+    if (need == 0) need = job.size;
 
+    const auto sd = storageSpace(false);
+    SpaceAvail nand{};
+    if (auto n = storageSpace(true)) nand = *n;
+    // `need` counts every NCA, including ones already on the console, so only use it to choose for
+    // "auto". An explicit SD/NAND target is checked per title below against what will really be written.
+    const std::string target = job.target.empty() ? "sd" : job.target;
+    StorageTarget storage = StorageTarget::Sd;
+    if (target == "auto") {
+        try {
+            storage = pickStorage("auto", need, sd, nand);
+        } catch (const InstallError&) {
+            storage = sd && sd->free >= nand.free ? StorageTarget::Sd : StorageTarget::Nand;
+        }
+    } else {
+        storage = pickStorage(target, 0, sd, nand);
+    }
+    brls::Logger::info("install need={} storage={}", need, storageName(storage));
+
+    const auto warn = [&](const std::string& text) {
+        brls::Logger::warning("install warning: {}", text);
+        if (opt_.warn) opt_.warn(text);
+    };
     if (batteryShouldWarn(batteryPercent(), batteryCharging())) {
-        clock.emit("preflight", "Battery is below 15% and not charging", 0, job.size);
+        warn("Battery is below 15% and not charging. Plug in the console.");
     }
 
     const uint64_t maxWindow = isAppletMode() ? kNczMaxAppletWindow : kNczMaxOverrideWindow;
@@ -341,6 +471,7 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
     check(ncmOpenContentStorage(&cs, ncmId(storage)), "ncmOpenContentStorage");
     Rollback rb;
     rb.cs = &cs;
+    rb.storage = ncmId(storage);
 
     clock.emit("ticket", "", 0, job.size);
     for (const auto& e : entries.entries) {
@@ -359,6 +490,7 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
     }
 
     bool any = false;
+    bool firmwareWarned = false;
     for (const auto& metaEntry : entries.entries) {
         if (metaEntry.kind != EntryKind::Cnmt) continue;
         any = true;
@@ -372,44 +504,47 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
         bool has = false;
         ncmContentStorageHas(&cs, &has, &metaId);
 
-        NcmPlaceHolderId ph{};
         std::vector<uint8_t> cnmtBytes;
         if (!has) {
-            check(ncmContentStorageGeneratePlaceHolderId(&cs, &ph), "ncmContentStorageGeneratePlaceHolderId");
-            check(ncmContentStorageCreatePlaceHolder(&cs, &metaId, &ph, s64(metaSize)),
-                "ncmContentStorageCreatePlaceHolder");
-            rb.placeholders.push_back(ph);
+            SpaceAvail metaSpace{};
+            if (auto sp = storageSpace(storage == StorageTarget::Nand)) metaSpace = *sp;
+            if (metaSpace.free < metaSize) {
+                throw InstallError("preflight", "Not enough space on " + storageName(storage) + " for this title");
+            }
+            const NcmPlaceHolderId ph = rb.createPlaceholder(metaId, metaSize);
             const auto stats = streamEntry(client_, job, metaEntry, &cs, &ph, metaSize, cancel, opt_.verifyHash,
                 maxWindow, clock, "meta");
             if (stats.ncaBytes != metaSize) throw InstallError("0x0", "meta NCA size mismatch");
-            cnmtBytes = readCnmtFromPlaceholder(&cs, &ph, 0);
-            check(ncmContentStorageFlushPlaceHolder(&cs), "ncmContentStorageFlushPlaceHolder");
-            check(ncmContentStorageRegister(&cs, &metaId, &ph), "ncmContentStorageRegister(meta)");
-            rb.placeholders.pop_back();
-            rb.registered.push_back(metaId);
+            if (opt_.verifyHash && std::memcmp(stats.sha256.data(), metaId.c, 16) != 0) {
+                throw InstallError("hash_mismatch", "meta NCA hash does not match its name (file may be corrupt)");
+            }
+            cnmtBytes = readCnmtFromPlaceholder(&cs, &ph);
+            rb.registerPlaceholder(metaId, ph, "ncmContentStorageRegister(meta)");
         } else {
-            char path[FS_MAX_PATH]{};
-            check(ncmContentStorageGetPath(&cs, path, sizeof(path), &metaId), "ncmContentStorageGetPath");
-            FsFileSystem fs{};
-            check(fsOpenFileSystemWithId(&fs, 0, FsFileSystemType_ContentMeta, path, FsContentAttributes_None),
-                "fsOpenFileSystemWithId(existing meta)");
-            if (fsdevMountDevice("nslibcnmt", fs) < 0) throw InstallError("0x0", "mount existing CNMT failed");
-            cnmtBytes = readCnmtFs("nslibcnmt:/", "existing CNMT");
-            fsdevUnmountDevice("nslibcnmt");
+            cnmtBytes = readInstalledCnmt(&cs, &metaId);
         }
 
         const CnmtInfo cnmt = parseCnmt(cnmtBytes);
-        if (cnmt.hasRequiredSystemVersion && firmwareTooNew(cnmt.requiredSystemVersion, currentFirmwarePacked())) {
-            clock.emit("preflight", "Required firmware is newer than this console", 0, 1);
+        if (!firmwareWarned && cnmt.hasRequiredSystemVersion &&
+            firmwareTooNew(cnmt.requiredSystemVersion, currentFirmwarePacked())) {
+            firmwareWarned = true;
+            const uint32_t v = cnmt.requiredSystemVersion;
+            warn("Needs firmware " + std::to_string((v >> 26) & 0x3f) + "." + std::to_string((v >> 20) & 0x3f) + "." +
+                std::to_string((v >> 16) & 0xf) + " or newer to launch.");
         }
 
-        uint64_t remaining = metaSize;
+        uint64_t remaining = 0;
         for (const auto& rec : cnmt.contents) {
             if (rec.type == uint8_t(CnmtContentType::DeltaFragment)) continue;
-            remaining += rec.size;
+            if (rec.type == uint8_t(CnmtContentType::Meta)) continue;
+            NcmContentId cid{};
+            std::memcpy(cid.c, rec.ncaIdBytes, 16);
+            bool already = false;
+            ncmContentStorageHas(&cs, &already, &cid);
+            if (!already) remaining += rec.size;
         }
         SpaceAvail chosen{};
-        if (auto sp = spaceOf(ncmId(storage))) chosen = *sp;
+        if (auto sp = storageSpace(storage == StorageTarget::Nand)) chosen = *sp;
         if (chosen.free < remaining) {
             throw InstallError("preflight", "Not enough space on " + storageName(storage) + " for this title");
         }
@@ -428,11 +563,7 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
             if (!src) throw InstallError("0x0", "container is missing " + rec.ncaId);
             const uint64_t ncaSize = rec.size ? rec.size : ncaSizeForEntry(reader, *src);
 
-            NcmPlaceHolderId cph{};
-            check(ncmContentStorageGeneratePlaceHolderId(&cs, &cph), "ncmContentStorageGeneratePlaceHolderId");
-            check(ncmContentStorageCreatePlaceHolder(&cs, &cid, &cph, s64(ncaSize)),
-                "ncmContentStorageCreatePlaceHolder");
-            rb.placeholders.push_back(cph);
+            const NcmPlaceHolderId cph = rb.createPlaceholder(cid, ncaSize);
             const auto stats = streamEntry(client_, job, *src, &cs, &cph, ncaSize, cancel, opt_.verifyHash, maxWindow,
                 clock, "content");
             if (stats.ncaBytes != ncaSize) {
@@ -448,10 +579,7 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
                     throw InstallError("hash_mismatch", "NCA id prefix mismatch for " + rec.ncaId);
                 }
             }
-            check(ncmContentStorageFlushPlaceHolder(&cs), "ncmContentStorageFlushPlaceHolder");
-            check(ncmContentStorageRegister(&cs, &cid, &cph), "ncmContentStorageRegister");
-            rb.placeholders.pop_back();
-            rb.registered.push_back(cid);
+            rb.registerPlaceholder(cid, cph, "ncmContentStorageRegister");
         }
 
         clock.emit("commit", cnmt.titleId, 0, 1);
@@ -467,13 +595,15 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
         if (R_SUCCEEDED(setRc)) setRc = ncmContentMetaDatabaseCommit(&db);
         ncmContentMetaDatabaseClose(&db);
         check(setRc, "ncmContentMetaDatabaseSet");
+        // From here a failure must also take the meta entry back out, or HOME shows a broken title.
+        rb.metaKey = key;
 
         clock.emit("record", cnmt.applicationId, 0, 1);
         check(appRecordCommit(cnmt.applicationIdValue, ncmId(storage), key), "ns application record");
+        rb.titleCommitted();
     }
 
     if (!any) throw InstallError("0x0", "container has no CNMT");
-    rb.committed = true;
     clock.emit("record", job.name, job.size, job.size);
 #endif
 }

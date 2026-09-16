@@ -62,25 +62,14 @@ void listStorage(NcmStorageId storage, std::vector<InstalledTitle>& out) {
     ncmContentMetaDatabaseClose(&db);
 }
 
-std::optional<SpacePair> spaceOf(NcmStorageId storage) {
-    NcmContentStorage cs{};
-    if (R_FAILED(ncmOpenContentStorage(&cs, storage))) return std::nullopt;
-    s64 free = 0, total = 0;
-    const Result a = ncmContentStorageGetFreeSpaceSize(&cs, &free);
-    const Result b = ncmContentStorageGetTotalSpaceSize(&cs, &total);
-    ncmContentStorageClose(&cs);
-    if (R_FAILED(a) || R_FAILED(b)) return std::nullopt;
-    return SpacePair{uint64_t(free), uint64_t(total)};
-}
-
 } // namespace
 
 DeviceState scanInstalled() {
     DeviceState s;
     s.fw = firmwareVersion();
     s.ams = atmosphereVersion();
-    s.sd = spaceOf(NcmStorageId_SdCard);
-    if (auto nand = spaceOf(NcmStorageId_BuiltInUser)) s.nand = *nand;
+    s.sd = storageSpace(false);
+    if (auto nand = storageSpace(true)) s.nand = *nand;
     listStorage(NcmStorageId_SdCard, s.titles);
     listStorage(NcmStorageId_BuiltInUser, s.titles);
     return s;

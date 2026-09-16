@@ -45,11 +45,22 @@ const char* fileLogPath() {
 #endif
 }
 
+const char* previousFileLogPath() {
+#ifdef __SWITCH__
+    return "sdmc:/config/nslibrary/nslibrary.prev.log";
+#else
+    return "nslibrary.prev.log";
+#endif
+}
+
 void fileLogInit() {
 #ifdef __SWITCH__
     mkdir("sdmc:/config", 0777);
     mkdir("sdmc:/config/nslibrary", 0777);
 #endif
+    // Keep the last run: after a hang or crash the console is usually relaunched before the log is pulled.
+    std::remove(previousFileLogPath());
+    std::rename(fileLogPath(), previousFileLogPath());
     g_file = std::fopen(fileLogPath(), "w");
     if (!g_file) return;
 

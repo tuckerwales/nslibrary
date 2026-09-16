@@ -2,7 +2,8 @@
 
 #ifdef __SWITCH__
 
-#include <algorithm>
+#include "install/record_merge.hpp"
+
 #include <cstring>
 #include <vector>
 
@@ -56,6 +57,30 @@ Result deleteRecord(u64 applicationId) {
     return serviceDispatchIn(&g_nsApp, 27, applicationId);
 }
 
+MetaRecord toMeta(const ContentStorageRecord& r) {
+    MetaRecord m;
+    m.id = r.key.id;
+    m.version = r.key.version;
+    m.type = r.key.type;
+    m.storage = r.storageId;
+    return m;
+}
+
+ContentStorageRecord fromMeta(const MetaRecord& m, const std::vector<ContentStorageRecord>& original,
+    const NcmContentMetaKey& incoming)
+{
+    ContentStorageRecord out{};
+    // Keep the untouched key bytes (install_type, padding) for records we did not change.
+    for (const auto& r : original) {
+        if (r.key.id == m.id && r.key.version == m.version && r.key.type == m.type && r.storageId == m.storage) {
+            return r;
+        }
+    }
+    out.key = incoming;
+    out.storageId = m.storage;
+    return out;
+}
+
 } // namespace
 
 Result appRecordInit() {
@@ -79,36 +104,41 @@ Result appRecordCommit(u64 applicationId, NcmStorageId storage, const NcmContent
     Result rc = appRecordInit();
     if (R_FAILED(rc)) return rc;
 
-    std::vector<ContentStorageRecord> records;
-    rc = listRecords(applicationId, records);
+    std::vector<ContentStorageRecord> existing;
+    rc = listRecords(applicationId, existing);
     if (R_FAILED(rc)) return rc;
 
-    const bool existed = !records.empty();
-    records.erase(std::remove_if(records.begin(), records.end(),
-                      [&](const ContentStorageRecord& r) { return r.key.type == key.type; }),
-        records.end());
+    std::vector<MetaRecord> meta;
+    meta.reserve(existing.size() + 1);
+    for (const auto& r : existing) meta.push_back(toMeta(r));
 
-    ContentStorageRecord rec{};
-    rec.key = key;
-    rec.storageId = u8(storage);
-    records.push_back(rec);
+    MetaRecord incoming;
+    incoming.id = key.id;
+    incoming.version = key.version;
+    incoming.type = key.type;
+    incoming.storage = u8(storage);
+    const auto merged = mergeMetaRecord(std::move(meta), incoming);
 
-    if (existed) {
+    std::vector<ContentStorageRecord> records;
+    records.reserve(merged.size());
+    for (const auto& m : merged) records.push_back(fromMeta(m, existing, key));
+
+    if (!existing.empty()) {
         rc = deleteRecord(applicationId);
         if (R_FAILED(rc)) return rc;
     }
 
     rc = pushRecords(applicationId, records.data(), u32(records.size()));
-    if (R_FAILED(rc)) return rc;
+    if (R_FAILED(rc)) {
+        // Put the previous records back so a failed push does not hide the game.
+        if (!existing.empty()) pushRecords(applicationId, existing.data(), u32(existing.size()));
+        return rc;
+    }
 
     if (key.type == NcmContentMetaType_Patch || key.type == NcmContentMetaType_Application) {
         rc = avmInitialize();
         if (R_SUCCEEDED(rc)) {
-            u32 version = 0;
-            for (const auto& r : records) {
-                if (r.key.version > version) version = r.key.version;
-            }
-            avmPushLaunchVersion(applicationId, version);
+            avmPushLaunchVersion(applicationId, launchVersionFor(merged));
             avmExit();
         }
     }

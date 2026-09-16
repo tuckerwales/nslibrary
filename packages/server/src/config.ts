@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { APP_VERSION, DEFAULT_SERVER_PORT, DISCOVERY_PORT } from "@nslib/shared";
+import { DEFAULT_SERVER_PORT, DISCOVERY_PORT } from "@nslib/shared";
 import type { LogFn } from "./api/context";
 
 export interface ServerConfig {
@@ -42,7 +42,6 @@ export interface ServerConfig {
   nroPath: string | null;
   /** Compiled forwarder `main` (exefs). Null uses a stub so the NSP still packs. */
   forwarderMainPath: string | null;
-  appVersion: string;
 }
 
 const WEB_DIR_CANDIDATES = [
@@ -109,6 +108,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       : existsSync(defaultForwarder)
         ? defaultForwarder
         : null,
-    appVersion: env.NSLIB_APP_VERSION?.trim() || APP_VERSION,
   };
 }

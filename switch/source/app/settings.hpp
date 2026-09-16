@@ -7,6 +7,8 @@ namespace nslib {
 struct Settings {
     std::string url;
     std::string token;
+    /** CURLOPT_PINNEDPUBLICKEY for an HTTPS server, learned on first connect. */
+    std::string tlsPin;
     std::string uuid;
     std::string name = "Switch";
     std::string defaultTarget = "sd";

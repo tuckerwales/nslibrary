@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <optional>
 #include <string>
 
 typedef void CURL;
@@ -20,8 +21,19 @@ public:
 
     void setToken(std::string token) override { token_ = std::move(token); }
     void setTimeoutMs(long ms) override { timeoutMs_ = ms; }
+    void setConnectTimeoutMs(long ms) override { connectTimeoutMs_ = ms; }
     void abort() override { abort_ = true; }
     bool aborted() const { return abort_; }
+    std::string lastStreamError() const override;
+
+    bool isHttps() const;
+    /** CURLOPT_PINNEDPUBLICKEY value (`sha256//…`). Empty disables pinning. */
+    void setPinnedPublicKey(std::string pin) { pin_ = std::move(pin); }
+    /**
+     * Connect without credentials and read the server certificate's public key pin.
+     * Returns nullopt for plain HTTP or when the TLS backend does not expose the certificate.
+     */
+    std::optional<std::string> fetchPublicKeyPin();
 
     HttpResponse request(
         const std::string& method,
@@ -39,10 +51,15 @@ public:
 private:
     std::string baseUrl_;
     std::string token_;
+    std::string pin_;
     long timeoutMs_ = 30000;
+    long connectTimeoutMs_ = 10000;
     CURL* curl_ = nullptr;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::atomic<bool> abort_{false};
+    std::string lastStreamError_;
+
+    void applyCommon(const std::string& url);
 };
 
 } // namespace nslib

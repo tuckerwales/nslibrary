@@ -104,6 +104,27 @@ export class DeviceUsbHandler implements UsbRequestHandler {
           payload,
         };
       }
+      if (method === "GET" && (path === "/update/manifest" || path === "/update/signature")) {
+        const file = this.devices.updateFilePath(
+          path === "/update/manifest" ? "manifest" : "signature",
+        );
+        const missing = new ApiError(
+          "NOT_FOUND",
+          "The Switch app on this server has no update.json signature. Copy update.json and update.json.sig from the GitHub release next to the .nro.",
+        );
+        if (!file) throw missing;
+        let payload: Buffer;
+        try {
+          payload = await readFile(file);
+        } catch {
+          throw missing;
+        }
+        return {
+          status: 200,
+          headers: { "content-type": "application/octet-stream" },
+          payload,
+        };
+      }
       if (method === "PUT" && path === "/state") {
         this.devices.updateState(this.#device.id, parseWith(DeviceStateSchema, req.b));
         return { status: 204 };

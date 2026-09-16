@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
 
@@ -152,7 +153,9 @@ void checkFrameWindow(const uint8_t* src, size_t n, uint64_t maxWindow) {
 void decodeSolid(SeqSource& in, const uint8_t* first, size_t firstN, const NczHeader& h, uint64_t maxWindow,
     const std::function<void(const uint8_t*, size_t)>& out)
 {
-    ZSTD_DCtx* dctx = ZSTD_createDCtx();
+    // Owned by unique_ptr: `out` can throw (cancel, write failure) and the window can be 128 MB.
+    std::unique_ptr<ZSTD_DCtx, size_t (*)(ZSTD_DCtx*)> owned(ZSTD_createDCtx(), ZSTD_freeDCtx);
+    ZSTD_DCtx* dctx = owned.get();
     if (!dctx) throw FormatError("INTERNAL", "ZSTD_createDCtx failed");
     ZSTD_DCtx_setParameter(dctx, ZSTD_d_windowLogMax, 27);
 
@@ -169,7 +172,6 @@ void decodeSolid(SeqSource& in, const uint8_t* first, size_t firstN, const NczHe
             ZSTD_outBuffer zout{outBuf.data(), outBuf.size(), 0};
             const size_t ret = ZSTD_decompressStream(dctx, &zout, &zin);
             if (ZSTD_isError(ret)) {
-                ZSTD_freeDCtx(dctx);
                 throw FormatError("INVALID", std::string("NCZ zstd: ") + ZSTD_getErrorName(ret));
             }
             if (zout.pos) emitBody(h, ncaOffset, outBuf.data(), zout.pos, out);
@@ -208,7 +210,6 @@ void decodeSolid(SeqSource& in, const uint8_t* first, size_t firstN, const NczHe
                     ZSTD_outBuffer zout{outBuf.data(), outBuf.size(), 0};
                     const size_t ret = ZSTD_decompressStream(dctx, &zout, &empty);
                     if (ZSTD_isError(ret)) {
-                        ZSTD_freeDCtx(dctx);
                         throw FormatError("INVALID", std::string("NCZ zstd: ") + ZSTD_getErrorName(ret));
                     }
                     if (zout.pos) emitBody(h, ncaOffset, outBuf.data(), zout.pos, out);
@@ -219,7 +220,6 @@ void decodeSolid(SeqSource& in, const uint8_t* first, size_t firstN, const NczHe
             filled += got;
         }
     }
-    ZSTD_freeDCtx(dctx);
 }
 
 void decodeBlocks(SeqSource& in, const NczHeader& h, const std::function<void(const uint8_t*, size_t)>& out) {

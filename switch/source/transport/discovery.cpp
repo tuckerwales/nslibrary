@@ -2,7 +2,9 @@
 
 #include "api/url.hpp"
 
+#include <algorithm>
 #include <arpa/inet.h>
+#include <chrono>
 #include <cstring>
 #include <netinet/in.h>
 
@@ -28,19 +30,37 @@ std::vector<DiscoveredServer> discoverServers(int timeoutMs, uint16_t port) {
     dst.sin_port = htons(port);
     dst.sin_addr.s_addr = htonl(INADDR_BROADCAST);
     const char* q = kDiscoveryQuery;
-    sendto(fd, q, std::strlen(q), 0, reinterpret_cast<sockaddr*>(&dst), sizeof(dst));
 
-    const auto deadline = timeoutMs;
-    int remaining = deadline;
-    while (remaining > 0) {
+    using clock = std::chrono::steady_clock;
+    const auto start = clock::now();
+    const auto deadline = start + std::chrono::milliseconds(timeoutMs);
+    // UDP broadcasts get dropped; send the query a few times across the window.
+    constexpr int kSends = 3;
+    const auto sendEvery = std::chrono::milliseconds(std::max(1, timeoutMs / (kSends + 1)));
+    int sent = 0;
+    auto nextSend = start;
+
+    for (;;) {
+        auto now = clock::now();
+        if (now >= deadline) break;
+        if (sent < kSends && now >= nextSend) {
+            sendto(fd, q, std::strlen(q), 0, reinterpret_cast<sockaddr*>(&dst), sizeof(dst));
+            sent++;
+            nextSend = now + sendEvery;
+        }
+        auto wakeAt = deadline;
+        if (sent < kSends && nextSend < wakeAt) wakeAt = nextSend;
+        const long waitMs = long(std::chrono::duration_cast<std::chrono::milliseconds>(wakeAt - now).count());
+
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(fd, &fds);
         timeval tv{};
-        tv.tv_sec = remaining / 1000;
-        tv.tv_usec = (remaining % 1000) * 1000;
+        tv.tv_sec = waitMs / 1000;
+        tv.tv_usec = (waitMs % 1000) * 1000;
         const int rc = select(fd + 1, &fds, nullptr, nullptr, &tv);
-        if (rc <= 0) break;
+        if (rc < 0) break;
+        if (rc == 0) continue;
         char buf[2048];
         sockaddr_in src{};
         socklen_t slen = sizeof(src);
@@ -65,7 +85,6 @@ std::vector<DiscoveredServer> discoverServers(int timeoutMs, uint16_t port) {
             if (!seen) out.push_back(std::move(s));
         } catch (...) {
         }
-        remaining -= 50;
     }
     close(fd);
     return out;

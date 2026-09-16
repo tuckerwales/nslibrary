@@ -48,7 +48,6 @@ describe("USB device-sim over in-memory duplex", () => {
       tlsCert: null,
       nroPath: null,
       forwarderMainPath: null,
-      appVersion: "0.1.0",
       log: () => {},
     });
     const root = server.repo.createRoot({ path: library, label: "usb" });
@@ -119,7 +118,6 @@ describe("USB device-sim over in-memory duplex", () => {
       tlsCert: null,
       nroPath: null,
       forwarderMainPath: null,
-      appVersion: "0.1.0",
       log: () => {},
     });
     server.devices.updateSettings({ requireUsbPairing: true });
@@ -173,7 +171,6 @@ describe("USB device-sim over in-memory duplex", () => {
       tlsCert: null,
       nroPath: null,
       forwarderMainPath: null,
-      appVersion: "0.1.0",
       log: () => {},
     });
     const root = server.repo.createRoot({ path: library, label: "usb" });

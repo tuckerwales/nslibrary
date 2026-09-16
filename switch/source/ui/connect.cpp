@@ -26,11 +26,10 @@ brls::DetailCell* makeCell(const std::string& title, const std::string& detail, 
 }
 
 void afterUrl() {
-    auto& session = Session::instance();
-    if (session.hasToken()) {
+    if (Session::instance().hasToken()) {
         enterPairedSession();
     } else {
-        brls::Application::pushActivity(new PairActivity());
+        showScreen(Screen::Pair);
     }
 }
 
@@ -51,34 +50,44 @@ brls::View* ConnectActivity::createContentView() {
 #ifdef __SWITCH__
     if (UsbTransport::available()) {
         box->addView(makeCell("app/connect/usb"_i18n, "app/connect/usb_hint"_i18n, [](brls::View*) {
-            try {
-                Session::instance().usbHello();
-                enterPairedSession();
-            } catch (const std::exception& e) {
-                showError(e.what());
-            }
+            brls::sync([] {
+                try {
+                    Session::instance().usbHello();
+                    enterPairedSession();
+                } catch (const std::exception& e) {
+                    showError(e.what());
+                }
+            });
             return true;
         }));
     }
 #endif
 
-    box->addView(makeCell("app/connect/discover"_i18n, "", [box](brls::View*) {
+    // Discovery results go in their own box so searching again replaces them instead of appending.
+    auto* results = new brls::Box(brls::Axis::COLUMN);
+    box->addView(makeCell("app/connect/discover"_i18n, "", [results](brls::View*) {
         auto found = discoverServers();
         if (found.empty()) {
+            replaceChildren(results, [](brls::Box*) {});
             showError("app/connect/none"_i18n);
             return true;
         }
-        for (const auto& s : found) {
-            const std::string url = s.url;
-            const std::string label = s.reply.name + "  " + url;
-            box->addView(makeCell(label, s.reply.serverId.substr(0, 8), [url](brls::View*) {
-                Session::instance().setUrl(url);
-                afterUrl();
-                return true;
-            }));
-        }
+        replaceChildren(results, [&found](brls::Box* list) {
+            for (const auto& s : found) {
+                const std::string url = s.url;
+                const std::string label = s.reply.name + "  " + url;
+                list->addView(makeCell(label, s.reply.serverId.substr(0, 8), [url](brls::View*) {
+                    brls::sync([url] {
+                        Session::instance().setUrl(url);
+                        afterUrl();
+                    });
+                    return true;
+                }));
+            }
+        });
         return true;
     }));
+    box->addView(results);
 
     box->addView(makeCell("app/connect/manual"_i18n, Session::instance().settings.url, [](brls::View* view) {
         auto* cell = static_cast<brls::DetailCell*>(view);

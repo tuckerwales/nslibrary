@@ -57,11 +57,11 @@
     "repair": "再ペアリング",
     "forget": "このサーバーを忘れる",
     "version": "アプリのバージョン",
-    "update": "GitHubで更新を確認",
+    "update": "更新を確認",
     "update_checking": "署名付きの最新リリースを確認しています…",
     "update_none": "すでに最新の署名付きリリースです。",
     "update_available": "GitHubに新しい署名付きビルドがあります。ダウンロードして置き換えますか？",
-    "update_github_failed": "GitHubに接続できません。ライブラリサーバー上のコピーを使いますか？",
+    "update_available_server": "ライブラリサーバーに新しい署名付きビルドがあります。ダウンロードして置き換えますか？",
     "update_done": "更新しました。Homebrew MenuからNSLibraryを再起動してください。",
     "target": "デフォルトの保存先",
     "verify": "NCAハッシュを検証"

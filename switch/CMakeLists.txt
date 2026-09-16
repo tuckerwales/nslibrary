@@ -12,15 +12,15 @@ if (PLATFORM_SWITCH)
     include("${BOREALIS_LIBRARY}/cmake/toolchain.cmake")
 endif()
 
-project(nslibrary VERSION 0.1.0 LANGUAGES C CXX)
+set(NSLIB_VERSION_MAJOR 0)
+set(NSLIB_VERSION_MINOR 1)
+set(NSLIB_VERSION_PATCH 2)
+project(nslibrary VERSION ${NSLIB_VERSION_MAJOR}.${NSLIB_VERSION_MINOR}.${NSLIB_VERSION_PATCH} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(NSLIB_VERSION_MAJOR 0)
-set(NSLIB_VERSION_MINOR 1)
-set(NSLIB_VERSION_PATCH 1)
 set(NSLIB_VERSION "${NSLIB_VERSION_MAJOR}.${NSLIB_VERSION_MINOR}.${NSLIB_VERSION_PATCH}")
 set(NSLIB_TITLEID "01004E534C494200")
 set_source_files_properties(source/update/tweetnacl.c PROPERTIES
@@ -41,8 +41,13 @@ set(NSLIB_COMMON_SRC
     source/api/url.cpp
     source/install/preflight.cpp
     source/install/pipeline.cpp
+    source/install/record_merge.cpp
+    source/install/placeholder_journal.cpp
+    source/installed/compare.cpp
+    source/app/atomic_file.cpp
     source/transport/usb_frame.cpp
     source/transport/resume.cpp
+    source/transport/tls_pin.cpp
     source/update/tweetnacl.c
     source/update/randombytes.c
     source/update/ed25519.cpp
@@ -80,7 +85,6 @@ if (PLATFORM_SWITCH)
         source/transport/usb_ds.cpp
         source/transport/discovery.cpp
         source/api/client.cpp
-        source/api/poller.cpp
         source/install/engine.cpp
         source/install/app_record.cpp
         source/install/es.cpp
@@ -96,6 +100,7 @@ if (PLATFORM_SWITCH)
         source/ui/missing_tab.cpp
         source/ui/settings_tab.cpp
         source/ui/progress.cpp
+        source/ui/navigation.cpp
         source/update/http_get.cpp
         source/update/apply.cpp
         source/app/switch_wrapper.c
@@ -181,6 +186,7 @@ else()
         tests/usb_frame_test.cpp
         tests/resume_test.cpp
         tests/update_test.cpp
+        tests/client_fixes_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source

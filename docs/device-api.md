@@ -15,12 +15,14 @@ A fake Switch for tests and debugging is `packages/device-sim` (`nslib-sim`).
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | `POST` | `/pair` | no | Exchange a pairing code for a token |
-| `GET` | `/hello` | yes | Server id, protocol version, `catalogRev`, capabilities, optional `appLatest` |
+| `GET` | `/hello` | yes | Server id, protocol version, `catalogRev`, capabilities. When the server has a signed Switch app, `caps` includes `update` and `appLatest` is its version |
 | `PUT` | `/state` | yes | Firmware, AMS, free space, installed-title snapshot |
 | `GET` | `/catalog?since&cursor&limit` | yes | Compact catalog. If `since` is the current revision, the body is an empty delta (`full: false`). Otherwise a paginated full listing (`full: true`) |
 | `GET` | `/icons/:appId?v=` | yes | 128px-class JPEG, immutable |
 | `GET` | `/files/:fileId` | yes | Range downloads (206), `ETag`, `If-Range`, `If-Match` → `FILE_CHANGED`, missing → `FILE_MISSING` |
-| `GET` | `/update` | yes | Latest `nslibrary.nro` when the server has one (LAN fallback; the Switch prefers a signed GitHub Release) |
+| `GET` | `/update` | yes | The Switch app (`nslibrary.nro`) |
+| `GET` | `/update/manifest` | yes | Exact bytes of the `update.json` next to the `.nro` |
+| `GET` | `/update/signature` | yes | Exact bytes of `update.json.sig` (64-byte Ed25519) |
 | `GET` | `/events?cursor&wait=25` | yes | Long-poll. Omitting `cursor` returns queued **and interrupted** jobs plus a catalog event. `wait` is seconds, 0–30 |
 | `POST` | `/jobs` | yes | Queue an install started on the Switch |
 | `POST` | `/jobs/:id/claim` | yes | Claim a queued or interrupted job for this device |

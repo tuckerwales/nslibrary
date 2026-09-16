@@ -113,9 +113,8 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 | `PUID` / `PGID` | `1000` | Docker user that owns `/data` |
 | `NSLIB_LOG_LEVEL` | `info` | Fastify log level |
 | `NSLIB_TLS_KEY` / `NSLIB_TLS_CERT` | — | PEM files for optional HTTPS (LAN without a reverse proxy) |
-| `NSLIB_NRO_PATH` | `data/update/nslibrary.nro` if present | Switch app the console can download |
+| `NSLIB_NRO_PATH` | `data/update/nslibrary.nro` if present | Switch app the console can update itself from (needs `update.json` and `update.json.sig` beside it) |
 | `NSLIB_FORWARDER_MAIN` | `data/forwarder/main` if present | ExeFS `main` for the HOME-menu NSP |
-| `NSLIB_APP_VERSION` | `0.1.0` | Advertised in device hello as `appLatest` |
 
 The server never writes into library folders. Missing files are marked, then purged after 30 days.
 
@@ -131,4 +130,4 @@ Without keys the library still lists files from containers, tickets, and filenam
 - [Device API](docs/device-api.md) — pairing, catalog, jobs, Range downloads
 - [USB protocol](docs/usb-protocol.md) — frame layout (same messages as HTTP)
 - [Keys](docs/keys.md) — `prod.keys` and filename mode
-- [Switch updates](docs/updates.md) — signed GitHub Releases for the `.nro`
+- [Switch updates](docs/updates.md) — signed `.nro` updates from GitHub Releases or your library server

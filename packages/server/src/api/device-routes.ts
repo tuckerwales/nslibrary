@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import {
   CatalogQuerySchema,
   ClaimJobResponseSchema,
@@ -69,6 +69,25 @@ export async function registerDeviceRoutes(api: FastifyInstance, ctx: AppContext
         throw new ApiError("NOT_FOUND", "No Switch app update is available on this server");
       }
     });
+
+    for (const kind of ["manifest", "signature"] as const) {
+      secured.get(`/update/${kind}`, async (_request, reply) => {
+        const path = ctx.devices.updateFilePath(kind);
+        const missing = () =>
+          new ApiError(
+            "NOT_FOUND",
+            "The Switch app on this server has no update.json signature. Copy update.json and update.json.sig from the GitHub release next to the .nro.",
+          );
+        if (!path) throw missing();
+        try {
+          const payload = await readFile(path);
+          // Exact bytes: the Switch verifies the signature over them.
+          return reply.header("content-type", "application/octet-stream").send(payload);
+        } catch {
+          throw missing();
+        }
+      });
+    }
 
     secured.put("/state", async (request, reply) => {
       const device = request.device;

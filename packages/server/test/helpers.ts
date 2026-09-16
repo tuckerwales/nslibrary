@@ -67,7 +67,6 @@ export function testConfig(dataDir: string, overrides: Partial<ServerConfig> = {
     tlsCert: null,
     nroPath: null,
     forwarderMainPath: null,
-    appVersion: "0.1.0",
     log: () => {},
     ...overrides,
   };

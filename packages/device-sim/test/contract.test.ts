@@ -49,7 +49,6 @@ function testConfig(dataDir: string): ServerConfig {
     tlsCert: null,
     nroPath: null,
     forwarderMainPath: null,
-    appVersion: "0.1.0",
     seed: false,
     seedLibraryDir: null,
     seedKeysPath: null,

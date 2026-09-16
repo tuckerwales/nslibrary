@@ -38,10 +38,13 @@
     "install_body": "Install to which storage?",
     "installed": "Installed",
     "not_installed": "Not on this Switch",
-    "firmware": "Requires firmware"
+    "firmware": "Requires firmware",
+    "warn_firmware": "Warning: this console is older than the required firmware",
+    "warn_battery": "Warning: the battery is below 15% and not charging."
   },
   "updates": {
-    "intro": "Updates in the library that look newer than what is installed."
+    "intro": "Updates in the library that look newer than what is installed.",
+    "empty": "Installed games have no newer updates in the library."
   },
   "missing": {
     "intro": "Base games in the library that are not on this Switch. Open one to install.",
@@ -57,13 +60,14 @@
     "repair": "Pair again",
     "forget": "Forget this server",
     "version": "App version",
-    "update": "Check GitHub for updates",
+    "update": "Check for updates",
     "update_checking": "Looking up the latest signed release…",
     "update_none": "You're already on the latest signed release.",
     "update_available": "A newer signed build is on GitHub. Download and replace this app?",
-    "update_github_failed": "Couldn't reach GitHub. Download the copy on your library server instead?",
+    "update_available_server": "A newer signed build is on your library server. Download and replace this app?",
     "update_done": "Updated. Restart NSLibrary from the Homebrew Menu.",
     "target": "Default storage",
-    "verify": "Verify NCA hashes"
+    "verify": "Verify NCA hashes",
+    "log": "Log file"
   }
 }

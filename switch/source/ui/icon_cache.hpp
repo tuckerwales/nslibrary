@@ -14,8 +14,7 @@ class Image;
 namespace nslib {
 
 /** `alive` is cleared when the owning view is destroyed; late downloads are ignored.
- *  Pass `fetchRemote=false` for dense grids so the library screen does not fire
- *  dozens of HTTP GETs (and libcurl/mbedTLS work) right after connect. */
+ *  Remote fetches run one per frame on the UI thread and are skipped while the library is unreachable. */
 void loadAppIcon(brls::Image* image, std::shared_ptr<std::atomic<bool>> alive, const std::string& appId,
     std::optional<int64_t> rev, bool fetchRemote = true);
 

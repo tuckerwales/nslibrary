@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -8,12 +9,16 @@
 
 namespace nslib {
 
-/** HTTPS GET of a full URL (GitHub). Follows redirects. TLS is not trusted; signatures are. */
-std::string httpGetString(const std::string& url, long timeoutMs = 30000);
+/**
+ * HTTPS GET of a full URL (GitHub). Follows redirects. TLS is not trusted; signatures are.
+ * Runs on the UI thread and keeps the progress overlay drawing while it blocks.
+ * Setting `*cancel` aborts the transfer with "cancelled".
+ */
+std::string httpGetString(const std::string& url, long timeoutMs = 30000, const std::atomic<bool>* cancel = nullptr);
 
-void httpGetStream(
-    const std::string& url, const std::function<void(const uint8_t*, size_t)>& sink, long timeoutMs = 120000);
+void httpGetStream(const std::string& url, const std::function<void(const uint8_t*, size_t)>& sink,
+    long timeoutMs = 120000, const std::atomic<bool>* cancel = nullptr);
 
-std::vector<uint8_t> httpGetBytes(const std::string& url, long timeoutMs = 60000);
+std::vector<uint8_t> httpGetBytes(const std::string& url, long timeoutMs = 60000, const std::atomic<bool>* cancel = nullptr);
 
 } // namespace nslib

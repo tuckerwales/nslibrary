@@ -2,8 +2,8 @@
 
 namespace nslib {
 
-bool firmwareTooNew(uint32_t requiredPacked, uint32_t currentPacked) {
-    return requiredPacked > currentPacked;
+bool firmwareTooNew(uint32_t requiredSystemVersion, uint32_t currentPacked) {
+    return currentPacked != 0 && packSystemVersion(requiredSystemVersion) > currentPacked;
 }
 
 bool batteryShouldWarn(unsigned percent, bool charging) {

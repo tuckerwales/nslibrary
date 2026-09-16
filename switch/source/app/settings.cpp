@@ -1,6 +1,7 @@
 #include "app/settings.hpp"
 
 #include "api/json.hpp"
+#include "app/atomic_file.hpp"
 
 #include <cstdio>
 #include <fstream>
@@ -29,6 +30,7 @@ std::string formatUuid(const uint8_t b[16]) {
 } // namespace
 
 void Settings::load() {
+    recoverReplacedFile(kPath);
     std::ifstream in(kPath);
     if (!in) {
         ensureUuid();
@@ -40,6 +42,7 @@ void Settings::load() {
         const Json v = Json::parse(ss.str());
         if (v["url"].isString()) url = v["url"].asString();
         if (v["token"].isString()) token = v["token"].asString();
+        if (v.has("tlsPin") && v["tlsPin"].isString()) tlsPin = v["tlsPin"].asString();
         if (v["uuid"].isString()) uuid = v["uuid"].asString();
         if (v["name"].isString() && !v["name"].asString().empty()) name = v["name"].asString();
         if (v["defaultTarget"].isString() && !v["defaultTarget"].asString().empty()) {
@@ -58,13 +61,17 @@ void Settings::save() const {
     Json o = Json::object();
     o.set("url", Json::string(url));
     o.set("token", Json::string(token));
+    o.set("tlsPin", Json::string(tlsPin));
     o.set("uuid", Json::string(uuid));
     o.set("name", Json::string(name));
     o.set("defaultTarget", Json::string(defaultTarget));
     o.set("verifyHash", Json::boolean(verifyHash));
     o.set("useUsb", Json::boolean(useUsb));
-    std::ofstream out(kPath, std::ios::trunc);
-    out << o.dump();
+    try {
+        writeFileAtomic(kPath, o.dump());
+    } catch (const std::exception&) {
+        // The SD card is read-only or full; keep running with the in-memory settings.
+    }
 }
 
 void Settings::ensureUuid() {

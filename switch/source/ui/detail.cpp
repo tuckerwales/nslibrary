@@ -1,6 +1,9 @@
 #include "ui/detail.hpp"
 
+#include "app/services.hpp"
 #include "app/session.hpp"
+#include "install/preflight.hpp"
+#include "installed/compare.hpp"
 #include "ui/icon_cache.hpp"
 #include "ui/main_activity.hpp"
 
@@ -25,16 +28,17 @@ std::string formatSize(uint64_t n) {
 }
 
 std::string installedLine(const CatalogApp& app) {
-    uint32_t have = 0;
-    std::string storage;
-    for (const auto& t : Session::instance().installedSnapshot().titles) {
-        if (t.titleId == app.id && t.version >= have) {
-            have = t.version;
-            storage = t.storage;
-        }
-    }
-    if (storage.empty()) return "app/detail/not_installed"_i18n;
-    return "app/detail/installed"_i18n + std::string(" v") + std::to_string(have) + " (" + storage + ")";
+    const auto s = summarizeInstalled(Session::instance().installedSnapshot().titles, app.id);
+    if (!s.baseInstalled && s.patchVersion == 0) return "app/detail/not_installed"_i18n;
+    std::string line = "app/detail/installed"_i18n;
+    if (s.baseInstalled) line += " (" + s.baseStorage + ")";
+    if (s.patchVersion) line += "  " + "app/detail/update"_i18n + " v" + std::to_string(s.patchVersion);
+    return line;
+}
+
+std::string firmwareText(uint32_t systemVersion) {
+    return std::to_string((systemVersion >> 26) & 0x3f) + "." + std::to_string((systemVersion >> 20) & 0x3f) + "." +
+        std::to_string((systemVersion >> 16) & 0xf);
 }
 
 brls::DetailCell* makeRow(const std::string& title, const std::string& detail, std::function<bool(brls::View*)> onClick) {
@@ -47,16 +51,27 @@ brls::DetailCell* makeRow(const std::string& title, const std::string& detail, s
 
 } // namespace
 
-void confirmInstall(int64_t contentMetaId, const std::string& name, uint64_t size) {
+void confirmInstall(int64_t contentMetaId, const std::string& name, uint64_t size,
+    std::optional<uint32_t> requiredSystemVersion)
+{
     if (!contentMetaId) {
         showError("app/library/nothing"_i18n);
         return;
     }
     std::string body = "app/detail/install_body"_i18n + std::string("\n") + name;
     if (size) body += "\n" + formatSize(size);
+    if (requiredSystemVersion && firmwareTooNew(*requiredSystemVersion, currentFirmwarePacked())) {
+        body += "\n\n" + "app/detail/warn_firmware"_i18n + " " + firmwareText(*requiredSystemVersion);
+    }
+    if (batteryShouldWarn(batteryPercent(), batteryCharging())) {
+        body += "\n\n" + "app/detail/warn_battery"_i18n;
+    }
     auto* dialog = new brls::Dialog(body);
     auto enqueue = [contentMetaId](const std::string& target) {
-        return [contentMetaId, target]() { Session::instance().queueInstall(contentMetaId, target); };
+        return [contentMetaId, target]() {
+            // Start after the dialog has closed so the progress overlay does not draw over it.
+            brls::sync([contentMetaId, target] { Session::instance().queueInstall(contentMetaId, target); });
+        };
     };
     dialog->addButton("app/detail/sd"_i18n, enqueue("sd"));
     dialog->addButton("app/detail/nand"_i18n, enqueue("nand"));
@@ -101,7 +116,7 @@ brls::View* TitleDetailActivity::createContentView() {
         const uint32_t v = *app_.requiredSysVersion;
         char buf[64];
         const std::string fwLabel = "app/detail/firmware"_i18n;
-        std::snprintf(buf, sizeof(buf), "%s %u.%u.%u", fwLabel.c_str(), (v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff);
+        std::snprintf(buf, sizeof(buf), "%s %s", fwLabel.c_str(), firmwareText(v).c_str());
         fw->setText(buf);
         info->addView(fw);
     }
@@ -112,14 +127,15 @@ brls::View* TitleDetailActivity::createContentView() {
         const auto base = *app_.base;
         box->addView(makeRow("app/detail/base"_i18n, "v" + std::to_string(base.version) + "  " + formatSize(base.size),
             [app = app_, base](brls::View*) {
-                confirmInstall(base.contentMetaId, app.name, base.size);
+                confirmInstall(base.contentMetaId, app.name, base.size, app.requiredSysVersion);
                 return true;
             }));
     }
     for (const auto& upd : app_.updates) {
         box->addView(makeRow("app/detail/update"_i18n, "v" + std::to_string(upd.version) + "  " + formatSize(upd.size),
             [app = app_, upd](brls::View*) {
-                confirmInstall(upd.contentMetaId, app.name + " v" + std::to_string(upd.version), upd.size);
+                confirmInstall(
+                    upd.contentMetaId, app.name + " v" + std::to_string(upd.version), upd.size, app.requiredSysVersion);
                 return true;
             }));
     }

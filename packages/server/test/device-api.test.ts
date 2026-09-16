@@ -1,4 +1,5 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, unlink, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   CatalogResponseSchema,
@@ -145,7 +146,8 @@ describe("device API", () => {
     expect(hello.json().serverName).toBe("test");
     expect(hello.json().caps).toContain("events");
     expect(hello.json().caps).toContain("resume");
-    expect(hello.json().appLatest).toBe("0.1.0");
+    expect(hello.json().caps).not.toContain("update");
+    expect(hello.json().appLatest).toBeUndefined();
   });
 
   it("expires pairing codes and rate-limits guesses", async () => {
@@ -432,9 +434,77 @@ describe("device API", () => {
     expect(Buffer.from(across.rawPayload).equals(nsp.subarray(30, 36))).toBe(true);
   });
 
+  it("serves the signed update metadata next to the nro byte-for-byte", async () => {
+    await server.close();
+    const updateDir = join(dir, "update");
+    await mkdir(updateDir, { recursive: true });
+    const nroPath = join(updateDir, "nslibrary.nro");
+    const manifest = '{"version":"9.9.9","sha256":"00","size":3}';
+    const signature = Buffer.from(Array.from({ length: 64 }, (_, i) => i));
+    await writeFile(nroPath, Buffer.from([1, 2, 3]));
+    await writeFile(join(updateDir, "update.json"), manifest);
+    server = await createServer(testConfig(join(dir, "data"), { nroPath }), { now: () => now });
+
+    const session = await setUp();
+    const { token } = (await pair(session)).json();
+    const m = await device("GET", "/update/manifest", { token });
+    expect(m.statusCode).toBe(200);
+    expect(Buffer.from(m.rawPayload).toString()).toBe(manifest);
+
+    const missingSig = await device("GET", "/update/signature", { token });
+    expect(missingSig.statusCode).toBe(404);
+
+    await writeFile(join(updateDir, "update.json.sig"), signature);
+    const sig = await device("GET", "/update/signature", { token });
+    expect(sig.statusCode).toBe(200);
+    expect(Buffer.from(sig.rawPayload).equals(signature)).toBe(true);
+
+    expect((await device("GET", "/update/manifest")).statusCode).toBe(401);
+  });
+
+  it("advertises and serves the Switch app only when its signed set matches", async () => {
+    await server.close();
+    const updateDir = join(dir, "update");
+    await mkdir(updateDir, { recursive: true });
+    const nroPath = join(updateDir, "nslibrary.nro");
+    const nro = Buffer.from("fake nro payload");
+    const manifestFor = (bytes: Buffer, version = "0.2.0") =>
+      `{"version":"${version}","sha256":"${createHash("sha256").update(bytes).digest("hex")}","size":${bytes.byteLength}}`;
+    await writeFile(nroPath, nro);
+    await writeFile(join(updateDir, "update.json"), manifestFor(nro));
+    server = await createServer(testConfig(join(dir, "data"), { nroPath }), { now: () => now });
+
+    const session = await setUp();
+    const { token } = (await pair(session)).json();
+    const hello = async () =>
+      HelloResponseSchema.parse((await device("GET", "/hello", { token })).json());
+
+    // No signature yet: the Switch would refuse it, so the server does not offer it.
+    expect((await hello()).caps).not.toContain("update");
+    expect((await hello()).appLatest).toBeUndefined();
+
+    await writeFile(join(updateDir, "update.json.sig"), Buffer.alloc(64, 7));
+    expect((await hello()).caps).toContain("update");
+    expect((await hello()).appLatest).toBe("0.2.0");
+
+    const download = await device("GET", "/update", { token });
+    expect(download.statusCode).toBe(200);
+    expect(Buffer.from(download.rawPayload).equals(nro)).toBe(true);
+
+    // A new .nro copied over without its manifest no longer matches the hash.
+    const replaced = Buffer.from("other nro payload");
+    await writeFile(nroPath, replaced);
+    await utimes(nroPath, new Date(now / 1000 + 60), new Date(now / 1000 + 60));
+    expect((await hello()).caps).not.toContain("update");
+
+    await writeFile(join(updateDir, "update.json"), manifestFor(replaced, "0.3.0"));
+    expect((await hello()).appLatest).toBe("0.3.0");
+  });
+
   it("returns 404 for /update when no nro is configured", async () => {
     const session = await setUp();
     const { token } = (await pair(session)).json();
+    expect((await device("GET", "/update/manifest", { token })).statusCode).toBe(404);
     const res = await device("GET", "/update", { token });
     expect(res.statusCode).toBe(404);
   });

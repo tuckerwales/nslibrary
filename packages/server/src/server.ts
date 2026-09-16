@@ -66,7 +66,6 @@ export async function createServer(
     now,
     serverName: config.serverName,
     catalogRev: () => repo.catalogRev(),
-    appVersion: config.appVersion,
     nroPath: config.nroPath,
     tls: Boolean(config.tlsKey && config.tlsCert),
   });

@@ -16,7 +16,7 @@ The web UI is not a static site. Coolify (or any host) must run the **Node serve
    | `PUID` / `PGID` | UID/GID that should own `/data` (default `1000`) |
    | `NSLIB_SEED` | `true` (default in the image) attaches a synthetic demo library on first boot |
    | `NSLIB_TLS_KEY` / `NSLIB_TLS_CERT` | Optional PEM paths for HTTPS on the Node port (usually leave unset behind Traefik) |
-   | `NSLIB_NRO_PATH` | Optional `nslibrary.nro` the Switch can download from **Settings → Download update** |
+   | `NSLIB_NRO_PATH` | Optional `nslibrary.nro` the Switch can update itself from (**Settings → Check for updates**). Put the release's `update.json` and `update.json.sig` next to it |
 
    Coolify’s `PORT` is honoured if set; otherwise the app listens on 8465. Prefer the reverse proxy for TLS; in-process HTTPS is for a direct LAN bind.
 

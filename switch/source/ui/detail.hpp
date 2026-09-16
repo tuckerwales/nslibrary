@@ -5,6 +5,7 @@
 #include <atomic>
 #include <borealis.hpp>
 #include <memory>
+#include <optional>
 
 namespace nslib {
 
@@ -19,6 +20,8 @@ private:
     std::shared_ptr<std::atomic<bool>> alive_ = std::make_shared<std::atomic<bool>>(true);
 };
 
-void confirmInstall(int64_t contentMetaId, const std::string& name, uint64_t size = 0);
+/** Ask which storage to install to. Warns in the dialog about low battery or a firmware requirement. */
+void confirmInstall(int64_t contentMetaId, const std::string& name, uint64_t size = 0,
+    std::optional<uint32_t> requiredSystemVersion = std::nullopt);
 
 } // namespace nslib

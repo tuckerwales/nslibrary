@@ -39,15 +39,21 @@ public:
         const std::function<void(const uint8_t*, size_t)>& sink);
     std::vector<uint8_t> getIcon(const std::string& appId, std::optional<int64_t> rev = {});
     int getUpdate(const std::function<void(const uint8_t*, size_t)>& sink);
+    /** Exact bytes of the server's `update.json` and `update.json.sig` (signature checks need them unmodified). */
+    std::vector<uint8_t> getUpdateManifest();
+    std::vector<uint8_t> getUpdateSignature();
 
-    std::vector<CatalogApp> fetchFullCatalog();
+    /** Connect timeout for quick background calls (events, icons, progress). */
+    static constexpr long kQuickConnectMs = 3000;
 
 private:
     ITransport& transport_;
     std::string token_;
 
     HttpResponse call(const std::string& method, const std::string& path, const std::string* body, bool auth,
-        long timeoutMs = 30000);
+        long timeoutMs = 30000, long connectTimeoutMs = 10000);
+    std::vector<uint8_t> getSmallFile(const std::string& path, size_t maxBytes);
+    [[noreturn]] void throwStreamError(int status, const std::string& fallbackCode, const std::string& what);
     Json expectJson(const HttpResponse& res);
 };
 
