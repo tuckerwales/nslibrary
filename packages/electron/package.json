@@ -5,6 +5,9 @@
   "type": "module",
   "main": "src/main.ts",
   "scripts": {
+    "ensure-electron": "node scripts/ensure-electron.mjs",
+    "predev": "node scripts/ensure-electron.mjs",
+    "prestart": "node scripts/ensure-electron.mjs",
     "dev": "electron --import tsx src/main.ts",
     "start": "electron --import tsx src/main.ts"
   },

@@ -9,9 +9,20 @@ pnpm install
 pnpm dev:desktop
 ```
 
-That builds the web UI, then starts Electron. `better-sqlite3` v13 already includes platform binaries; you do not need `node-gyp` or Xcode Command Line Tools for a normal install.
+That builds the web UI, then starts Electron. The first desktop start downloads the Electron binary (~100 MB) if pnpm skipped it.
 
-If `pnpm install` still tries to compile it, check `pnpm-workspace.yaml`: `allowBuilds.better-sqlite3` must be `false`.
+`better-sqlite3` v13 already includes platform binaries; you do not need `node-gyp` or Xcode Command Line Tools for a normal install.
+
+If `pnpm install` still tries to compile SQLite, check `pnpm-workspace.yaml`: `allowBuilds.better-sqlite3` must be `false`.
+
+If Electron prints `failed to install correctly`, from the repo root:
+
+```bash
+pnpm rebuild electron
+pnpm dev:desktop
+```
+
+Node **22 LTS** is the one we test. Node 24 can run the CLI; if something odd shows up, switch with `nvm use 22`.
 
 The “pnpm is running through Node.js…” line is from Corepack skipping pnpm’s own native installer. It is noisy but harmless; `corepack enable` then `corepack prepare pnpm@12.4.2 --activate` installs the binary.
 
