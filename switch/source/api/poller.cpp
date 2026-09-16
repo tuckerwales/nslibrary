@@ -4,8 +4,8 @@
 
 namespace nslib {
 
-EventPoller::EventPoller(DeviceApiClient& client, Handler handler)
-    : client_(client), handler_(std::move(handler)) {}
+EventPoller::EventPoller(DeviceApiClient& client, Handler handler, int waitSeconds)
+    : client_(client), handler_(std::move(handler)), waitSeconds_(waitSeconds) {}
 
 EventPoller::~EventPoller() { stop(); }
 
@@ -22,7 +22,7 @@ void EventPoller::stop() {
 void EventPoller::loop() {
     while (running_) {
         try {
-            auto page = client_.events(cursor_, 25);
+            auto page = client_.events(cursor_, waitSeconds_);
             cursor_ = page.cursor;
             for (const auto& ev : page.ev) {
                 if (!running_) break;

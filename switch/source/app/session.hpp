@@ -4,7 +4,7 @@
 #include "api/poller.hpp"
 #include "api/protocol.hpp"
 #include "app/settings.hpp"
-#include "transport/http.hpp"
+#include "transport/ITransport.hpp"
 
 #include <atomic>
 #include <deque>
@@ -26,7 +26,9 @@ public:
     bool hasToken() const { return !settings.token.empty(); }
 
     void setUrl(std::string url);
+    void setUsb(bool on);
     void forgetDevice();
+    PairResponse usbHello();
 
     HelloResponse hello();
     PairResponse pair(const std::string& code);
@@ -54,9 +56,9 @@ private:
     Session() = default;
 
     mutable std::mutex mutex_;
-    std::unique_ptr<HttpTransport> transport_;
+    std::unique_ptr<ITransport> transport_;
     std::unique_ptr<DeviceApiClient> client_;
-    std::unique_ptr<HttpTransport> pollTransport_;
+    std::unique_ptr<ITransport> pollTransport_;
     std::unique_ptr<DeviceApiClient> pollClient_;
     std::unique_ptr<EventPoller> poller_;
     std::vector<CatalogApp> catalog_;

@@ -1,6 +1,6 @@
 # Switch app
 
-The homebrew `.nro` talks to the library over LAN HTTP and streams installs into console storage (SD or NAND) without copying the whole file to the SD card first. USB transport is a later milestone.
+The homebrew `.nro` talks to the library over LAN HTTP or a USB cable and streams installs into console storage (SD or NAND) without copying the whole file to the SD card first.
 
 ## Host tests (no Switch toolchain)
 
@@ -53,6 +53,8 @@ CI builds the same target in `devkitpro/devkita64` and uploads the artifact.
 4. Enter the 6-digit code.
 5. Browse **Library** (icon grid). Open a title for base / update / DLC, then pick **SD card**, **NAND**, or **Auto**.
 6. Jobs queued from the web (**Send to Switch**) are picked up by the long-poll. Open **Queue** and press A to cancel.
+
+USB: on the Connect screen choose **USB cable** while NSLibrary is running on the computer (Electron, or Docker on Linux with `/dev/bus/usb`). Windows needs [WinUSB](windows-usb-driver.md).
 
 NSP, NSZ, XCI, and XCZ all install. Homebrew `.nro` files are written to `sdmc:/switch/<name>/`. Hash verification is on by default (Settings).
 

@@ -41,6 +41,12 @@ PairResponse DeviceApiClient::pair(const PairRequest& req) {
     return parsePairResponse(expectJson(res));
 }
 
+PairResponse DeviceApiClient::usbHello(const DeviceInfo& device) {
+    const std::string body = encodeDeviceInfo(device).dump();
+    const auto res = call("POST", "/usb/hello", &body, false);
+    return parsePairResponse(expectJson(res));
+}
+
 HelloResponse DeviceApiClient::hello() {
     return parseHello(expectJson(call("GET", "/hello", nullptr, true)));
 }

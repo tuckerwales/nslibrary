@@ -111,6 +111,15 @@ export function SettingsPage() {
               disabled={putSettings.isPending}
               onChange={(preferNsz) => putSettings.mutate({ preferNsz })}
             />
+            <div className="mt-4">
+              <Switch
+                label="Require pairing for USB"
+                hint="Off: a USB-connected Switch is trusted automatically. On: it must enter a pairing code."
+                checked={settings.data.requireUsbPairing}
+                disabled={putSettings.isPending}
+                onChange={(requireUsbPairing) => putSettings.mutate({ requireUsbPairing })}
+              />
+            </div>
           </div>
         )}
       </section>

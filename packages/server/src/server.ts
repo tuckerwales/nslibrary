@@ -29,7 +29,7 @@ export interface NslibServer {
   auth: AuthService;
   devices: DeviceApiService;
   discovery: DiscoveryServer | null;
-  /** Starts watchers, the startup scan, and periodic maintenance. Call after listen(). */
+  /** Starts watchers, the startup scan, USB host, and periodic maintenance. Call after listen(). */
   start(): Promise<void>;
   close(): Promise<void>;
 }
@@ -90,8 +90,10 @@ export async function createServer(
     log,
   });
   const fastify = app;
+  const iconCacheDir = iconDir;
 
   let maintenance: NodeJS.Timeout | null = null;
+  let usbHost: { stop(): Promise<void> } | null = null;
   const runMaintenance = () => {
     repo.purgeMissing(MISSING_FILE_RETENTION_MS);
     auth.purgeExpiredSessions();
@@ -118,9 +120,24 @@ export async function createServer(
       await applyDemoSeed({ config, repo, scanner, keys, log });
       for (const root of repo.listRoots()) await scanner.watchRoot(root);
       scanner.scanAll().catch((err) => log("Startup scan failed", err));
+      if (config.usb) {
+        try {
+          const { startUsbHost } = await import("@nslib/usb-host/host");
+          const { DeviceUsbHandler } = await import("./usb/handler");
+          usbHost = await startUsbHost({
+            handler: new DeviceUsbHandler(devices, iconCacheDir),
+            log,
+          });
+          log("USB host listening for a Switch (057E:3000)");
+        } catch (err) {
+          log("USB host failed to start", err);
+        }
+      }
     },
     async close() {
       if (maintenance) clearInterval(maintenance);
+      await usbHost?.stop();
+      usbHost = null;
       await discovery?.close();
       devices.close();
       await fastify.close();

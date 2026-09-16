@@ -4,8 +4,10 @@
 #include "app/services.hpp"
 #include "install/engine.hpp"
 #include "installed/scanner.hpp"
+#include "transport/http.hpp"
 
 #ifdef __SWITCH__
+#include "transport/usb.hpp"
 #include "ui/progress.hpp"
 #include <borealis.hpp>
 #endif
@@ -50,6 +52,17 @@ void Session::upsertJob(const Job& job) {
 
 void Session::setUrl(std::string url) {
     settings.url = normalizeServerUrl(std::move(url));
+    settings.useUsb = false;
+    settings.save();
+    stop();
+    transport_.reset();
+    client_.reset();
+    pollTransport_.reset();
+    pollClient_.reset();
+}
+
+void Session::setUsb(bool on) {
+    settings.useUsb = on;
     settings.save();
     stop();
     transport_.reset();
@@ -70,7 +83,14 @@ void Session::forgetDevice() {
 
 void Session::ensureClient() {
     if (!transport_ || !client_) {
-        transport_ = std::make_unique<HttpTransport>(settings.url);
+#ifdef __SWITCH__
+        if (settings.useUsb) {
+            transport_ = std::make_unique<UsbTransport>();
+        } else
+#endif
+        {
+            transport_ = std::make_unique<HttpTransport>(settings.url);
+        }
         transport_->setToken(settings.token);
         client_ = std::make_unique<DeviceApiClient>(*transport_, settings.token);
     } else {
@@ -99,15 +119,31 @@ PairResponse Session::pair(const std::string& code) {
     return res;
 }
 
+PairResponse Session::usbHello() {
+    setUsb(true);
+    ensureClient();
+    auto res = client_->usbHello(currentDeviceInfo(settings.uuid, settings.name));
+    settings.token = res.token;
+    settings.save();
+    transport_->setToken(settings.token);
+    client_->setToken(settings.token);
+    return res;
+}
+
 void Session::start() {
     ensureClient();
     hello();
     refreshInstalled();
     refreshCatalog();
-    pollTransport_ = std::make_unique<HttpTransport>(settings.url);
-    pollTransport_->setToken(settings.token);
-    pollClient_ = std::make_unique<DeviceApiClient>(*pollTransport_, settings.token);
-    poller_ = std::make_unique<EventPoller>(*pollClient_, [this](const DeviceEvent& ev) { onEvent(ev); });
+    const int wait = settings.useUsb ? 0 : 25;
+    if (settings.useUsb) {
+        poller_ = std::make_unique<EventPoller>(*client_, [this](const DeviceEvent& ev) { onEvent(ev); }, wait);
+    } else {
+        pollTransport_ = std::make_unique<HttpTransport>(settings.url);
+        pollTransport_->setToken(settings.token);
+        pollClient_ = std::make_unique<DeviceApiClient>(*pollTransport_, settings.token);
+        poller_ = std::make_unique<EventPoller>(*pollClient_, [this](const DeviceEvent& ev) { onEvent(ev); }, wait);
+    }
     poller_->start();
 }
 

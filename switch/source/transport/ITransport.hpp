@@ -23,6 +23,7 @@ struct HttpResponse {
 class ITransport {
 public:
     virtual ~ITransport() = default;
+    virtual void setToken(std::string token) = 0;
     virtual void setTimeoutMs(long ms) = 0;
     virtual HttpResponse request(
         const std::string& method,

@@ -28,6 +28,8 @@ A fake Switch for tests and debugging is `packages/device-sim` (`nslib-sim`).
 
 Errors are `{error:{code,msg}}` with the same codes over USB.
 
+USB uses the same paths inside `NSLU` frames. The first request is `POST /usb/hello` (device info, no pairing code) unless Settings requires pairing. See [usb-protocol.md](usb-protocol.md).
+
 ## Discovery
 
 The Switch broadcasts UDP `NSLIB?1` to port 8466. The server replies unicast with `{serverId,name,port,proto}`. Disable with `NSLIB_DISCOVERY=0`. You can always type an IP by hand.

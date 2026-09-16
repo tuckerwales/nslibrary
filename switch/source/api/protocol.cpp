@@ -202,14 +202,19 @@ DiscoveryReply parseDiscoveryReply(const Json& v) {
     return r;
 }
 
-Json encodePairRequest(const PairRequest& r) {
+Json encodeDeviceInfo(const DeviceInfo& d) {
     Json o = Json::object();
+    o.set("deviceUuid", Json::string(d.deviceUuid));
+    o.set("name", Json::string(d.name));
+    o.set("fw", Json::string(d.fw));
+    o.set("amsVersion", Json::string(d.amsVersion));
+    o.set("appVersion", Json::string(d.appVersion));
+    return o;
+}
+
+Json encodePairRequest(const PairRequest& r) {
+    Json o = encodeDeviceInfo(r.device);
     o.set("code", Json::string(r.code));
-    o.set("deviceUuid", Json::string(r.device.deviceUuid));
-    o.set("name", Json::string(r.device.name));
-    o.set("fw", Json::string(r.device.fw));
-    o.set("amsVersion", Json::string(r.device.amsVersion));
-    o.set("appVersion", Json::string(r.device.appVersion));
     return o;
 }
 

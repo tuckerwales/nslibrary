@@ -28,6 +28,8 @@ export interface ServerConfig {
   serverName: string;
   /** UDP port for `NSLIB?1`. Null disables discovery. 0 binds an ephemeral port. */
   discoveryPort: number | null;
+  /** Attach to a USB-connected Switch (node-usb). */
+  usb: boolean;
 }
 
 const WEB_DIR_CANDIDATES = [
@@ -73,5 +75,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     seedKeysPath: env.NSLIB_SEED_KEYS ? resolve(env.NSLIB_SEED_KEYS) : null,
     serverName: env.NSLIB_SERVER_NAME?.trim() || "NSLibrary",
     discoveryPort: discoveryPort(env),
+    usb: flag(env.NSLIB_USB),
   };
 }

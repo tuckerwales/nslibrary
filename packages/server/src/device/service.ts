@@ -6,6 +6,7 @@ import {
   type CatalogResponse,
   DEVICE_API_PROTOCOL_VERSION,
   DEVICE_CAPABILITIES,
+  type DeviceInfo,
   type DeviceState,
   type EventsResponse,
   guessApplicationIdForAddon,
@@ -42,6 +43,7 @@ import { DeviceEventLog } from "./events";
 
 export const PREFER_NSZ_KEY = "prefer_nsz";
 export const SERVER_ID_KEY = "server_id";
+export const REQUIRE_USB_PAIRING_KEY = "require_usb_pairing";
 
 const PAIR_TTL_MS = 5 * 60 * 1000;
 const PAIR_MAX_ATTEMPTS = 5;
@@ -123,14 +125,29 @@ export class DeviceApiService {
     return setting(this.#db, PREFER_NSZ_KEY) !== "0";
   }
 
-  getSettings(): ServerSettings {
-    return { preferNsz: this.preferNsz(), serverName: this.serverName };
+  requireUsbPairing(): boolean {
+    return setting(this.#db, REQUIRE_USB_PAIRING_KEY) === "1";
   }
 
-  updateSettings(patch: { preferNsz?: boolean; serverName?: string }): ServerSettings {
+  getSettings(): ServerSettings {
+    return {
+      preferNsz: this.preferNsz(),
+      serverName: this.serverName,
+      requireUsbPairing: this.requireUsbPairing(),
+    };
+  }
+
+  updateSettings(patch: {
+    preferNsz?: boolean;
+    serverName?: string;
+    requireUsbPairing?: boolean;
+  }): ServerSettings {
     if (patch.preferNsz !== undefined)
       putSetting(this.#db, PREFER_NSZ_KEY, patch.preferNsz ? "1" : "0");
     if (patch.serverName !== undefined) putSetting(this.#db, "server_name", patch.serverName);
+    if (patch.requireUsbPairing !== undefined) {
+      putSetting(this.#db, REQUIRE_USB_PAIRING_KEY, patch.requireUsbPairing ? "1" : "0");
+    }
     return this.getSettings();
   }
 
@@ -210,6 +227,73 @@ export class DeviceApiService {
       serverId: this.#serverId,
       serverName: this.serverName,
     };
+  }
+
+  /**
+   * First USB request. Trusts the Switch automatically unless Settings requires pairing.
+   * A valid existing token is always accepted.
+   */
+  usbHello(info: DeviceInfo, token?: string): PairResponse {
+    const now = this.#now();
+    if (token) {
+      const device = this.requireActive(this.resolveToken(token));
+      this.#db
+        .update(devices)
+        .set({
+          name: info.name,
+          fw: info.fw,
+          ams: info.amsVersion,
+          appVersion: info.appVersion,
+          lastSeen: now,
+          transport: "usb",
+        })
+        .where(eq(devices.id, device.id))
+        .run();
+      return {
+        token,
+        deviceId: device.id,
+        serverId: this.#serverId,
+        serverName: this.serverName,
+      };
+    }
+    if (this.requireUsbPairing()) {
+      throw new ApiError("UNAUTHORIZED", "Pair this Switch before continuing");
+    }
+    const newToken = randomBytes(32).toString("base64url");
+    const tokenHash = sha256Hex(newToken);
+    const existing = this.#db.select().from(devices).where(eq(devices.uuid, info.deviceUuid)).get();
+    const values = {
+      name: info.name,
+      tokenHash,
+      fw: info.fw,
+      ams: info.amsVersion,
+      appVersion: info.appVersion,
+      lastSeen: now,
+      transport: "usb" as const,
+      revokedAt: null as number | null,
+    };
+    let deviceId: number;
+    if (existing) {
+      this.#db.update(devices).set(values).where(eq(devices.id, existing.id)).run();
+      deviceId = existing.id;
+    } else {
+      deviceId = this.#db
+        .insert(devices)
+        .values({ uuid: info.deviceUuid, createdAt: now, ...values })
+        .returning({ id: devices.id })
+        .get().id;
+    }
+    this.#events.publish({ type: "device.paired", deviceId, name: info.name });
+    return {
+      token: newToken,
+      deviceId,
+      serverId: this.#serverId,
+      serverName: this.serverName,
+    };
+  }
+
+  interruptActiveJobs(deviceId: number, message: string): void {
+    this.#interruptActiveJobs(deviceId, message);
   }
 
   resolveToken(token: string | undefined): DeviceRow | null {

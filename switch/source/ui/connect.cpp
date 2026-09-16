@@ -2,6 +2,9 @@
 
 #include "app/session.hpp"
 #include "transport/discovery.hpp"
+#ifdef __SWITCH__
+#include "transport/usb.hpp"
+#endif
 #include "ui/main_activity.hpp"
 #include "ui/pair.hpp"
 
@@ -46,6 +49,20 @@ brls::View* ConnectActivity::createContentView() {
     auto* intro = new brls::Label();
     intro->setText("app/connect/intro"_i18n);
     box->addView(intro);
+
+#ifdef __SWITCH__
+    if (UsbTransport::available()) {
+        box->addView(makeCell("app/connect/usb"_i18n, "app/connect/usb_hint"_i18n, [](brls::View*) {
+            try {
+                Session::instance().usbHello();
+                enterPairedSession();
+            } catch (const std::exception& e) {
+                showError(e.what());
+            }
+            return true;
+        }));
+    }
+#endif
 
     box->addView(makeCell("app/connect/discover"_i18n, "", [box](brls::View*) {
         auto found = discoverServers();

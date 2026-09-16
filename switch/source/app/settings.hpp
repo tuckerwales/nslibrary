@@ -11,6 +11,7 @@ struct Settings {
     std::string name = "Switch";
     std::string defaultTarget = "sd";
     bool verifyHash = true;
+    bool useUsb = false;
 
     void load();
     void save() const;

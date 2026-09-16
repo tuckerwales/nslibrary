@@ -11,9 +11,11 @@ There are no download sources, no shop scraping, and no title keys handed out. K
 - **Metadata** — Container listings and tickets need no keys. Names, icons, firmware requirements, and NCA hashes need `prod.keys` dumped from your console. Optional titledb (a URL or file you supply) fills in names and latest-version numbers only.
 - **Device API** — A paired Switch browses the catalog and claims install jobs. The console always initiates; “Send to Switch” queues work for it to pick up.
 - **Discovery** — UDP `NSLIB?1` on port 8466. You can always type an IP by hand.
+- **USB** — A Switch plugged into the computer running NSLibrary (Electron, or Docker on Linux with device passthrough) uses the same device API inside `NSLU` frames.
+- **Desktop app** — Electron wraps the same server: tray, native folder picker, USB, auto sign-in on this machine.
 - **Demo data** — Synthetic containers and a fake keyset so the UI is usable without real dumps. No copyrighted content.
 
-The Switch homebrew client (C++ / [Borealis](https://github.com/xfangfang/borealis)) streams NSP, NSZ, XCI, and XCZ installs into SD or NAND without copying the whole file to the SD card first. USB transport and a desktop Electron wrapper are later milestones.
+The Switch homebrew client (C++ / [Borealis](https://github.com/xfangfang/borealis)) streams NSP, NSZ, XCI, and XCZ installs into SD or NAND without copying the whole file to the SD card first. Connect over LAN HTTP or USB.
 
 ## Quick start
 
@@ -77,7 +79,7 @@ pnpm --filter @nslib/device-sim start -- hello --token <token>
 
 ### Switch client
 
-Host-native tests (no devkitPro) cover PFS0, HFS0/XCI, NCZ, CNMT, tickets, JSON, the device-API codec, and the install pipeline against the same golden files as TypeScript:
+Host-native tests (no devkitPro) cover PFS0, HFS0/XCI, NCZ, CNMT, tickets, JSON, the device-API codec, USB frames, and the install pipeline against the same golden files as TypeScript:
 
 ```bash
 cmake -S switch -B switch/build-host
@@ -91,7 +93,7 @@ The `.nro` is a CMake Switch build (`-DPLATFORM_SWITCH=ON`) against the [xfangfa
 git submodule update --init switch/lib/borealis
 ```
 
-You need [devkitPro](https://devkitpro.org) with `switch-curl` and `switch-zstd`. See [docs/switch.md](docs/switch.md) for pairing, `nxlink -s`, and NSP/NSZ/XCI installs to SD or NAND. USB is a later milestone. Host tests need `libzstd-dev`.
+You need [devkitPro](https://devkitpro.org) with `switch-curl` and `switch-zstd`. See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/XCI installs to SD or NAND. Host tests need `libzstd-dev`. Desktop: `pnpm dev:desktop` (see [docs/desktop.md](docs/desktop.md)).
 
 ## Configuration
 

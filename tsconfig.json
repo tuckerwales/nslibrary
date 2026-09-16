@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.base.json",
   "include": ["packages/*/src", "packages/*/test", "packages/*/*.config.ts", "vitest.config.ts"],
-  "exclude": ["packages/web"]
+  "exclude": ["packages/web", "packages/electron"]
 }

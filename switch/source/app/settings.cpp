@@ -46,6 +46,7 @@ void Settings::load() {
             defaultTarget = v["defaultTarget"].asString();
         }
         if (v["verifyHash"].isBool()) verifyHash = v["verifyHash"].asBool();
+        if (v["useUsb"].isBool()) useUsb = v["useUsb"].asBool();
     } catch (...) {
     }
     ensureUuid();
@@ -61,6 +62,7 @@ void Settings::save() const {
     o.set("name", Json::string(name));
     o.set("defaultTarget", Json::string(defaultTarget));
     o.set("verifyHash", Json::boolean(verifyHash));
+    o.set("useUsb", Json::boolean(useUsb));
     std::ofstream out(kPath, std::ios::trunc);
     out << o.dump();
 }

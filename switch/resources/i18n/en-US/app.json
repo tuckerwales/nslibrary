@@ -13,7 +13,9 @@
     "discover": "Look for servers",
     "none": "No servers answered. Enter the address instead.",
     "manual": "Enter address",
-    "hint": "IP, hostname, or URL"
+    "hint": "IP, hostname, or URL",
+    "usb": "USB cable",
+    "usb_hint": "This computer is running NSLibrary"
   },
   "pair": {
     "title": "Pair",

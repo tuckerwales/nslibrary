@@ -156,6 +156,7 @@ EventsResponse parseEvents(const Json& v);
 JobProgress parseJobProgress(const Json& v);
 DiscoveryReply parseDiscoveryReply(const Json& v);
 
+Json encodeDeviceInfo(const DeviceInfo& d);
 Json encodePairRequest(const PairRequest& r);
 Json encodeDeviceState(const DeviceState& s);
 Json encodeJobProgress(const JobProgress& p);

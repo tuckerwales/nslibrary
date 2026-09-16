@@ -13,7 +13,8 @@
     "start": "tsx src/cli.ts"
   },
   "dependencies": {
-    "@nslib/shared": "workspace:*"
+    "@nslib/shared": "workspace:*",
+    "@nslib/usb-host": "workspace:*"
   },
   "devDependencies": {
     "@nslib/fixtures": "workspace:*",

@@ -26,6 +26,7 @@ public:
     const std::string& token() const { return token_; }
 
     PairResponse pair(const PairRequest& req);
+    PairResponse usbHello(const DeviceInfo& device);
     HelloResponse hello();
     void putState(const DeviceState& state);
     CatalogResponse catalog(int64_t since = -1, const std::string& cursor = {}, int limit = 0);

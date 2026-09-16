@@ -17,7 +17,7 @@ public:
     HttpTransport(const HttpTransport&) = delete;
     HttpTransport& operator=(const HttpTransport&) = delete;
 
-    void setToken(std::string token) { token_ = std::move(token); }
+    void setToken(std::string token) override { token_ = std::move(token); }
     void setTimeoutMs(long ms) override { timeoutMs_ = ms; }
 
     HttpResponse request(

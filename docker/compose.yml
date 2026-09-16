@@ -9,6 +9,10 @@ services:
       NSLIB_TRUST_PROXY: "true"
       # Set to "true" when the library is on NFS/SMB and inotify is unreliable.
       NSLIB_POLLING: "false"
+      # USB passthrough is Linux-only. Also add:
+      #   NSLIB_USB: "true"
+      #   devices: ["/dev/bus/usb:/dev/bus/usb"]
+      #   device_cgroup_rules: ["c 189:* rmw"]
       PUID: "1000"
       PGID: "1000"
     volumes:

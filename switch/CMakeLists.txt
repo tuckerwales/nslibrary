@@ -38,6 +38,7 @@ set(NSLIB_COMMON_SRC
     source/api/url.cpp
     source/install/preflight.cpp
     source/install/pipeline.cpp
+    source/transport/usb_frame.cpp
 )
 
 if (PLATFORM_SWITCH)
@@ -65,6 +66,7 @@ if (PLATFORM_SWITCH)
         source/app/settings.cpp
         source/app/session.cpp
         source/transport/http.cpp
+        source/transport/usb.cpp
         source/transport/discovery.cpp
         source/api/client.cpp
         source/api/poller.cpp
@@ -150,6 +152,7 @@ else()
         tests/ncz_test.cpp
         tests/preflight_test.cpp
         tests/pipeline_test.cpp
+        tests/usb_frame_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source

@@ -3,7 +3,13 @@ packages:
 allowBuilds:
   better-sqlite3: true
   esbuild: true
+  usb: true
+  electron: true
+  electron-winstaller: true
 minimumReleaseAgeExclude:
-  - '@vitest/mocker@5.0.1'
-  - '@vitest/spy@5.0.1'
+  - "@vitest/mocker@5.0.1"
+  - "@vitest/spy@5.0.1"
   - vitest@5.0.1
+  - usb@2.16.0
+  - electron@35.1.5
+  - electron-builder@26.0.12

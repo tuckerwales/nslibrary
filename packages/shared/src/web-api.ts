@@ -65,6 +65,7 @@ export const ReorderJobsRequestSchema = z.object({
 export const ServerSettingsSchema = z.object({
   preferNsz: z.boolean().optional(),
   serverName: z.string().trim().min(1).max(64).optional(),
+  requireUsbPairing: z.boolean().optional(),
 });
 
 export type SetupRequest = z.infer<typeof SetupRequestSchema>;
@@ -301,6 +302,7 @@ export interface WebJob {
 export interface ServerSettings {
   preferNsz: boolean;
   serverName: string;
+  requireUsbPairing: boolean;
 }
 
 export type ServerEvent =

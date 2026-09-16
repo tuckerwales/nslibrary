@@ -157,11 +157,29 @@ export function FoldersPage() {
               if (add.error) add.reset();
             }}
           />
+          {typeof window !== "undefined" && window.nslib ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-10"
+              onClick={() => {
+                void window.nslib?.pickFolder().then((picked) => {
+                  if (picked) setPath(picked);
+                });
+              }}
+            >
+              Browse…
+            </Button>
+          ) : null}
           <Button type="submit" className="h-10" disabled={add.isPending}>
             {add.isPending ? "Adding…" : "Add folder"}
           </Button>
         </div>
-        <p className="mt-1 text-sm text-muted">Use the full path as the server sees it.</p>
+        <p className="mt-1 text-sm text-muted">
+          {typeof window !== "undefined" && window.nslib
+            ? "Pick a folder on this computer, or type its full path."
+            : "Use the full path as the server sees it."}
+        </p>
         {add.error && (
           <p role="alert" className="mt-2 text-sm text-danger">
             {add.error.message}

@@ -43,6 +43,7 @@ function testConfig(dataDir: string): ServerConfig {
     trustProxy: false,
     serverName: "sim",
     discoveryPort: null,
+    usb: false,
     seed: false,
     seedLibraryDir: null,
     seedKeysPath: null,

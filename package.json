@@ -15,6 +15,7 @@
     "seed": "pnpm --filter @nslib/server seed",
     "dev:server": "pnpm --filter @nslib/server dev",
     "dev:web": "pnpm --filter @nslib/web dev",
+    "dev:desktop": "pnpm --filter @nslib/web build && pnpm --filter @nslib/desktop dev",
     "lint": "biome check .",
     "format": "biome format --write .",
     "test:switch": "cmake -B switch/build-host -S switch && cmake --build switch/build-host --target nslib-switch-tests && switch/build-host/nslib-switch-tests"

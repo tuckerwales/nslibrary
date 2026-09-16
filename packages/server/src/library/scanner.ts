@@ -109,6 +109,7 @@ export class LibraryScanner {
   readonly #watchFlushes = new Set<Promise<void>>();
   #libraryChangedTimer: NodeJS.Timeout | null = null;
   #closed = false;
+  #paused = false;
 
   constructor(repo: LibraryRepository, events: EventBus, options: ScannerOptions) {
     this.#repo = repo;
@@ -127,6 +128,19 @@ export class LibraryScanner {
 
   progress(rootId: number): ScanProgress {
     return this.#progress.get(rootId) ?? IDLE;
+  }
+
+  get paused(): boolean {
+    return this.#paused;
+  }
+
+  async setPaused(paused: boolean): Promise<void> {
+    this.#paused = paused;
+    if (paused) {
+      await Promise.all([...this.#watchers.keys()].map((id) => this.unwatchRoot(id)));
+      return;
+    }
+    for (const root of this.#repo.listRoots()) await this.watchRoot(root);
   }
 
   /** Scans a root; concurrent calls for the same root share one scan. */
@@ -326,7 +340,7 @@ export class LibraryScanner {
 
   async watchRoot(root: RootRow): Promise<void> {
     await this.unwatchRoot(root.id);
-    if (!root.enabled || this.#closed) return;
+    if (!root.enabled || this.#closed || this.#paused) return;
     const { pollIntervalMs, stabilityThresholdMs } = this.#options;
     const watcher = watch(root.path, {
       ignoreInitial: true,
