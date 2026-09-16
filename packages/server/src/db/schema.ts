@@ -18,6 +18,7 @@ const JOB_STATUSES = [
   "interrupted",
 ] as const;
 const INSTALL_TARGETS = ["sd", "nand", "auto"] as const;
+const JOB_SOURCES = ["web", "switch"] as const;
 const INSTALL_PHASES = ["preflight", "ticket", "meta", "content", "commit", "record"] as const;
 const STORAGES = ["sd", "nand"] as const;
 
@@ -261,6 +262,7 @@ export const installJobs = sqliteTable(
     size: integer("size").notNull(),
     format: text("format", { enum: FILE_FORMATS }).notNull(),
     target: text("target", { enum: INSTALL_TARGETS }).notNull(),
+    source: text("source", { enum: JOB_SOURCES }).notNull().default("web"),
     position: integer("position").notNull(),
     status: text("status", { enum: JOB_STATUSES }).notNull(),
     phase: text("phase", { enum: INSTALL_PHASES }),

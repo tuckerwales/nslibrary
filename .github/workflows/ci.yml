@@ -45,3 +45,21 @@ jobs:
         with:
           name: nslibrary.nro
           path: switch/build/nslibrary.nro
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and start
+        run: docker compose up --build -d --wait --wait-timeout 180
+      - name: Device-sim against the container
+        run: node scripts/docker-smoke.mjs
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Stop
+        if: always()
+        run: docker compose down -v

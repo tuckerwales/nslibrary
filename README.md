@@ -19,7 +19,7 @@ The Switch homebrew client (C++ / [Borealis](https://github.com/xfangfang/boreal
 
 ## Quick start
 
-**Docker** (Node 22 image, port 8465):
+**Docker** (Node 22 image, `linux/amd64` and `linux/arm64`, port 8465):
 
 ```bash
 docker compose up --build

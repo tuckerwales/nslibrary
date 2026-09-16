@@ -3,7 +3,7 @@
  * isn't empty. Never overwrites an existing prod.keys or an existing folder list.
  */
 import { existsSync } from "node:fs";
-import { readFile, realpath, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import type { LogFn } from "../api/context";
 import type { ServerConfig } from "../config";
 import type { KeyStore } from "../keys/store";
@@ -46,5 +46,44 @@ export async function applyDemoSeed(options: {
     log(`Attached demo library at ${resolved}`);
   } catch (err) {
     log(`NSLIB_SEED is on but couldn't open ${config.seedLibraryDir}`, err);
+  }
+}
+
+/** Attach each immediate subdirectory of `libraryScanDir` that is not already a root. */
+export async function attachLibraryMounts(options: {
+  config: ServerConfig;
+  repo: LibraryRepository;
+  scanner: LibraryScanner;
+  log: LogFn;
+}): Promise<void> {
+  const { config, repo, scanner, log } = options;
+  if (!config.libraryScanDir) return;
+  let entries: string[];
+  try {
+    entries = await readdir(config.libraryScanDir);
+  } catch (err) {
+    log(`Couldn't list library mounts in ${config.libraryScanDir}`, err);
+    return;
+  }
+  const existing = new Set(repo.listRoots().map((root) => root.path));
+  for (const name of entries) {
+    if (name.startsWith(".")) continue;
+    if (name === "demo" && !config.seed) continue;
+    const candidate = `${config.libraryScanDir.replace(/\/$/, "")}/${name}`;
+    try {
+      const resolved = await realpath(candidate);
+      if (!(await stat(resolved)).isDirectory()) continue;
+      if (existing.has(resolved)) continue;
+      const root = repo.createRoot({
+        path: resolved,
+        label: name === "demo" ? "Demo library" : name,
+        usePolling: config.forcePolling,
+      });
+      existing.add(resolved);
+      await scanner.watchRoot(root);
+      log(`Attached library folder ${resolved}`);
+    } catch (err) {
+      log(`Couldn't attach ${candidate}`, err);
+    }
   }
 }

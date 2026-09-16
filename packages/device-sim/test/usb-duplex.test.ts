@@ -43,6 +43,7 @@ describe("USB device-sim over in-memory duplex", () => {
       serverName: "test",
       discoveryPort: null,
       usb: false,
+      libraryScanDir: null,
       log: () => {},
     });
     const root = server.repo.createRoot({ path: library, label: "usb" });
@@ -108,6 +109,7 @@ describe("USB device-sim over in-memory duplex", () => {
       serverName: "test",
       discoveryPort: null,
       usb: false,
+      libraryScanDir: null,
       log: () => {},
     });
     server.devices.updateSettings({ requireUsbPairing: true });

@@ -37,6 +37,7 @@ int main(int argc, char* argv[]) {
     brls::Application::registerXMLView("UpdatesTab", nslib::UpdatesTab::create);
     brls::Application::registerXMLView("QueueTab", nslib::QueueTab::create);
     brls::Application::registerXMLView("InstalledTab", nslib::InstalledTab::create);
+    brls::Application::registerXMLView("MissingTab", nslib::MissingTab::create);
     brls::Application::registerXMLView("SettingsTab", nslib::SettingsTab::create);
 
     auto& session = nslib::Session::instance();

@@ -12,7 +12,9 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/formats/package.json packages/formats/
 COPY packages/fixtures/package.json packages/fixtures/
 COPY packages/device-sim/package.json packages/device-sim/
-RUN pnpm install --frozen-lockfile
+COPY packages/usb-host/package.json packages/usb-host/
+COPY packages/electron/package.json packages/electron/
+RUN pnpm install --frozen-lockfile --filter @nslib/server... --filter @nslib/web
 COPY . .
 RUN pnpm --filter @nslib/web build \
   && mkdir -p packages/server/public \
@@ -25,7 +27,7 @@ RUN pnpm --filter @nslib/server deploy --prod /out \
 
 FROM node:22-bookworm-slim
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends gosu ca-certificates \
+  && apt-get install -y --no-install-recommends gosu ca-certificates libusb-1.0-0 \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out /app
@@ -39,6 +41,8 @@ ENV NODE_ENV=production \
     NSLIB_DATA_DIR=/data \
     NSLIB_HOST=0.0.0.0 \
     NSLIB_PORT=8465 \
+    NSLIB_DISCOVERY_PORT=8466 \
+    NSLIB_LIBRARY_DIR=/library \
     NSLIB_TRUST_PROXY=true \
     NSLIB_SEED=true \
     NSLIB_SEED_DIR=/library/demo \

@@ -5,6 +5,7 @@
     "updates": "Updates",
     "queue": "Queue",
     "installed": "Installed",
+    "missing": "Not installed",
     "settings": "Settings"
   },
   "connect": {
@@ -41,6 +42,10 @@
   },
   "updates": {
     "intro": "Updates in the library that look newer than what is installed."
+  },
+  "missing": {
+    "intro": "Base games in the library that are not on this Switch. Open one to install.",
+    "empty": "Every base game in the library is already installed."
   },
   "queue": {
     "empty": "No jobs yet. Send a title from the web UI, or install from Library.",

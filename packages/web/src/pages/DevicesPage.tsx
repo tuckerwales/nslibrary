@@ -96,7 +96,13 @@ function DeviceRow({ device, jobs }: { device: DeviceSummary; jobs: WebJob[] }) 
     (job) => job.status === "queued" || job.status === "claimed" || job.status === "running",
   );
   const recent = mine
-    .filter((job) => job.status === "done" || job.status === "failed" || job.status === "cancelled")
+    .filter(
+      (job) =>
+        job.status === "done" ||
+        job.status === "failed" ||
+        job.status === "cancelled" ||
+        job.status === "interrupted",
+    )
     .slice(-5)
     .reverse();
   const lastFinished = recent[0];
@@ -236,10 +242,7 @@ export function DevicesPage() {
   return (
     <>
       <PageHeader title="Devices">
-        <p>
-          Pair a modded Switch to browse this library and install titles over the LAN. USB pairing
-          comes later.
-        </p>
+        <p>Pair a modded Switch to browse this library and install titles over the LAN or USB.</p>
       </PageHeader>
 
       <PairingPanel />

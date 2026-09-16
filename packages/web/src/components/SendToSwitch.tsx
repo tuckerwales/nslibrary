@@ -61,8 +61,8 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
     <section className="mt-8 max-w-xl border-t border-line pt-6">
       <h2 className="text-xl">Send to Switch</h2>
       <p className="mt-1 text-sm text-muted">
-        Queues an install. The Switch picks the job up over the LAN; the file is not copied to the
-        SD card first.
+        Queues an install. The Switch picks the job up over the LAN or USB; the file is not copied
+        to the SD card first.
       </p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">

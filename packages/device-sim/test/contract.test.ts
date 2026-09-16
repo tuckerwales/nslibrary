@@ -44,6 +44,7 @@ function testConfig(dataDir: string): ServerConfig {
     serverName: "sim",
     discoveryPort: null,
     usb: false,
+    libraryScanDir: null,
     seed: false,
     seedLibraryDir: null,
     seedKeysPath: null,

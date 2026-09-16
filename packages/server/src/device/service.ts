@@ -415,6 +415,7 @@ export class DeviceApiService {
         version: title.version,
         type: title.type,
         storage: title.storage,
+        applicationId: title.applicationId,
       })),
     };
   }
@@ -453,7 +454,13 @@ export class DeviceApiService {
   }
 
   createJobFromDevice(deviceId: number, contentMetaId: number, target: InstallTarget): Job {
-    const job = this.#insertJob(deviceId, contentMetaId, target, this.#nextPosition(deviceId));
+    const job = this.#insertJob(
+      deviceId,
+      contentMetaId,
+      target,
+      this.#nextPosition(deviceId),
+      "switch",
+    );
     this.log.append(deviceId, { t: "job.queued", job: this.toDeviceJob(job) });
     this.#publishJob(job);
     return this.toDeviceJob(job);
@@ -691,6 +698,7 @@ export class DeviceApiService {
       size: row.size,
       format: row.format,
       target: row.target,
+      source: row.source,
       status: row.status,
       position: row.position,
       phase: row.phase,
@@ -773,6 +781,7 @@ export class DeviceApiService {
     contentMetaId: number,
     target: InstallTarget,
     position: number,
+    source: "web" | "switch" = "web",
   ): WebJob {
     const meta = this.#db
       .select()
@@ -801,6 +810,7 @@ export class DeviceApiService {
         size: file.size,
         format: file.format,
         target,
+        source,
         position,
         status: "queued",
         createdAt: now,

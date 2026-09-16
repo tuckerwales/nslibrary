@@ -30,6 +30,11 @@ export interface ServerConfig {
   discoveryPort: number | null;
   /** Attach to a USB-connected Switch (node-usb). */
   usb: boolean;
+  /**
+   * Immediate subfolders of this directory are attached as library roots (Docker
+   * `/library/games`, `/library/updates`, …). Null disables the scan.
+   */
+  libraryScanDir: string | null;
 }
 
 const WEB_DIR_CANDIDATES = [
@@ -76,5 +81,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     serverName: env.NSLIB_SERVER_NAME?.trim() || "NSLibrary",
     discoveryPort: discoveryPort(env),
     usb: flag(env.NSLIB_USB),
+    libraryScanDir: env.NSLIB_LIBRARY_DIR
+      ? resolve(env.NSLIB_LIBRARY_DIR)
+      : existsSync("/library")
+        ? "/library"
+        : null,
   };
 }

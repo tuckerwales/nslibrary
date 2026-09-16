@@ -1,10 +1,11 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { guessApplicationIdForAddon } from "@nslib/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getProblems, listApplications, listHomebrew } from "../src/library/queries";
 import { DEMO_TITLES, generateDemoLibrary } from "../src/seed/generate";
 import { createServer, type NslibServer } from "../src/server";
-import { makeTempDir, removeDir, testConfig } from "./helpers";
+import { fakeNsp, makeTempDir, removeDir, testConfig } from "./helpers";
 
 describe("demo library", () => {
   let dir: string;
@@ -72,5 +73,17 @@ describe("demo library", () => {
     );
     await server.start();
     expect(server.repo.listRoots()).toHaveLength(1);
+  });
+
+  it("attaches subfolders of libraryScanDir as roots", async () => {
+    const libraryDir = join(dir, "library");
+    const games = join(libraryDir, "games");
+    await mkdir(games, { recursive: true });
+    await writeFile(join(games, "Example [0100ABCDEF012000][v0].nsp"), fakeNsp());
+    server = await createServer(
+      testConfig(join(dir, "data"), { seed: false, libraryScanDir: libraryDir }),
+    );
+    await server.start();
+    expect(server.repo.listRoots()).toMatchObject([{ label: "games", path: games }]);
   });
 });

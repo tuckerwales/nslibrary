@@ -81,6 +81,7 @@ if (PLATFORM_SWITCH)
         source/ui/updates_tab.cpp
         source/ui/queue_tab.cpp
         source/ui/installed_tab.cpp
+        source/ui/missing_tab.cpp
         source/ui/settings_tab.cpp
         source/ui/progress.cpp
         "${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c"

@@ -21,6 +21,10 @@
             <InstalledTab />
         </brls:Tab>
 
+        <brls:Tab label="@i18n/app/tabs/missing">
+            <MissingTab />
+        </brls:Tab>
+
         <brls:Separator />
 
         <brls:Tab label="@i18n/app/tabs/settings">

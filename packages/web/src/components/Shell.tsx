@@ -52,6 +52,8 @@ export function Shell({ username, children }: { username: string; children: Reac
           className="flex gap-1 overflow-x-auto px-2 py-2 md:mt-6 md:flex-1 md:flex-col md:px-3"
         >
           <NavItem to="/" label="Library" count={stats?.applications} />
+          <NavItem to="/switch" label="On this Switch" />
+          <NavItem to="/history" label="History" />
           <NavItem to="/homebrew" label="Homebrew" count={stats?.homebrew} />
           <NavItem to="/problems" label="Problems" count={stats?.problems} alert />
           <NavItem to="/devices" label="Devices" />

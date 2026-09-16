@@ -62,6 +62,7 @@ export function testConfig(dataDir: string, overrides: Partial<ServerConfig> = {
     serverName: "test",
     discoveryPort: null,
     usb: false,
+    libraryScanDir: null,
     log: () => {},
     ...overrides,
   };

@@ -217,7 +217,7 @@ describe("device API", () => {
     const detail = (await web("GET", `/devices/${deviceId}`, { session })).json<DeviceDetail>();
     expect(detail.space).toEqual({ sd: [100, 200], nand: [10, 20] });
     expect(detail.titles).toEqual([
-      { titleId: BASE, version: 0, type: "application", storage: "sd" },
+      { titleId: BASE, version: 0, type: "application", storage: "sd", applicationId: BASE },
     ]);
   });
 
@@ -232,7 +232,13 @@ describe("device API", () => {
     });
     expect(created.statusCode).toBe(201);
     const [job] = created.json<WebJob[]>();
-    expect(job).toMatchObject({ deviceId, status: "queued", target: "sd", titleId: BASE });
+    expect(job).toMatchObject({
+      deviceId,
+      status: "queued",
+      target: "sd",
+      titleId: BASE,
+      source: "web",
+    });
 
     const events = (await device("GET", "/events?wait=0", { token })).json();
     expect(events.ev.some((e: { t: string }) => e.t === "job.queued")).toBe(true);
@@ -255,6 +261,19 @@ describe("device API", () => {
     ).toBe(204);
     const listed = (await web("GET", `/jobs?deviceId=${deviceId}`, { session })).json<WebJob[]>();
     expect(listed[0]?.status).toBe("done");
+    expect(listed[0]?.source).toBe("web");
+  });
+
+  it("records installs started on the Switch", async () => {
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+    expect(
+      (await device("POST", "/jobs", { token, body: { contentMetaId, target: "nand" } }))
+        .statusCode,
+    ).toBe(201);
+    const listed = (await web("GET", `/jobs?deviceId=${deviceId}`, { session })).json<WebJob[]>();
+    expect(listed[0]).toMatchObject({ source: "switch", target: "nand", status: "queued" });
   });
 
   it("cancels a queued job and refuses another device's claim", async () => {

@@ -26,15 +26,25 @@ The web UI is not a static site. Coolify (or any host) must run the **Node serve
 
 7. After the first deploy, open the URL and create the admin account. A **Demo library** folder is attached automatically (`/library/demo`) so you can browse the UI without real dumps. Add `/library/games` when you mount your own files. Set `NSLIB_SEED=false` to skip the demo.
 
-Do not use Nixpacks/static for this app. Native `better-sqlite3` needs the Docker build.
+Do not use Nixpacks/static for this app. The image is `node:22-bookworm-slim` and uses the N-API `better-sqlite3` binary for the container architecture.
 
 ## docker compose (Linux host)
+
+From the repo root:
 
 ```bash
 docker compose up --build
 ```
 
-Then open `http://localhost:8465`, create an admin account, and browse the demo library. Mount your dumps as `/library/games` (read-only) and add that path in **Folders**.
+Then open `http://localhost:8465`, create an admin account, and browse the demo library. Mount dumps as `/library/<name>:ro` (for example `/library/games`); they are attached as library roots on start.
+
+Multi-arch image (`linux/amd64` and `linux/arm64`):
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t nslibrary .
+```
+
+CI runs `docker compose up` and a device-sim smoke (`scripts/docker-smoke.mjs`) against the container.
 
 Locally without Docker: `pnpm seed && NSLIB_SEED=true NSLIB_SEED_DIR="$PWD/data/demo-library" NSLIB_SEED_KEYS="$PWD/data/keys/prod.keys" pnpm start`.
 

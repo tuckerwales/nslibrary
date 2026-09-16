@@ -1,3 +1,4 @@
+# Same service as the repo-root compose.yaml. Prefer `docker compose up --build` from the repo root.
 services:
   nslibrary:
     build: ..
@@ -7,9 +8,9 @@ services:
       - "8466:8466/udp"
     environment:
       NSLIB_TRUST_PROXY: "true"
-      # Set to "true" when the library is on NFS/SMB and inotify is unreliable.
       NSLIB_POLLING: "false"
-      # USB passthrough is Linux-only. Also add:
+      NSLIB_LIBRARY_DIR: /library
+      # USB passthrough is Linux-only:
       #   NSLIB_USB: "true"
       #   devices: ["/dev/bus/usb:/dev/bus/usb"]
       #   device_cgroup_rules: ["c 189:* rmw"]
@@ -19,6 +20,18 @@ services:
       - nslib-data:/data
       # Optional: NSLIB_LIBRARY=/path/to/games docker compose -f docker/compose.yml up --build
       # - ${NSLIB_LIBRARY}:/library/games:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.NSLIB_PORT||8465)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
     restart: unless-stopped
 
 volumes:

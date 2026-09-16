@@ -253,6 +253,7 @@ export interface InstalledTitle {
   version: number;
   type: ContentMetaType;
   storage: "sd" | "nand";
+  applicationId: string;
 }
 
 export interface DeviceSummary {
@@ -275,6 +276,8 @@ export interface DeviceDetail extends DeviceSummary {
   titles: InstalledTitle[];
 }
 
+export type JobSource = "web" | "switch";
+
 export interface WebJob {
   id: number;
   deviceId: number;
@@ -287,6 +290,7 @@ export interface WebJob {
   size: number;
   format: ContainerFormat;
   target: InstallTarget;
+  source: JobSource;
   status: JobStatus;
   position: number;
   phase: InstallPhase | null;

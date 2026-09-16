@@ -33,6 +33,12 @@ public:
     static brls::View* create();
 };
 
+class MissingTab : public brls::Box {
+public:
+    MissingTab();
+    static brls::View* create();
+};
+
 class SettingsTab : public brls::Box {
 public:
     SettingsTab();

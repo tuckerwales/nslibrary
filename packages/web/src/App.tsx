@@ -7,11 +7,13 @@ import { AppPage } from "./pages/AppPage";
 import { LoginPage, SetupPage } from "./pages/AuthPages";
 import { DevicesPage } from "./pages/DevicesPage";
 import { FoldersPage } from "./pages/FoldersPage";
+import { HistoryPage } from "./pages/HistoryPage";
 import { HomebrewPage } from "./pages/HomebrewPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProblemsPage } from "./pages/ProblemsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { SwitchLibraryPage } from "./pages/SwitchLibraryPage";
 
 export function App() {
   const auth = useAuthStatus();
@@ -42,6 +44,8 @@ export function App() {
         <Route path="/" element={<LibraryPage />} />
         <Route path="/apps/:applicationId" element={<AppPage />} />
         <Route path="/homebrew" element={<HomebrewPage />} />
+        <Route path="/switch" element={<SwitchLibraryPage />} />
+        <Route path="/history" element={<HistoryPage />} />
         <Route path="/problems" element={<ProblemsPage />} />
         <Route path="/devices" element={<DevicesPage />} />
         <Route path="/folders" element={<FoldersPage />} />

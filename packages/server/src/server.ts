@@ -13,7 +13,7 @@ import { EventBus } from "./events";
 import { KeyStore } from "./keys/store";
 import { LibraryRepository } from "./library/repository";
 import { LibraryScanner } from "./library/scanner";
-import { applyDemoSeed } from "./seed/bootstrap";
+import { applyDemoSeed, attachLibraryMounts } from "./seed/bootstrap";
 import { TitledbService } from "./titledb/service";
 
 const MISSING_FILE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -118,6 +118,7 @@ export async function createServer(
         await discovery.start().catch((err) => log("UDP discovery failed to bind", err));
       }
       await applyDemoSeed({ config, repo, scanner, keys, log });
+      await attachLibraryMounts({ config, repo, scanner, log });
       for (const root of repo.listRoots()) await scanner.watchRoot(root);
       scanner.scanAll().catch((err) => log("Startup scan failed", err));
       if (config.usb) {

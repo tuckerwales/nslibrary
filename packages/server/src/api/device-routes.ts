@@ -105,7 +105,11 @@ export async function registerDeviceRoutes(api: FastifyInstance, ctx: AppContext
       const device = request.device;
       if (!device) throw new ApiError("UNAUTHORIZED", "Pair this Switch before continuing");
       const body = parseWith(CreateJobRequestSchema, request.body);
-      const job = ctx.devices.createJobFromDevice(device.id, body.contentMetaId, body.target);
+      const job = ctx.devices.createJobFromDevice(
+        device.id,
+        body.contentMetaId,
+        body.target ?? "sd",
+      );
       reply.status(201);
       return job;
     });
