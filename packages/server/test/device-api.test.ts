@@ -306,6 +306,25 @@ describe("device API", () => {
     ).toBe(true);
   });
 
+  it("limits finished jobs but always lists active ones", async () => {
+    const session = await setUp();
+    const { deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+    const queue = async () =>
+      (await web("POST", "/jobs", { session, body: { deviceId, items: [contentMetaId] } })).json<
+        WebJob[]
+      >()[0]!;
+
+    const cancelled = await queue();
+    await web("POST", `/jobs/${cancelled.id}/cancel`, { session });
+    const active = await queue();
+
+    const none = (await web("GET", "/jobs?limit=0", { session })).json<WebJob[]>();
+    expect(none.map((job) => job.id)).toEqual([active.id]);
+    const one = (await web("GET", "/jobs?limit=1", { session })).json<WebJob[]>();
+    expect(one.map((job) => job.id).sort()).toEqual([cancelled.id, active.id].sort());
+  });
+
   it("serves Range, suffix, If-Range, and 416 on library files", async () => {
     const session = await setUp();
     const { token } = (await pair(session)).json();

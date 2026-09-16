@@ -135,3 +135,13 @@
     transition: none !important;
   }
 }
+
+/* The mobile nav scrolls sideways; fade its edge so it's clear more items are off-screen. */
+@media (max-width: 47.999rem) {
+  .nav-scroll {
+    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+    scrollbar-width: none;
+    /* Room for the last item to scroll clear of the fade. */
+    padding-right: 2rem;
+  }
+}

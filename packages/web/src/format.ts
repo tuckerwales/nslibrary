@@ -1,4 +1,4 @@
-import type { ContainerFormat, MetadataSource } from "@nslib/shared";
+import type { ContainerFormat, MetadataSource, VerifyStatus } from "@nslib/shared";
 import { useEffect } from "react";
 
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
@@ -44,6 +44,14 @@ export const SOURCE_LABEL: Record<MetadataSource, string> = {
   ticket: "From ticket",
   cnmt: "From content metadata",
   nacp: "From app info",
+};
+
+/** How a file's integrity check result reads, and its text colour. */
+export const VERIFY_LABEL: Record<VerifyStatus, { text: string; className: string }> = {
+  unverified: { text: "Not verified", className: "text-muted" },
+  ok: { text: "Verified", className: "text-update" },
+  partial: { text: "Partly verified", className: "text-dlc" },
+  bad: { text: "Damaged", className: "text-danger" },
 };
 
 export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {

@@ -193,6 +193,11 @@ export type ContainerFormat = z.infer<typeof ContainerFormatSchema>;
 export type Storage = z.infer<typeof StorageSchema>;
 export type InstallTarget = z.infer<typeof InstallTargetSchema>;
 export type JobStatus = z.infer<typeof JobStatusSchema>;
+
+/** Jobs that are waiting for or holding a Switch. Everything else has finished. */
+export function isActiveJobStatus(status: JobStatus): boolean {
+  return status === "queued" || status === "claimed" || status === "running";
+}
 export type InstallPhase = z.infer<typeof InstallPhaseSchema>;
 export type ErrorBody = z.infer<typeof ErrorBodySchema>;
 export type DeviceInfo = z.infer<typeof DeviceInfoSchema>;

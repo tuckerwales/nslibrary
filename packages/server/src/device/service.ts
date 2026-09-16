@@ -11,6 +11,7 @@ import {
   guessApplicationIdForAddon,
   type HelloResponse,
   type InstallTarget,
+  isActiveJobStatus,
   type Job,
   type JobCompleteRequest,
   type JobProgressRequest,
@@ -619,10 +620,25 @@ export class DeviceApiService {
     return this.listJobs(deviceId);
   }
 
-  listJobs(deviceId?: number): WebJob[] {
-    const rows = deviceId
+  /**
+   * Active jobs in queue order, then finished ones. `finishedLimit` keeps only that many of the
+   * most recently finished jobs; active jobs are always included.
+   */
+  listJobs(deviceId?: number, finishedLimit?: number): WebJob[] {
+    let rows = deviceId
       ? this.#db.select().from(installJobs).where(eq(installJobs.deviceId, deviceId)).all()
       : this.#db.select().from(installJobs).all();
+    if (finishedLimit !== undefined) {
+      const finishedAt = (row: (typeof rows)[number]) => row.completedAt ?? row.updatedAt;
+      const kept = new Set(
+        rows
+          .filter((row) => !isActiveJobStatus(row.status))
+          .sort((a, b) => finishedAt(b) - finishedAt(a) || b.id - a.id)
+          .slice(0, finishedLimit)
+          .map((row) => row.id),
+      );
+      rows = rows.filter((row) => isActiveJobStatus(row.status) || kept.has(row.id));
+    }
     return rows
       .sort((a, b) => a.position - b.position || a.id - b.id)
       .map((row) => this.toWebJob(row));

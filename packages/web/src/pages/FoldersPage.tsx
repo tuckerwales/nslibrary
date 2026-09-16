@@ -1,45 +1,64 @@
 import type { LibraryRoot, ScanProgress } from "@nslib/shared";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useId, useState } from "react";
 import { useAddRoot, useRemoveRoot, useRoots, useScanRoot, useUpdateRoot } from "../api";
 import { Button } from "../components/Button";
+import { ConfirmPanel } from "../components/ConfirmPanel";
+import { ErrorText, LoadError, Loading } from "../components/Feedback";
 import { inputClass, Switch } from "../components/Field";
-import { LoadError, PageHeader } from "../components/PageHeader";
-import { formatBytes, plural, relativeTime } from "../format";
+import { PageHeader } from "../components/PageHeader";
+import { RelativeTime } from "../components/RelativeTime";
+import { formatBytes, plural } from "../format";
 
-function ScanStatus({ scan }: { scan: ScanProgress }) {
-  if (scan.state === "idle") return null;
+function scanMessage(scan: ScanProgress): string {
+  if (scan.state === "idle") return "";
+  return scan.state === "parsing" && scan.total > 0
+    ? `Reading files: ${scan.done} of ${scan.total}`
+    : "Looking for files…";
+}
+
+function ScanStatus({ scan, path }: { scan: ScanProgress; path: string }) {
+  const labelId = useId();
   const determinate = scan.state === "parsing" && scan.total > 0;
   const percent = determinate ? Math.round((scan.done / scan.total) * 100) : 0;
   return (
     <div className="mt-3 max-w-md">
-      <p className="text-sm" aria-live="polite">
-        {determinate ? `Reading files: ${scan.done} of ${scan.total}` : "Looking for files…"}
+      {/* Always rendered so screen readers announce when a scan starts. */}
+      <p id={labelId} className="text-sm" aria-live="polite">
+        {scanMessage(scan)}
       </p>
-      <div
-        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={determinate ? percent : undefined}
-      >
-        {determinate ? (
-          <div className="h-full rounded-full bg-accent" style={{ width: `${percent}%` }} />
-        ) : (
-          <div className="scan-sweep h-full w-2/5 rounded-full bg-accent" />
-        )}
-      </div>
+      {scan.state !== "idle" && (
+        <div
+          className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line"
+          role="progressbar"
+          aria-label={`Scanning ${path}`}
+          aria-describedby={labelId}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={determinate ? percent : undefined}
+        >
+          {determinate ? (
+            <div className="h-full rounded-full bg-accent" style={{ width: `${percent}%` }} />
+          ) : (
+            <div className="scan-sweep h-full w-2/5 rounded-full bg-accent" />
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function summary(root: LibraryRoot): string {
-  if (!root.enabled) return "Not included in the library.";
+function Summary({ root }: { root: LibraryRoot }) {
+  if (!root.enabled) return <>Not included in the library.</>;
   const parts = [`${plural(root.fileCount, "file")}, ${formatBytes(root.totalSize)}`];
   if (root.missingCount > 0) parts.push(`${root.missingCount} missing`);
   const counts = parts.join(", ");
-  return root.lastScanAt
-    ? `${counts}. Last scanned ${relativeTime(root.lastScanAt)}.`
-    : `${counts}. Not scanned yet.`;
+  return root.lastScanAt ? (
+    <>
+      {counts}. Last scanned <RelativeTime timestamp={root.lastScanAt} />.
+    </>
+  ) : (
+    <>{counts}. Not scanned yet.</>
+  );
 }
 
 function FolderRow({ root }: { root: LibraryRoot }) {
@@ -48,14 +67,15 @@ function FolderRow({ root }: { root: LibraryRoot }) {
   const scan = useScanRoot();
   const [confirming, setConfirming] = useState(false);
   const scanning = root.scan.state !== "idle";
-  const error = update.error ?? remove.error ?? scan.error;
 
   return (
     <li className="border-b border-line py-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-lg break-all semi-condensed">{root.path}</h2>
-          <p className="text-sm text-muted">{summary(root)}</p>
+          <p className="text-sm text-muted">
+            <Summary root={root} />
+          </p>
         </div>
         <div className="flex gap-1">
           <Button
@@ -65,20 +85,16 @@ function FolderRow({ root }: { root: LibraryRoot }) {
           >
             {scanning ? "Scanning…" : "Scan now"}
           </Button>
-          <Button variant="ghost" onClick={() => setConfirming(true)} disabled={confirming}>
+          {/* Stays enabled so focus can return to it when the confirmation closes. */}
+          <Button variant="ghost" onClick={() => setConfirming(true)} aria-expanded={confirming}>
             Remove
           </Button>
         </div>
       </div>
 
-      <ScanStatus scan={root.scan} />
+      <ScanStatus scan={root.scan} path={root.path} />
       {root.lastScanError && !scanning && (
         <p className="mt-2 text-sm text-danger">{root.lastScanError}</p>
-      )}
-      {error && (
-        <p role="alert" className="mt-2 text-sm text-danger">
-          {error.message}
-        </p>
       )}
 
       <div className="mt-4 flex flex-col gap-3 md:flex-row md:gap-10">
@@ -98,25 +114,15 @@ function FolderRow({ root }: { root: LibraryRoot }) {
       </div>
 
       {confirming && (
-        <div
-          role="alertdialog"
-          aria-label="Remove folder"
-          className="mt-4 max-w-md rounded-md bg-danger-soft p-4"
+        <ConfirmPanel
+          label="Remove folder"
+          confirmLabel="Remove folder"
+          busy={remove.isPending}
+          onConfirm={() => remove.mutate(root.id)}
+          onCancel={() => setConfirming(false)}
         >
           <p>Remove this folder from the library? Your files stay on disk.</p>
-          <div className="mt-3 flex gap-2">
-            <Button
-              variant="danger"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate(root.id)}
-            >
-              Remove folder
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirming(false)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
+        </ConfirmPanel>
       )}
     </li>
   );
@@ -126,6 +132,7 @@ export function FoldersPage() {
   const roots = useRoots();
   const add = useAddRoot();
   const [path, setPath] = useState("");
+  const canPick = typeof window !== "undefined" && window.nslib !== undefined;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -151,15 +158,15 @@ export function FoldersPage() {
             className={inputClass}
             placeholder="/library/games"
             required
+            aria-describedby="folder-path-hint"
             value={path}
             onChange={(e) => {
               setPath(e.target.value);
               if (add.error) add.reset();
             }}
           />
-          {typeof window !== "undefined" && window.nslib ? (
+          {canPick && (
             <Button
-              type="button"
               variant="secondary"
               className="h-10"
               onClick={() => {
@@ -170,35 +177,33 @@ export function FoldersPage() {
             >
               Browse…
             </Button>
-          ) : null}
+          )}
           <Button type="submit" className="h-10" disabled={add.isPending}>
             {add.isPending ? "Adding…" : "Add folder"}
           </Button>
         </div>
-        <p className="mt-1 text-sm text-muted">
-          {typeof window !== "undefined" && window.nslib
+        <p id="folder-path-hint" className="mt-1 text-sm text-muted">
+          {canPick
             ? "Pick a folder on this computer, or type its full path."
             : "Use the full path as the server sees it."}
         </p>
-        {add.error && (
-          <p role="alert" className="mt-2 text-sm text-danger">
-            {add.error.message}
-          </p>
-        )}
+        <ErrorText>{add.error?.message}</ErrorText>
       </form>
 
       <div className="mt-8">
         {roots.error ? (
           <LoadError error={roots.error} />
-        ) : roots.data && roots.data.length > 0 ? (
+        ) : !roots.data ? (
+          <Loading />
+        ) : roots.data.length > 0 ? (
           <ul className="border-t border-line">
             {roots.data.map((root) => (
               <FolderRow key={root.id} root={root} />
             ))}
           </ul>
-        ) : roots.data ? (
+        ) : (
           <p className="text-muted">No folders yet.</p>
-        ) : null}
+        )}
       </div>
     </>
   );

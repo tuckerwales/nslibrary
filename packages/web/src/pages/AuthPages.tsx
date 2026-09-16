@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { useLogin, useSetup } from "../api";
 import { Button } from "../components/Button";
 import { ContentStrip } from "../components/ContentStrip";
+import { ErrorText } from "../components/Feedback";
 import { Field } from "../components/Field";
 import { usePageTitle } from "../format";
 
@@ -32,22 +33,23 @@ function AuthLayout({
   );
 }
 
-function FormError({ error }: { error: Error | null }) {
-  if (!error) return null;
-  return (
-    <p role="alert" className="text-sm text-danger">
-      {error.message}
-    </p>
-  );
+function FormError({ message }: { message: string | undefined }) {
+  return <ErrorText className="text-sm">{message}</ErrorText>;
 }
 
 export function SetupPage() {
   const setup = useSetup();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [mismatch, setMismatch] = useState(false);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (password !== confirm) {
+      setMismatch(true);
+      return;
+    }
     setup.mutate({ username, password });
   };
 
@@ -72,9 +74,24 @@ export function SetupPage() {
           required
           minLength={8}
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setMismatch(false);
+          }}
         />
-        <FormError error={setup.error} />
+        <Field
+          label="Confirm password"
+          type="password"
+          autoComplete="new-password"
+          required
+          value={confirm}
+          aria-invalid={mismatch || undefined}
+          onChange={(e) => {
+            setConfirm(e.target.value);
+            setMismatch(false);
+          }}
+        />
+        <FormError message={mismatch ? "The passwords don't match." : setup.error?.message} />
         <Button type="submit" className="w-full" disabled={setup.isPending}>
           {setup.isPending ? "Creating account…" : "Create account"}
         </Button>
@@ -111,7 +128,7 @@ export function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <FormError error={login.error} />
+        <FormError message={login.error?.message} />
         <Button type="submit" className="w-full" disabled={login.isPending}>
           {login.isPending ? "Signing in…" : "Sign in"}
         </Button>

@@ -27,8 +27,9 @@ export function TitleIcon({
   size?: number;
 }) {
   const box = { width: size, height: size };
-  const [failed, setFailed] = useState(false);
-  if (url && !failed) {
+  // Remember which URL failed, so a new URL (say, after keys are added) gets its own try.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  if (url && url !== failedUrl) {
     return (
       <img
         src={url}
@@ -37,7 +38,7 @@ export function TitleIcon({
         height={size}
         className="shrink-0 rounded-md object-cover"
         style={box}
-        onError={() => setFailed(true)}
+        onError={() => setFailedUrl(url)}
       />
     );
   }

@@ -1,11 +1,12 @@
 import type { AppFlag } from "@nslib/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useApps, useRoots, useStats } from "../api";
-import { ContentStrip } from "../components/ContentStrip";
+import { ButtonLink } from "../components/Button";
+import { LoadError, Loading } from "../components/Feedback";
 import { inputClass } from "../components/Field";
-import { LoadError, PageHeader } from "../components/PageHeader";
-import { TitleIcon } from "../components/TitleIcon";
+import { PageHeader } from "../components/PageHeader";
+import { TitleList } from "../components/TitleList";
 import { formatBytes, plural } from "../format";
 
 const FILTERS: { flag: AppFlag | null; label: string }[] = [
@@ -20,32 +21,60 @@ const FILTERS: { flag: AppFlag | null; label: string }[] = [
 
 const FLAG_VALUES = new Set(FILTERS.map((f) => f.flag));
 
+const SEARCH_DEBOUNCE_MS = 200;
+
+/**
+ * The search box text, kept in step with `?q=`. Typing updates the URL after a pause; a URL
+ * change from elsewhere (Back, the Library nav link) replaces the text.
+ */
+function useSearchDraft(q: string, setQ: (value: string, replace: boolean) => void) {
+  const [draft, setDraft] = useState(q);
+  const lastWritten = useRef(q);
+  // Held in a ref so a new callback each render doesn't restart the debounce.
+  const writeQ = useRef(setQ);
+  writeQ.current = setQ;
+
+  useEffect(() => {
+    if (q === lastWritten.current) return;
+    lastWritten.current = q;
+    setDraft(q);
+  }, [q]);
+
+  useEffect(() => {
+    if (draft === q) return;
+    const timer = setTimeout(() => {
+      lastWritten.current = draft;
+      // Starting a search adds a history entry, so Back returns to the full library; refining
+      // it doesn't add one per keystroke.
+      writeQ.current(draft, q !== "");
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [draft, q]);
+
+  return [draft, setDraft] as const;
+}
+
 export function LibraryPage() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const rawFlag = params.get("flag") as AppFlag | null;
   const flag = FLAG_VALUES.has(rawFlag) ? rawFlag : null;
-  const [draft, setDraft] = useState(q);
+
+  const [draft, setDraft] = useSearchDraft(q, (value, replace) =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value) next.set("q", value);
+        else next.delete("q");
+        return next;
+      },
+      { replace },
+    ),
+  );
 
   const apps = useApps(q, flag);
   const stats = useStats().data;
   const roots = useRoots().data;
-
-  useEffect(() => {
-    if (draft === q) return;
-    const timer = setTimeout(() => {
-      setParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          if (draft) next.set("q", draft);
-          else next.delete("q");
-          return next;
-        },
-        { replace: true },
-      );
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [draft, q, setParams]);
 
   const setFlag = (value: AppFlag | null) =>
     setParams((current) => {
@@ -113,31 +142,10 @@ export function LibraryPage() {
       <div className="mt-6">
         {apps.error ? (
           <LoadError error={apps.error} />
-        ) : !apps.data ? null : apps.data.length > 0 ? (
-          <ul className="border-t border-line">
-            {apps.data.map((app) => (
-              <li key={app.applicationId} className="border-b border-line">
-                <Link
-                  to={`/apps/${app.applicationId}`}
-                  className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 px-2 py-3 hover:bg-panel md:grid-cols-[44px_minmax(0,1fr)_auto_5.5rem]"
-                >
-                  <span className="row-span-2 md:row-span-1">
-                    <TitleIcon name={app.name} seed={app.applicationId} url={app.iconUrl} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-lg font-semibold semi-condensed">
-                      {app.name}
-                    </span>
-                    <span className="block text-sm text-muted">{app.applicationId}</span>
-                  </span>
-                  <ContentStrip app={app} />
-                  <span className="hidden text-right text-sm text-muted md:block">
-                    {formatBytes(app.totalSize)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        ) : !apps.data ? (
+          <Loading />
+        ) : apps.data.length > 0 ? (
+          <TitleList key={`${q}\n${flag}`} items={apps.data.map((app) => ({ app }))} />
         ) : q || flag ? (
           <p className="text-muted">No games match this search.</p>
         ) : roots && roots.length === 0 ? (
@@ -146,12 +154,9 @@ export function LibraryPage() {
             <p className="mt-2 text-muted">
               Point NSLibrary at the folders that hold your NSP, NSZ, XCI, and XCZ files.
             </p>
-            <Link
-              to="/folders"
-              className="mt-4 inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm font-semibold text-accent-ink"
-            >
+            <ButtonLink to="/folders" className="mt-4">
               Add a folder
-            </Link>
+            </ButtonLink>
           </div>
         ) : (
           <p className="text-muted">

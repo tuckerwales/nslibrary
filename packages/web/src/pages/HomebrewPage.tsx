@@ -1,5 +1,6 @@
 import { useHomebrew } from "../api";
-import { LoadError, PageHeader } from "../components/PageHeader";
+import { LoadError, Loading } from "../components/Feedback";
+import { PageHeader } from "../components/PageHeader";
 import { TitleIcon } from "../components/TitleIcon";
 import { formatBytes } from "../format";
 
@@ -13,7 +14,9 @@ export function HomebrewPage() {
       </PageHeader>
       {homebrew.error ? (
         <LoadError error={homebrew.error} />
-      ) : !homebrew.data ? null : homebrew.data.length === 0 ? (
+      ) : !homebrew.data ? (
+        <Loading />
+      ) : homebrew.data.length === 0 ? (
         <p className="text-muted">No homebrew apps found yet.</p>
       ) : (
         <ul className="border-t border-line">

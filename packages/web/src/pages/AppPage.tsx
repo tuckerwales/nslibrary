@@ -1,13 +1,20 @@
 import type { AppContent, AppFlag, LibraryFileInfo } from "@nslib/shared";
 import { Link, useParams } from "react-router";
-import { ApiRequestError, useApp, useRoots, useVerifyFile } from "../api";
+import { ApiRequestError, useApp, useRootPaths, useVerifyFile } from "../api";
 import { Button } from "../components/Button";
 import { ContentStrip } from "../components/ContentStrip";
+import { LoadError, Loading } from "../components/Feedback";
 import { FileName } from "../components/FileName";
-import { LoadError } from "../components/PageHeader";
 import { SendToSwitch } from "../components/SendToSwitch";
 import { TitleIcon } from "../components/TitleIcon";
-import { FORMAT_LABEL, formatBytes, SOURCE_LABEL, updateLabel, usePageTitle } from "../format";
+import {
+  FORMAT_LABEL,
+  formatBytes,
+  SOURCE_LABEL,
+  updateLabel,
+  usePageTitle,
+  VERIFY_LABEL,
+} from "../format";
 
 const FLAG_NOTES: Record<AppFlag, string> = {
   "no-base": "The base game isn't in your library. Updates and DLC need it to play.",
@@ -38,51 +45,55 @@ function contentTitle(content: AppContent): string {
   }
 }
 
-function FileList({
-  files,
-  rootPaths,
-}: {
-  files: LibraryFileInfo[];
-  rootPaths: Map<number, string>;
-}) {
+function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string | undefined }) {
+  // Each file has its own mutation, so verifying one doesn't block the others.
   const verify = useVerifyFile();
+  const status = verify.data?.status ?? file.verifyStatus;
+  const label = VERIFY_LABEL[status];
+  const failures = verify.data?.items.filter((item) => !item.ok) ?? [];
+
   return (
-    <ul>
-      {files.map((file) => (
-        <li
-          key={file.id}
-          className="flex flex-col gap-1 border-t border-line py-2.5 first:border-t-0 sm:grid sm:grid-cols-[minmax(0,1fr)_3rem_4.5rem_9rem_auto] sm:items-baseline sm:gap-x-6"
-        >
-          <FileName file={file} rootPath={rootPaths.get(file.rootId)} />
-          <span className="flex flex-wrap gap-3 text-sm text-muted sm:contents">
-            <span className="sm:text-ink">{FORMAT_LABEL[file.format]}</span>
-            <span className="sm:text-right sm:text-ink">{formatBytes(file.size)}</span>
-            <span>{file.metadataSource ? SOURCE_LABEL[file.metadataSource] : ""}</span>
-            <span className="sm:justify-self-end">
-              <Button
-                variant="ghost"
-                className="h-8 px-2"
-                disabled={verify.isPending}
-                onClick={() => verify.mutate({ id: file.id })}
-              >
-                {file.verifyStatus === "ok"
-                  ? "Verified"
-                  : file.verifyStatus === "bad"
-                    ? "Verify failed"
-                    : "Verify"}
-              </Button>
-            </span>
+    <li className="border-t border-line py-2.5 first:border-t-0">
+      <div className="flex flex-col gap-1 sm:grid sm:grid-cols-[minmax(0,1fr)_3rem_4.5rem_9rem_7rem_auto] sm:items-baseline sm:gap-x-6">
+        <FileName file={file} rootPath={rootPath} />
+        <span className="flex flex-wrap gap-3 text-sm text-muted sm:contents">
+          <span className="sm:text-ink">{FORMAT_LABEL[file.format]}</span>
+          <span className="sm:text-right sm:text-ink">{formatBytes(file.size)}</span>
+          <span>{file.metadataSource ? SOURCE_LABEL[file.metadataSource] : ""}</span>
+          <span className={label.className} aria-live="polite">
+            {verify.isPending ? "Verifying…" : label.text}
           </span>
-        </li>
-      ))}
-    </ul>
+          <span className="sm:justify-self-end">
+            <Button
+              variant="ghost"
+              className="h-8 px-2"
+              disabled={verify.isPending}
+              aria-label={`${status === "unverified" ? "Verify" : "Verify again"}: ${file.relPath}`}
+              onClick={() => verify.mutate({ id: file.id })}
+            >
+              {status === "unverified" ? "Verify" : "Verify again"}
+            </Button>
+          </span>
+        </span>
+      </div>
+      {failures.length > 0 && (
+        <ul className="mt-1 space-y-0.5 text-sm text-danger">
+          {failures.map((item, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: file-level messages have no NCA ID
+            <li key={`${item.ncaId}:${index}`} className="[overflow-wrap:anywhere]">
+              {item.ncaId ? `${item.ncaId}: ${item.message}` : item.message}
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
 
 export function AppPage() {
   const { applicationId = "" } = useParams();
   const app = useApp(applicationId);
-  const rootPaths = new Map((useRoots().data ?? []).map((root) => [root.id, root.path]));
+  const rootPaths = useRootPaths();
   usePageTitle(app.data?.name);
 
   const back = (
@@ -106,7 +117,14 @@ export function AppPage() {
       </>
     );
   }
-  if (!app.data) return back;
+  if (!app.data) {
+    return (
+      <>
+        {back}
+        <Loading className="mt-6" />
+      </>
+    );
+  }
   const detail = app.data;
 
   return (
@@ -115,7 +133,9 @@ export function AppPage() {
       <header className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start">
         <TitleIcon name={detail.name} seed={detail.applicationId} url={detail.iconUrl} size={96} />
         <div className="min-w-0">
-          <h1 className="text-2xl break-words md:text-3xl">{detail.name}</h1>
+          <h1 tabIndex={-1} className="text-2xl break-words outline-none md:text-3xl">
+            {detail.name}
+          </h1>
           <p className="mt-1 text-muted">
             {detail.applicationId}
             {detail.publisher && <span>, {detail.publisher}</span>}
@@ -148,10 +168,7 @@ export function AppPage() {
             ) : (
               <div className="mt-3 border-t border-line">
                 {contents.map((content) => (
-                  <div
-                    key={`${content.titleId}:${content.version}`}
-                    className="border-b border-line py-3"
-                  >
+                  <div key={content.contentMetaId} className="border-b border-line py-3">
                     {type !== "application" && (
                       <div className="mb-1 flex flex-wrap items-baseline gap-x-3">
                         <h3 className="text-lg">{contentTitle(content)}</h3>
@@ -164,7 +181,11 @@ export function AppPage() {
                         )}
                       </div>
                     )}
-                    <FileList files={content.files} rootPaths={rootPaths} />
+                    <ul>
+                      {content.files.map((file) => (
+                        <FileRow key={file.id} file={file} rootPath={rootPaths.get(file.rootId)} />
+                      ))}
+                    </ul>
                   </div>
                 ))}
               </div>

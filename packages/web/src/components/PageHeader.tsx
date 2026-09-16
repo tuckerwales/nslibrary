@@ -5,16 +5,10 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
   usePageTitle(title);
   return (
     <header className="mb-6 md:mb-8">
-      <h1 className="text-2xl md:text-3xl">{title}</h1>
+      <h1 tabIndex={-1} className="text-2xl outline-none md:text-3xl">
+        {title}
+      </h1>
       {children && <div className="mt-2 max-w-[65ch] text-muted">{children}</div>}
     </header>
-  );
-}
-
-export function LoadError({ error }: { error: Error }) {
-  return (
-    <p role="alert" className="text-danger">
-      {error.message}
-    </p>
   );
 }

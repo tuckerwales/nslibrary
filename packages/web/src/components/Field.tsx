@@ -43,10 +43,10 @@ export function Switch({
   return (
     <div className="flex items-start gap-3">
       <button
+        id={id}
         type="button"
         role="switch"
         aria-checked={checked}
-        aria-labelledby={`${id}-label`}
         aria-describedby={hint ? `${id}-hint` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
@@ -57,9 +57,9 @@ export function Switch({
         />
       </button>
       <div>
-        <span id={`${id}-label`} className="text-sm font-semibold">
+        <label htmlFor={id} className="text-sm font-semibold">
           {label}
-        </span>
+        </label>
         {hint && (
           <p id={`${id}-hint`} className="text-sm text-muted">
             {hint}

@@ -1,43 +1,116 @@
 import type { JobSource, WebJob } from "@nslib/shared";
+import { useState } from "react";
 import { Link } from "react-router";
-import { useCancelJob, useDevices, useJobs, useResumeJob } from "../api";
+import {
+  DEFAULT_JOB_LIMIT,
+  useCancelJob,
+  useDevices,
+  useJobs,
+  useReorderJobs,
+  useResumeJob,
+} from "../api";
 import { Button } from "../components/Button";
-import { LoadError, PageHeader } from "../components/PageHeader";
-import { formatBytes, relativeTime, updateLabel } from "../format";
-
-function jobTitle(job: WebJob): string {
-  if (job.type === "patch") return `${job.name} · ${updateLabel(job.version)}`;
-  return job.name;
-}
+import { LoadError, Loading } from "../components/Feedback";
+import { PageHeader } from "../components/PageHeader";
+import { RelativeTime } from "../components/RelativeTime";
+import { activeJobs, finishedJobs, jobStatusLabel, jobTitle } from "../jobs";
 
 function sourceLabel(source: JobSource): string {
   return source === "switch" ? "Started on Switch" : "Sent from web";
 }
 
-function statusLabel(job: WebJob): string {
-  if (job.status === "running" && job.size > 0) {
-    return `running · ${formatBytes(job.bytesDone)} of ${formatBytes(job.size)}`;
-  }
-  return job.status;
+/** One Switch's running and queued installs, with the queue reorderable. */
+function DeviceQueue({ name, jobs }: { name: string; jobs: WebJob[] }) {
+  const cancel = useCancelJob();
+  const reorder = useReorderJobs();
+  const queued = jobs.filter((job) => job.status === "queued");
+
+  const move = (job: WebJob, offset: -1 | 1) => {
+    const ids = queued.map((j) => j.id);
+    const from = ids.indexOf(job.id);
+    const to = from + offset;
+    if (from === -1 || to < 0 || to >= ids.length) return;
+    [ids[from], ids[to]] = [ids[to] as number, ids[from] as number];
+    reorder.mutate({ deviceId: job.deviceId, ids });
+  };
+
+  return (
+    <div className="mt-4 first:mt-3">
+      <h3 className="text-lg semi-condensed">{name}</h3>
+      <ol className="mt-1 border-t border-line">
+        {jobs.map((job) => {
+          const queueIndex = queued.indexOf(job);
+          const title = jobTitle(job);
+          return (
+            <li
+              key={job.id}
+              className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3"
+            >
+              <div className="min-w-0">
+                <p className="font-semibold semi-condensed">{title}</p>
+                <p className="text-sm text-muted">
+                  {sourceLabel(job.source)} · {jobStatusLabel(job)}
+                </p>
+              </div>
+              <div className="flex gap-1">
+                {queued.length > 1 && queueIndex !== -1 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      className="h-8 px-2"
+                      aria-label={`Move ${title} earlier in the queue`}
+                      disabled={reorder.isPending || queueIndex === 0}
+                      onClick={() => move(job, -1)}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-8 px-2"
+                      aria-label={`Move ${title} later in the queue`}
+                      disabled={reorder.isPending || queueIndex === queued.length - 1}
+                      onClick={() => move(job, 1)}
+                    >
+                      ↓
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="ghost"
+                  className="h-8 px-2"
+                  aria-label={`Cancel ${title}`}
+                  disabled={cancel.isPending && cancel.variables === job.id}
+                  onClick={() => cancel.mutate(job.id)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
 }
 
 export function HistoryPage() {
+  const [limit, setLimit] = useState(DEFAULT_JOB_LIMIT);
   const devices = useDevices();
-  const jobs = useJobs();
-  const cancel = useCancelJob();
+  const jobs = useJobs(limit);
   const resume = useResumeJob();
   const names = new Map((devices.data ?? []).map((d) => [d.id, d.name]));
-  const list = [...(jobs.data ?? [])].sort((a, b) => b.updatedAt - a.updatedAt);
-  const active = list.filter(
-    (job) => job.status === "queued" || job.status === "claimed" || job.status === "running",
-  );
-  const finished = list.filter(
-    (job) =>
-      job.status === "done" ||
-      job.status === "failed" ||
-      job.status === "cancelled" ||
-      job.status === "interrupted",
-  );
+  const deviceName = (id: number) => names.get(id) ?? `Switch ${id}`;
+
+  const list = jobs.data ?? [];
+  const active = activeJobs(list);
+  const allFinished = finishedJobs(list);
+  // The server sends one more than asked for, to show whether older jobs exist.
+  const finished = allFinished.slice(0, limit);
+  const hasOlder = allFinished.length > limit;
+
+  const byDevice = new Map<number, WebJob[]>();
+  for (const job of active)
+    byDevice.set(job.deviceId, [...(byDevice.get(job.deviceId) ?? []), job]);
 
   return (
     <>
@@ -47,7 +120,9 @@ export function HistoryPage() {
 
       {jobs.error ? (
         <LoadError error={jobs.error} />
-      ) : !jobs.data ? null : list.length === 0 ? (
+      ) : !jobs.data ? (
+        <Loading />
+      ) : list.length === 0 ? (
         <p className="text-muted">
           No installs yet.{" "}
           <Link to="/devices" className="text-accent hover:underline">
@@ -60,29 +135,9 @@ export function HistoryPage() {
           {active.length > 0 && (
             <section>
               <h2 className="text-xl">In progress</h2>
-              <ul className="mt-3 border-t border-line">
-                {active.map((job) => (
-                  <li
-                    key={job.id}
-                    className="flex flex-wrap items-baseline justify-between gap-3 border-b border-line py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold semi-condensed">{jobTitle(job)}</p>
-                      <p className="text-sm text-muted">
-                        {names.get(job.deviceId) ?? `Switch ${job.deviceId}`} ·{" "}
-                        {sourceLabel(job.source)} · {statusLabel(job)}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      className="h-8 px-2"
-                      onClick={() => cancel.mutate(job.id)}
-                    >
-                      Cancel
-                    </Button>
-                  </li>
-                ))}
-              </ul>
+              {[...byDevice].map(([deviceId, deviceJobs]) => (
+                <DeviceQueue key={deviceId} name={deviceName(deviceId)} jobs={deviceJobs} />
+              ))}
             </section>
           )}
 
@@ -96,16 +151,20 @@ export function HistoryPage() {
                   <li key={job.id} className="border-b border-line py-3">
                     <p className="font-semibold semi-condensed">{jobTitle(job)}</p>
                     <p className="text-sm text-muted">
-                      {names.get(job.deviceId) ?? `Switch ${job.deviceId}`} ·{" "}
-                      {sourceLabel(job.source)} · {job.status}
-                      {job.completedAt ? ` · ${relativeTime(job.completedAt)}` : ""}
+                      {deviceName(job.deviceId)} · {sourceLabel(job.source)} · {jobStatusLabel(job)}
+                      {job.completedAt ? (
+                        <>
+                          {" "}
+                          · <RelativeTime timestamp={job.completedAt} />
+                        </>
+                      ) : null}
                     </p>
                     {job.error && <p className="mt-1 text-sm text-danger">{job.error}</p>}
                     {job.status === "interrupted" && (
                       <Button
                         variant="ghost"
                         className="mt-2 h-8 px-2"
-                        disabled={resume.isPending}
+                        disabled={resume.isPending && resume.variables === job.id}
                         onClick={() => resume.mutate(job.id)}
                       >
                         Resume
@@ -114,6 +173,16 @@ export function HistoryPage() {
                   </li>
                 ))}
               </ul>
+            )}
+            {hasOlder && (
+              <Button
+                variant="secondary"
+                className="mt-4"
+                disabled={jobs.isFetching}
+                onClick={() => setLimit((current) => current + DEFAULT_JOB_LIMIT)}
+              >
+                {jobs.isFetching ? "Loading…" : "Show older installs"}
+              </Button>
             )}
           </section>
         </>

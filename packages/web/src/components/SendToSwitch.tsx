@@ -1,9 +1,11 @@
-import type { AppContent, DeviceSummary, InstallTarget } from "@nslib/shared";
+import type { AppContent, InstallTarget } from "@nslib/shared";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useCreateJobs, useDevices } from "../api";
 import { updateLabel } from "../format";
 import { Button } from "./Button";
+import { ErrorText } from "./Feedback";
+import { Select } from "./Select";
 
 const TARGETS: { value: InstallTarget; label: string }[] = [
   { value: "auto", label: "Auto" },
@@ -28,11 +30,10 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
   );
   const [deviceId, setDeviceId] = useState<number | null>(null);
   const [target, setTarget] = useState<InstallTarget>("auto");
-  const [selected, setSelected] = useState<Set<number>>(
-    () => new Set(contents.map((c) => c.contentMetaId)),
-  );
+  // Track what's unticked rather than ticked, so content that appears later starts ticked.
+  const [unselected, setUnselected] = useState<ReadonlySet<number>>(() => new Set());
 
-  const chosen: DeviceSummary | undefined = active.find((d) => d.id === deviceId) ?? active[0];
+  const chosen = active.find((d) => d.id === deviceId) ?? active[0];
 
   if (devices.isPending) return null;
   if (active.length === 0) {
@@ -46,16 +47,25 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
     );
   }
 
-  const toggle = (id: number) => {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // Changing what will be sent clears the result of the last send.
+  const edit = (apply: () => void) => {
+    apply();
+    if (!send.isPending) send.reset();
   };
 
-  const items = contents.filter((c) => selected.has(c.contentMetaId)).map((c) => c.contentMetaId);
+  const toggle = (id: number) =>
+    edit(() =>
+      setUnselected((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    );
+
+  const items = contents
+    .filter((c) => !unselected.has(c.contentMetaId))
+    .map((c) => c.contentMetaId);
 
   return (
     <section className="mt-8 max-w-xl border-t border-line pt-6">
@@ -66,36 +76,37 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
       </p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <label className="block min-w-0 flex-1 text-sm font-semibold">
-          Switch
-          <select
-            className="mt-1.5 h-10 w-full rounded-md border border-line bg-panel px-3 text-base font-normal text-ink"
-            value={chosen?.id ?? ""}
-            onChange={(e) => setDeviceId(Number(e.target.value))}
-          >
-            {active.map((device) => (
-              <option key={device.id} value={device.id}>
-                {device.name}
-                {device.online ? "" : " (offline)"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-sm font-semibold sm:w-44">
-          Target
-          <select
-            className="mt-1.5 h-10 w-full rounded-md border border-line bg-panel px-3 text-base font-normal text-ink"
-            value={target}
-            onChange={(e) => setTarget(e.target.value as InstallTarget)}
-          >
-            {TARGETS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          label="Switch"
+          className="min-w-0 flex-1"
+          value={chosen?.id ?? ""}
+          onChange={(e) => edit(() => setDeviceId(Number(e.target.value)))}
+        >
+          {active.map((device) => (
+            <option key={device.id} value={device.id}>
+              {device.name}
+              {device.online ? "" : " (offline)"}
+            </option>
+          ))}
+        </Select>
+        <Select
+          label="Target"
+          className="sm:w-44"
+          value={target}
+          onChange={(e) => edit(() => setTarget(e.target.value as InstallTarget))}
+        >
+          {TARGETS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
       </div>
+      {chosen && !chosen.online && (
+        <p className="mt-2 text-sm text-muted">
+          {chosen.name} is offline. The install starts the next time it connects.
+        </p>
+      )}
 
       <fieldset className="mt-4">
         <legend className="text-sm font-semibold">Content</legend>
@@ -105,7 +116,7 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
               <label className="flex items-center gap-2 py-1 text-sm">
                 <input
                   type="checkbox"
-                  checked={selected.has(content.contentMetaId)}
+                  checked={!unselected.has(content.contentMetaId)}
                   onChange={() => toggle(content.contentMetaId)}
                 />
                 {contentLabel(content)}
@@ -125,17 +136,19 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
       >
         {send.isPending ? "Queuing…" : "Send to Switch"}
       </Button>
-      {send.isSuccess && (
-        <p className="mt-2 text-sm text-muted">
-          Queued {send.data.length === 1 ? "1 install" : `${send.data.length} installs`}. Watch
-          progress on the Switch or the Devices page.
-        </p>
-      )}
-      {send.error && (
-        <p role="alert" className="mt-2 text-sm text-danger">
-          {send.error.message}
-        </p>
-      )}
+      <div aria-live="polite">
+        {send.isSuccess && (
+          <p className="mt-2 text-sm text-muted">
+            Queued {send.data.length === 1 ? "1 install" : `${send.data.length} installs`}. Watch
+            progress on the Switch or the{" "}
+            <Link to="/history" className="text-accent hover:underline">
+              History
+            </Link>{" "}
+            page.
+          </p>
+        )}
+      </div>
+      <ErrorText>{send.error?.message}</ErrorText>
     </section>
   );
 }

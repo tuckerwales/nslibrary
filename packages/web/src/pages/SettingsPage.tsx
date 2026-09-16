@@ -1,41 +1,38 @@
 import { type FormEvent, useState } from "react";
 import {
-  downloadForwarder,
+  useDownloadForwarder,
   useForwarderStatus,
   useKeysStatus,
   usePutKeys,
   usePutSettings,
-  usePutTitledb,
-  useRefreshTitledb,
+  useSaveTitledb,
   useServerSettings,
   useTitledb,
 } from "../api";
 import { Button } from "../components/Button";
+import { ErrorText, LoadError } from "../components/Feedback";
 import { inputClass, Switch } from "../components/Field";
-import { LoadError, PageHeader } from "../components/PageHeader";
-import { relativeTime } from "../format";
+import { PageHeader } from "../components/PageHeader";
+import { RelativeTime } from "../components/RelativeTime";
 
-export function SettingsPage() {
+function KeysSection() {
   const keys = useKeysStatus();
   const putKeys = usePutKeys();
-  const settings = useServerSettings();
-  const putSettings = usePutSettings();
-  const titledb = useTitledb();
-  const putTitledb = usePutTitledb();
-  const refreshTitledb = useRefreshTitledb();
-  const [source, setSource] = useState<string | null>(null);
-  const [forwarderBusy, setForwarderBusy] = useState(false);
-  const [forwarderError, setForwarderError] = useState<string | null>(null);
-  const forwarder = useForwarderStatus();
-
-  const titledbSource = source ?? titledb.data?.source ?? "";
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const onKeys = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const input = event.currentTarget.elements.namedItem("keys-file") as HTMLInputElement | null;
     const file = input?.files?.[0];
     if (!file) return;
-    const contents = await file.text();
+    setFileError(null);
+    let contents: string;
+    try {
+      contents = await file.text();
+    } catch {
+      setFileError("That file couldn't be read. Try choosing it again.");
+      return;
+    }
     putKeys.mutate(contents, {
       onSuccess: () => {
         if (input) input.value = "";
@@ -43,14 +40,176 @@ export function SettingsPage() {
     });
   };
 
-  const onTitledb = (event: FormEvent) => {
+  return (
+    <section className="max-w-2xl">
+      <h2 className="text-xl">Console keys</h2>
+      {keys.error ? (
+        <LoadError error={keys.error} />
+      ) : keys.data ? (
+        <p className="mt-2 text-muted">
+          {keys.data.headerKey
+            ? `Loaded ${keys.data.names.length} keys, including header_key.`
+            : "No prod.keys yet. Dump them with Lockpick_RCM and upload the file."}
+        </p>
+      ) : null}
+
+      <form onSubmit={(e) => void onKeys(e)} className="mt-4">
+        <label htmlFor="keys-file" className="block text-sm font-semibold">
+          prod.keys
+        </label>
+        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            id="keys-file"
+            name="keys-file"
+            type="file"
+            accept=".keys,.txt,text/plain"
+            required
+            onChange={() => putKeys.reset()}
+            className="min-w-0 text-sm file:mr-3 file:rounded-md file:border file:border-line file:bg-panel file:px-3 file:py-1.5 file:text-sm file:font-semibold"
+          />
+          <Button type="submit" disabled={putKeys.isPending}>
+            {putKeys.isPending ? "Saving…" : "Save keys"}
+          </Button>
+        </div>
+        <ErrorText>{fileError ?? putKeys.error?.message}</ErrorText>
+        <div aria-live="polite">
+          {putKeys.isSuccess && (
+            <p className="mt-2 text-sm text-muted">
+              Saved. The library is being re-read with the new keys.
+            </p>
+          )}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function InstallsSection() {
+  const settings = useServerSettings();
+  const putSettings = usePutSettings();
+
+  return (
+    <section className="mt-12 max-w-2xl">
+      <h2 className="text-xl">Installs</h2>
+      <p className="mt-2 text-muted">
+        When the same title exists as both NSP and NSZ, the Switch catalog prefers the compressed
+        copy.
+      </p>
+      {settings.error && <LoadError error={settings.error} />}
+      {settings.data && (
+        <div className="mt-4 space-y-4">
+          <Switch
+            label="Prefer NSZ / XCZ"
+            checked={settings.data.preferNsz}
+            disabled={putSettings.isPending}
+            onChange={(preferNsz) => putSettings.mutate({ preferNsz })}
+          />
+          <Switch
+            label="Require pairing for USB"
+            hint="Off: a USB-connected Switch is trusted automatically. On: it must enter a pairing code."
+            checked={settings.data.requireUsbPairing}
+            disabled={putSettings.isPending}
+            onChange={(requireUsbPairing) => putSettings.mutate({ requireUsbPairing })}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ForwarderSection() {
+  const forwarder = useForwarderStatus();
+  const download = useDownloadForwarder();
+  const needsKeys = forwarder.data?.keys === false;
+
+  return (
+    <section className="mt-12 max-w-2xl">
+      <h2 className="text-xl">HOME menu forwarder</h2>
+      <p className="mt-2 text-muted">
+        An NSP you can install so NSLibrary appears on the HOME menu and launches{" "}
+        <code className="text-sm">sdmc:/switch/nslibrary/nslibrary.nro</code>. Needs your{" "}
+        <code className="text-sm">prod.keys</code>. Sigpatches are required to install it.
+      </p>
+      {forwarder.data && (
+        <p className="mt-2 text-sm text-muted">
+          Title ID {forwarder.data.titleId}
+          {forwarder.data.loader === "stub"
+            ? ". The loader binary is a stub until you build the Switch forwarder target."
+            : ". Using the compiled Switch loader."}
+        </p>
+      )}
+      <div className="mt-4">
+        <Button disabled={download.isPending || needsKeys} onClick={() => download.mutate({})}>
+          {download.isPending ? "Building…" : "Download NSP"}
+        </Button>
+      </div>
+      {needsKeys && <p className="mt-2 text-sm text-muted">Upload prod.keys first.</p>}
+      <ErrorText>{download.error?.message}</ErrorText>
+    </section>
+  );
+}
+
+function TitledbSection() {
+  const titledb = useTitledb();
+  const save = useSaveTitledb();
+  const [source, setSource] = useState<string | null>(null);
+  const titledbSource = source ?? titledb.data?.source ?? "";
+
+  const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    putTitledb.mutate(
-      { source: titledbSource.trim() || null },
-      { onSuccess: () => refreshTitledb.mutate() },
-    );
+    save.mutate(titledbSource.trim() || null, { onSuccess: () => setSource(null) });
   };
 
+  return (
+    <section className="mt-12 max-w-2xl">
+      <h2 className="text-xl">Title database</h2>
+      <p className="mt-2 text-muted">
+        Optional. A JSON file or URL you supply, used only for names, descriptions, and the latest
+        known version. NSLibrary never downloads games from it.
+      </p>
+      {titledb.error ? (
+        <LoadError error={titledb.error} />
+      ) : titledb.data ? (
+        <p className="mt-2 text-sm text-muted">
+          {titledb.data.titleCount.toLocaleString()} titles loaded
+          {titledb.data.lastRefreshAt ? (
+            <>
+              , last refreshed <RelativeTime timestamp={titledb.data.lastRefreshAt} />
+            </>
+          ) : null}
+          .
+        </p>
+      ) : null}
+
+      <form onSubmit={onSubmit} className="mt-4">
+        <label htmlFor="titledb-source" className="block text-sm font-semibold">
+          URL or file path
+        </label>
+        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+          <input
+            id="titledb-source"
+            className={inputClass}
+            placeholder="https://example/titledb.json"
+            value={titledbSource}
+            onChange={(e) => setSource(e.target.value)}
+          />
+          <Button type="submit" disabled={save.isPending}>
+            {save.isPending ? "Saving…" : "Save and refresh"}
+          </Button>
+        </div>
+        {save.error ? (
+          <ErrorText>{save.error.message}</ErrorText>
+        ) : titledb.data?.lastError ? (
+          <p className="mt-2 text-sm text-danger">
+            The last refresh failed: {titledb.data.lastError}
+          </p>
+        ) : null}
+      </form>
+    </section>
+  );
+}
+
+export function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings">
@@ -59,161 +218,10 @@ export function SettingsPage() {
           never leave this computer and are never sent to a Switch.
         </p>
       </PageHeader>
-
-      <section className="max-w-2xl">
-        <h2 className="text-xl">Console keys</h2>
-        {keys.error ? (
-          <LoadError error={keys.error} />
-        ) : keys.data ? (
-          <p className="mt-2 text-muted">
-            {keys.data.headerKey
-              ? `Loaded ${keys.data.names.length} keys, including header_key.`
-              : "No prod.keys yet. Dump them with Lockpick_RCM and upload the file."}
-          </p>
-        ) : null}
-
-        <form onSubmit={(e) => void onKeys(e)} className="mt-4">
-          <label htmlFor="keys-file" className="block text-sm font-semibold">
-            prod.keys
-          </label>
-          <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <input
-              id="keys-file"
-              name="keys-file"
-              type="file"
-              accept=".keys,.txt,text/plain"
-              required
-              className="min-w-0 text-sm file:mr-3 file:rounded-md file:border file:border-line file:bg-panel file:px-3 file:py-1.5 file:text-sm file:font-semibold"
-            />
-            <Button type="submit" disabled={putKeys.isPending}>
-              {putKeys.isPending ? "Saving…" : "Save keys"}
-            </Button>
-          </div>
-          {putKeys.error && (
-            <p role="alert" className="mt-2 text-sm text-danger">
-              {putKeys.error.message}
-            </p>
-          )}
-          {putKeys.isSuccess && (
-            <p className="mt-2 text-sm text-muted">
-              Saved. The library is being re-read with the new keys.
-            </p>
-          )}
-        </form>
-      </section>
-
-      <section className="mt-12 max-w-2xl">
-        <h2 className="text-xl">Installs</h2>
-        <p className="mt-2 text-muted">
-          When the same title exists as both NSP and NSZ, the Switch catalog prefers the compressed
-          copy.
-        </p>
-        {settings.data && (
-          <div className="mt-4">
-            <Switch
-              label="Prefer NSZ / XCZ"
-              checked={settings.data.preferNsz}
-              disabled={putSettings.isPending}
-              onChange={(preferNsz) => putSettings.mutate({ preferNsz })}
-            />
-            <div className="mt-4">
-              <Switch
-                label="Require pairing for USB"
-                hint="Off: a USB-connected Switch is trusted automatically. On: it must enter a pairing code."
-                checked={settings.data.requireUsbPairing}
-                disabled={putSettings.isPending}
-                onChange={(requireUsbPairing) => putSettings.mutate({ requireUsbPairing })}
-              />
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="mt-12 max-w-2xl">
-        <h2 className="text-xl">HOME menu forwarder</h2>
-        <p className="mt-2 text-muted">
-          An NSP you can install so NSLibrary appears on the HOME menu and launches{" "}
-          <code className="text-sm">sdmc:/switch/nslibrary/nslibrary.nro</code>. Needs your{" "}
-          <code className="text-sm">prod.keys</code>. Sigpatches are required to install it.
-        </p>
-        {forwarder.data && (
-          <p className="mt-2 text-sm text-muted">
-            Title ID {forwarder.data.titleId}
-            {forwarder.data.loader === "stub"
-              ? ". The loader binary is a stub until you build the Switch forwarder target."
-              : ". Using the compiled Switch loader."}
-          </p>
-        )}
-        <div className="mt-4">
-          <Button
-            type="button"
-            disabled={forwarderBusy || forwarder.data?.keys === false}
-            onClick={() => {
-              setForwarderError(null);
-              setForwarderBusy(true);
-              void downloadForwarder()
-                .catch((err: unknown) => {
-                  setForwarderError(err instanceof Error ? err.message : String(err));
-                })
-                .finally(() => setForwarderBusy(false));
-            }}
-          >
-            {forwarderBusy ? "Building…" : "Download NSP"}
-          </Button>
-        </div>
-        {forwarder.data?.keys === false && (
-          <p className="mt-2 text-sm text-muted">Upload prod.keys first.</p>
-        )}
-        {forwarderError && (
-          <p role="alert" className="mt-2 text-sm text-danger">
-            {forwarderError}
-          </p>
-        )}
-      </section>
-
-      <section className="mt-12 max-w-2xl">
-        <h2 className="text-xl">Title database</h2>
-        <p className="mt-2 text-muted">
-          Optional. A JSON file or URL you supply, used only for names, descriptions, and the latest
-          known version. NSLibrary never downloads games from it.
-        </p>
-        {titledb.error ? (
-          <LoadError error={titledb.error} />
-        ) : titledb.data ? (
-          <p className="mt-2 text-sm text-muted">
-            {titledb.data.titleCount.toLocaleString()} titles loaded
-            {titledb.data.lastRefreshAt
-              ? `, last refreshed ${relativeTime(titledb.data.lastRefreshAt)}`
-              : ""}
-            .
-          </p>
-        ) : null}
-
-        <form onSubmit={onTitledb} className="mt-4">
-          <label htmlFor="titledb-source" className="block text-sm font-semibold">
-            URL or file path
-          </label>
-          <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-            <input
-              id="titledb-source"
-              className={inputClass}
-              placeholder="https://example/titledb.json"
-              value={titledbSource}
-              onChange={(e) => setSource(e.target.value)}
-            />
-            <Button type="submit" disabled={putTitledb.isPending || refreshTitledb.isPending}>
-              {putTitledb.isPending || refreshTitledb.isPending ? "Saving…" : "Save and refresh"}
-            </Button>
-          </div>
-          {(putTitledb.error || refreshTitledb.error || titledb.data?.lastError) && (
-            <p role="alert" className="mt-2 text-sm text-danger">
-              {putTitledb.error?.message ??
-                refreshTitledb.error?.message ??
-                titledb.data?.lastError}
-            </p>
-          )}
-        </form>
-      </section>
+      <KeysSection />
+      <InstallsSection />
+      <ForwarderSection />
+      <TitledbSection />
     </>
   );
 }

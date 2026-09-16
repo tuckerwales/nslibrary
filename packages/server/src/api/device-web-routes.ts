@@ -15,6 +15,8 @@ import { parseWith } from "./errors";
 const IdParams = z.object({ id: z.coerce.number().int().positive() });
 const JobsQuery = z.object({
   deviceId: z.coerce.number().int().positive().optional(),
+  /** Most recently finished jobs to include; active jobs are always listed. */
+  limit: z.coerce.number().int().min(0).max(1000).optional(),
 });
 
 export async function registerDeviceWebRoutes(
@@ -46,7 +48,7 @@ export async function registerDeviceWebRoutes(
 
   api.get("/jobs", async (request): Promise<WebJob[]> => {
     const query = parseWith(JobsQuery, request.query);
-    return ctx.devices.listJobs(query.deviceId);
+    return ctx.devices.listJobs(query.deviceId, query.limit);
   });
 
   api.post("/jobs", async (request, reply): Promise<WebJob[]> => {
