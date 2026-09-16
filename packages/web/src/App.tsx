@@ -5,6 +5,7 @@ import { Shell } from "./components/Shell";
 import { useLiveUpdates } from "./live";
 import { AppPage } from "./pages/AppPage";
 import { LoginPage, SetupPage } from "./pages/AuthPages";
+import { DevicesPage } from "./pages/DevicesPage";
 import { FoldersPage } from "./pages/FoldersPage";
 import { HomebrewPage } from "./pages/HomebrewPage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -42,6 +43,7 @@ export function App() {
         <Route path="/apps/:applicationId" element={<AppPage />} />
         <Route path="/homebrew" element={<HomebrewPage />} />
         <Route path="/problems" element={<ProblemsPage />} />
+        <Route path="/devices" element={<DevicesPage />} />
         <Route path="/folders" element={<FoldersPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />

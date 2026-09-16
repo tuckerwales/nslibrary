@@ -4,6 +4,7 @@ services:
     image: nslibrary:local
     ports:
       - "8465:8465"
+      - "8466:8466/udp"
     environment:
       NSLIB_TRUST_PROXY: "true"
       # Set to "true" when the library is on NFS/SMB and inotify is unreliable.

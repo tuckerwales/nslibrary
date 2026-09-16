@@ -54,6 +54,7 @@ export function Shell({ username, children }: { username: string; children: Reac
           <NavItem to="/" label="Library" count={stats?.applications} />
           <NavItem to="/homebrew" label="Homebrew" count={stats?.homebrew} />
           <NavItem to="/problems" label="Problems" count={stats?.problems} alert />
+          <NavItem to="/devices" label="Devices" />
           <NavItem to="/folders" label="Folders" />
           <NavItem to="/settings" label="Settings" />
         </nav>

@@ -40,4 +40,4 @@ Locally without Docker: `pnpm seed && NSLIB_SEED=true NSLIB_SEED_DIR="$PWD/data/
 
 ## What is not in this image yet
 
-Switch USB, UDP LAN discovery, and the `.nro` installer are later milestones. A Coolify deploy is the library web app only.
+The `.nro` installer and USB transport are later milestones. UDP discovery (`NSLIB?1` on port 8466) works when that port is published, or when the container uses host networking. A Coolify deploy without 8466/udp still serves the library web app and the HTTP device API; enter the server IP on the Switch by hand.

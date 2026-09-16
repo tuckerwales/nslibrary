@@ -5,6 +5,7 @@ import { Button } from "../components/Button";
 import { ContentStrip } from "../components/ContentStrip";
 import { FileName } from "../components/FileName";
 import { LoadError } from "../components/PageHeader";
+import { SendToSwitch } from "../components/SendToSwitch";
 import { TitleIcon } from "../components/TitleIcon";
 import { FORMAT_LABEL, formatBytes, SOURCE_LABEL, updateLabel, usePageTitle } from "../format";
 
@@ -124,6 +125,8 @@ export function AppPage() {
           </div>
         </div>
       </header>
+
+      <SendToSwitch contents={detail.contents} />
 
       {detail.flags.length > 0 && (
         <ul className="mt-8 max-w-[70ch] space-y-2">

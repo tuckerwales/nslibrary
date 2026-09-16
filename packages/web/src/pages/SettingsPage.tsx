@@ -1,13 +1,23 @@
 import { type FormEvent, useState } from "react";
-import { useKeysStatus, usePutKeys, usePutTitledb, useRefreshTitledb, useTitledb } from "../api";
+import {
+  useKeysStatus,
+  usePutKeys,
+  usePutSettings,
+  usePutTitledb,
+  useRefreshTitledb,
+  useServerSettings,
+  useTitledb,
+} from "../api";
 import { Button } from "../components/Button";
-import { inputClass } from "../components/Field";
+import { inputClass, Switch } from "../components/Field";
 import { LoadError, PageHeader } from "../components/PageHeader";
 import { relativeTime } from "../format";
 
 export function SettingsPage() {
   const keys = useKeysStatus();
   const putKeys = usePutKeys();
+  const settings = useServerSettings();
+  const putSettings = usePutSettings();
   const titledb = useTitledb();
   const putTitledb = usePutTitledb();
   const refreshTitledb = useRefreshTitledb();
@@ -85,6 +95,24 @@ export function SettingsPage() {
             </p>
           )}
         </form>
+      </section>
+
+      <section className="mt-12 max-w-2xl">
+        <h2 className="text-xl">Installs</h2>
+        <p className="mt-2 text-muted">
+          When the same title exists as both NSP and NSZ, the Switch catalog prefers the compressed
+          copy.
+        </p>
+        {settings.data && (
+          <div className="mt-4">
+            <Switch
+              label="Prefer NSZ / XCZ"
+              checked={settings.data.preferNsz}
+              disabled={putSettings.isPending}
+              onChange={(preferNsz) => putSettings.mutate({ preferNsz })}
+            />
+          </div>
+        )}
       </section>
 
       <section className="mt-12 max-w-2xl">

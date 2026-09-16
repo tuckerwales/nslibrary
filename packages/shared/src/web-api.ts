@@ -1,6 +1,12 @@
 /** Web UI API (`/api/v1`) request schemas and response types. */
 import { z } from "zod";
-import type { ContainerFormat } from "./device-api";
+import {
+  type ContainerFormat,
+  type InstallPhase,
+  type InstallTarget,
+  InstallTargetSchema,
+  type JobStatus,
+} from "./device-api";
 import type { ContentMetaType } from "./title-id";
 
 export const SetupRequestSchema = z.object({
@@ -41,6 +47,26 @@ export const VerifyRequestSchema = z.object({
   mode: z.enum(["quick", "full"]).optional(),
 });
 
+export const RenameDeviceRequestSchema = z.object({
+  name: z.string().trim().min(1, "Enter a name").max(64),
+});
+
+export const CreateJobsRequestSchema = z.object({
+  deviceId: z.number().int().positive(),
+  items: z.array(z.number().int().positive()).min(1),
+  target: InstallTargetSchema.optional(),
+});
+
+export const ReorderJobsRequestSchema = z.object({
+  deviceId: z.number().int().positive(),
+  ids: z.array(z.number().int().positive()),
+});
+
+export const ServerSettingsSchema = z.object({
+  preferNsz: z.boolean().optional(),
+  serverName: z.string().trim().min(1).max(64).optional(),
+});
+
 export type SetupRequest = z.infer<typeof SetupRequestSchema>;
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export type CreateRootRequest = z.infer<typeof CreateRootRequestSchema>;
@@ -48,6 +74,10 @@ export type UpdateRootRequest = z.infer<typeof UpdateRootRequestSchema>;
 export type PutKeysRequest = z.infer<typeof PutKeysRequestSchema>;
 export type TitledbConfig = z.infer<typeof TitledbConfigSchema>;
 export type VerifyRequest = z.infer<typeof VerifyRequestSchema>;
+export type RenameDeviceRequest = z.infer<typeof RenameDeviceRequestSchema>;
+export type CreateJobsRequest = z.infer<typeof CreateJobsRequestSchema>;
+export type ReorderJobsRequest = z.infer<typeof ReorderJobsRequestSchema>;
+export type ServerSettingsPatch = z.infer<typeof ServerSettingsSchema>;
 
 export interface KeyStatus {
   configured: boolean;
@@ -155,6 +185,8 @@ export interface LibraryFileInfo {
 }
 
 export interface AppContent {
+  /** Content-meta row of the preferred file (NSZ over NSP by default). Used to queue installs. */
+  contentMetaId: number;
   titleId: string;
   type: ContentMetaType;
   version: number | null;
@@ -205,7 +237,76 @@ export interface LibraryStats {
   catalogRev: number;
 }
 
+export interface PairingCode {
+  code: string;
+  expiresAt: number;
+}
+
+export interface DeviceSpace {
+  sd: [number, number] | null;
+  nand: [number, number] | null;
+}
+
+export interface InstalledTitle {
+  titleId: string;
+  version: number;
+  type: ContentMetaType;
+  storage: "sd" | "nand";
+}
+
+export interface DeviceSummary {
+  id: number;
+  uuid: string;
+  name: string;
+  fw: string | null;
+  ams: string | null;
+  appVersion: string | null;
+  lastSeen: number | null;
+  transport: "http" | "usb" | null;
+  online: boolean;
+  revoked: boolean;
+  space: DeviceSpace;
+  queuedJobs: number;
+  runningJobs: number;
+}
+
+export interface DeviceDetail extends DeviceSummary {
+  titles: InstalledTitle[];
+}
+
+export interface WebJob {
+  id: number;
+  deviceId: number;
+  contentMetaId: number;
+  fileId: number;
+  titleId: string;
+  version: number;
+  type: ContentMetaType;
+  name: string;
+  size: number;
+  format: ContainerFormat;
+  target: InstallTarget;
+  status: JobStatus;
+  position: number;
+  phase: InstallPhase | null;
+  item: string | null;
+  bytesDone: number;
+  bps: number | null;
+  error: string | null;
+  createdAt: number;
+  updatedAt: number;
+  completedAt: number | null;
+}
+
+export interface ServerSettings {
+  preferNsz: boolean;
+  serverName: string;
+}
+
 export type ServerEvent =
   | { type: "scan.progress"; rootId: number; scan: ScanProgress }
   | { type: "library.changed"; rev: number }
-  | { type: "roots.changed" };
+  | { type: "roots.changed" }
+  | { type: "device.online"; deviceId: number }
+  | { type: "device.offline"; deviceId: number }
+  | { type: "job.updated"; job: WebJob };

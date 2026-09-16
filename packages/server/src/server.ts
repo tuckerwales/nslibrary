@@ -7,6 +7,8 @@ import { buildApp } from "./app";
 import { AuthService, LoginRateLimiter } from "./auth/auth-service";
 import type { ServerConfig } from "./config";
 import { type Db, openDatabase } from "./db/client";
+import { DiscoveryServer, discoveryReply } from "./device/discovery";
+import { DeviceApiService } from "./device/service";
 import { EventBus } from "./events";
 import { KeyStore } from "./keys/store";
 import { LibraryRepository } from "./library/repository";
@@ -25,6 +27,8 @@ export interface NslibServer {
   scanner: LibraryScanner;
   events: EventBus;
   auth: AuthService;
+  devices: DeviceApiService;
+  discovery: DiscoveryServer | null;
   /** Starts watchers, the startup scan, and periodic maintenance. Call after listen(). */
   start(): Promise<void>;
   close(): Promise<void>;
@@ -56,6 +60,21 @@ export async function createServer(
     log,
   });
   const auth = new AuthService(db, now);
+  const devices = new DeviceApiService({
+    db,
+    events,
+    now,
+    serverName: config.serverName,
+    catalogRev: () => repo.catalogRev(),
+  });
+  const discovery =
+    config.discoveryPort === null
+      ? null
+      : new DiscoveryServer({
+          port: config.discoveryPort,
+          reply: () => discoveryReply(devices.serverId, devices.serverName, config.port),
+          log,
+        });
   app = await buildApp({
     config,
     db,
@@ -66,6 +85,7 @@ export async function createServer(
     loginLimiter: new LoginRateLimiter(),
     keys,
     titledb,
+    devices,
     iconDir,
     log,
   });
@@ -75,6 +95,7 @@ export async function createServer(
   const runMaintenance = () => {
     repo.purgeMissing(MISSING_FILE_RETENTION_MS);
     auth.purgeExpiredSessions();
+    devices.purgeExpiredPairingCodes();
   };
 
   return {
@@ -85,16 +106,23 @@ export async function createServer(
     scanner,
     events,
     auth,
+    devices,
+    discovery,
     async start() {
       runMaintenance();
       maintenance = setInterval(runMaintenance, MAINTENANCE_INTERVAL_MS);
       maintenance.unref();
+      if (discovery) {
+        await discovery.start().catch((err) => log("UDP discovery failed to bind", err));
+      }
       await applyDemoSeed({ config, repo, scanner, keys, log });
       for (const root of repo.listRoots()) await scanner.watchRoot(root);
       scanner.scanAll().catch((err) => log("Startup scan failed", err));
     },
     async close() {
       if (maintenance) clearInterval(maintenance);
+      await discovery?.close();
+      devices.close();
       await fastify.close();
       await scanner.close();
       sqlite.close();

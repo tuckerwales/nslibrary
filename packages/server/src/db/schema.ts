@@ -7,6 +7,19 @@ const VERIFY_STATUSES = ["unverified", "ok", "bad", "partial"] as const;
 const CONTENT_TYPES = ["application", "patch", "addon"] as const;
 const APPLICATION_ID_SOURCES = ["exact", "derived", "guess"] as const;
 const ENTRY_KINDS = ["cnmt", "nca", "ncz", "tik", "cert", "other"] as const;
+const TRANSPORTS = ["http", "usb"] as const;
+const JOB_STATUSES = [
+  "queued",
+  "claimed",
+  "running",
+  "done",
+  "failed",
+  "cancelled",
+  "interrupted",
+] as const;
+const INSTALL_TARGETS = ["sd", "nand", "auto"] as const;
+const INSTALL_PHASES = ["preflight", "ticket", "meta", "content", "commit", "record"] as const;
+const STORAGES = ["sd", "nand"] as const;
 
 /** Timestamps are epoch milliseconds. */
 export const libraryRoots = sqliteTable("library_roots", {
@@ -180,6 +193,95 @@ export const titledbVersions = sqliteTable(
   (t) => [uniqueIndex("titledb_versions_idx").on(t.titleId, t.version)],
 );
 
+export const devices = sqliteTable(
+  "devices",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    uuid: text("uuid").notNull(),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    fw: text("fw"),
+    ams: text("ams"),
+    appVersion: text("app_version"),
+    lastSeen: integer("last_seen"),
+    transport: text("transport", { enum: TRANSPORTS }),
+    sdFree: integer("sd_free"),
+    sdTotal: integer("sd_total"),
+    nandFree: integer("nand_free"),
+    nandTotal: integer("nand_total"),
+    revokedAt: integer("revoked_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("devices_uuid_idx").on(t.uuid),
+    uniqueIndex("devices_token_hash_idx").on(t.tokenHash),
+  ],
+);
+
+export const pairingCodes = sqliteTable("pairing_codes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const deviceTitles = sqliteTable(
+  "device_titles",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    deviceId: integer("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    storage: text("storage", { enum: STORAGES }).notNull(),
+    titleId: text("title_id").notNull(),
+    version: integer("version").notNull(),
+    type: text("type", { enum: CONTENT_TYPES }).notNull(),
+    applicationId: text("application_id").notNull(),
+  },
+  (t) => [
+    uniqueIndex("device_titles_unique_idx").on(t.deviceId, t.titleId, t.storage),
+    index("device_titles_device_idx").on(t.deviceId),
+  ],
+);
+
+export const installJobs = sqliteTable(
+  "install_jobs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    deviceId: integer("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    contentMetaId: integer("content_meta_id").notNull(),
+    fileId: integer("file_id").notNull(),
+    titleId: text("title_id").notNull(),
+    version: integer("version").notNull(),
+    type: text("type", { enum: CONTENT_TYPES }).notNull(),
+    name: text("name").notNull(),
+    size: integer("size").notNull(),
+    format: text("format", { enum: FILE_FORMATS }).notNull(),
+    target: text("target", { enum: INSTALL_TARGETS }).notNull(),
+    position: integer("position").notNull(),
+    status: text("status", { enum: JOB_STATUSES }).notNull(),
+    phase: text("phase", { enum: INSTALL_PHASES }),
+    item: text("item"),
+    bytesDone: integer("bytes_done").notNull().default(0),
+    bps: integer("bps"),
+    error: text("error"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    claimedAt: integer("claimed_at"),
+    completedAt: integer("completed_at"),
+  },
+  (t) => [
+    index("install_jobs_device_idx").on(t.deviceId, t.status),
+    index("install_jobs_position_idx").on(t.deviceId, t.position),
+  ],
+);
+
 export type RootRow = typeof libraryRoots.$inferSelect;
 export type FileRow = typeof files.$inferSelect;
+export type ContentMetaRow = typeof contentMetas.$inferSelect;
 export type ContentMetaInsert = typeof contentMetas.$inferInsert;
+export type DeviceRow = typeof devices.$inferSelect;
+export type JobRow = typeof installJobs.$inferSelect;

@@ -3,18 +3,24 @@ import type {
   AppFlag,
   AppSummary,
   AuthStatus,
+  CreateJobsRequest,
   CreateRootRequest,
+  DeviceDetail,
+  DeviceSummary,
   HomebrewItem,
   KeyStatus,
   LibraryRoot,
   LibraryStats,
   LoginRequest,
+  PairingCode,
   ProblemsReport,
+  ServerSettings,
   SetupRequest,
   TitledbStatus,
   UpdateRootRequest,
   VerifyMode,
   VerifyResult,
+  WebJob,
 } from "@nslib/shared";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -70,6 +76,8 @@ export const LIBRARY_QUERY_KEYS = [
   ["roots"],
   ["keys"],
   ["titledb"],
+  ["devices"],
+  ["jobs"],
 ];
 
 export function useAuthStatus() {
@@ -241,5 +249,91 @@ export function useVerifyFile() {
     mutationFn: ({ id, mode }: { id: number; mode?: VerifyMode }) =>
       request<VerifyResult>("POST", `/files/${id}/verify`, { mode: mode ?? "full" }),
     onSuccess: invalidate,
+  });
+}
+
+export function useDevices() {
+  return useQuery({
+    queryKey: ["devices"],
+    queryFn: () => request<DeviceSummary[]>("GET", "/devices"),
+  });
+}
+
+export function useDevice(id: number | null) {
+  return useQuery({
+    queryKey: ["devices", id],
+    queryFn: () => request<DeviceDetail>("GET", `/devices/${id}`),
+    enabled: id !== null,
+  });
+}
+
+export function usePairingCode() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => request<PairingCode>("POST", "/devices/pairing-code"),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["devices"] }),
+  });
+}
+
+export function useRenameDevice() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) =>
+      request<DeviceDetail>("PATCH", `/devices/${id}`, { name }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["devices"] }),
+  });
+}
+
+export function useRevokeDevice() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => request<DeviceDetail>("POST", `/devices/${id}/revoke`),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["devices"] });
+      void client.invalidateQueries({ queryKey: ["jobs"] });
+    },
+  });
+}
+
+export function useJobs(deviceId?: number) {
+  const query = deviceId ? `?deviceId=${deviceId}` : "";
+  return useQuery({
+    queryKey: ["jobs", deviceId ?? "all"],
+    queryFn: () => request<WebJob[]>("GET", `/jobs${query}`),
+  });
+}
+
+export function useCreateJobs() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateJobsRequest) => request<WebJob[]>("POST", "/jobs", body),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["jobs"] });
+      void client.invalidateQueries({ queryKey: ["devices"] });
+    },
+  });
+}
+
+export function useCancelJob() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => request<WebJob>("POST", `/jobs/${id}/cancel`),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["jobs"] }),
+  });
+}
+
+export function useServerSettings() {
+  return useQuery({
+    queryKey: ["settings"],
+    queryFn: () => request<ServerSettings>("GET", "/settings"),
+  });
+}
+
+export function usePutSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<ServerSettings>) =>
+      request<ServerSettings>("PUT", "/settings", body),
+    onSuccess: (settings) => client.setQueryData(["settings"], settings),
   });
 }

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_SERVER_PORT } from "@nslib/shared";
+import { DEFAULT_SERVER_PORT, DISCOVERY_PORT } from "@nslib/shared";
 import type { LogFn } from "./api/context";
 
 export interface ServerConfig {
@@ -24,6 +24,10 @@ export interface ServerConfig {
   seed: boolean;
   seedLibraryDir: string | null;
   seedKeysPath: string | null;
+  /** Advertised in hello and UDP discovery. */
+  serverName: string;
+  /** UDP port for `NSLIB?1`. Null disables discovery. 0 binds an ephemeral port. */
+  discoveryPort: number | null;
 }
 
 const WEB_DIR_CANDIDATES = [
@@ -43,6 +47,13 @@ function positiveInt(name: string, value: string | undefined, fallback: number):
   return n;
 }
 
+function discoveryPort(env: NodeJS.ProcessEnv): number | null {
+  if (env.NSLIB_DISCOVERY === "0" || env.NSLIB_DISCOVERY?.toLowerCase() === "false") return null;
+  const value = env.NSLIB_DISCOVERY_PORT;
+  if (value === "0") return 0;
+  return positiveInt("NSLIB_DISCOVERY_PORT", value, DISCOVERY_PORT);
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const webDir = env.NSLIB_WEB_DIR
     ? resolve(env.NSLIB_WEB_DIR)
@@ -60,5 +71,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     seed: flag(env.NSLIB_SEED),
     seedLibraryDir: env.NSLIB_SEED_DIR ? resolve(env.NSLIB_SEED_DIR) : null,
     seedKeysPath: env.NSLIB_SEED_KEYS ? resolve(env.NSLIB_SEED_KEYS) : null,
+    serverName: env.NSLIB_SERVER_NAME?.trim() || "NSLibrary",
+    discoveryPort: discoveryPort(env),
   };
 }

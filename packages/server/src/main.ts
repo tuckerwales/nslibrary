@@ -5,6 +5,9 @@ const config = loadConfig();
 const server = await createServer(config);
 await server.app.listen({ host: config.host, port: config.port });
 await server.start();
+if (server.discovery) {
+  server.app.log.info(`UDP discovery listening on port ${server.discovery.port}`);
+}
 
 if (!config.webDir) {
   server.app.log.info(

@@ -34,6 +34,14 @@ export function useLiveUpdates(enabled: boolean) {
             roots?.map((root) => (root.id === event.rootId ? { ...root, scan: event.scan } : root)),
           );
           break;
+        case "device.online":
+        case "device.offline":
+          void client.invalidateQueries({ queryKey: ["devices"] });
+          break;
+        case "job.updated":
+          void client.invalidateQueries({ queryKey: ["jobs"] });
+          void client.invalidateQueries({ queryKey: ["devices"] });
+          break;
       }
     };
 

@@ -172,6 +172,19 @@ export const DiscoveryReplySchema = z.object({
   proto: z.number().int().positive(),
 });
 
+export const CatalogQuerySchema = z.object({
+  since: z.coerce.number().int().nonnegative().optional(),
+  cursor: z.string().max(32).optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+
+export const EventsQuerySchema = z.object({
+  cursor: z.string().max(32).optional(),
+  wait: z.coerce.number().int().min(0).max(30).optional(),
+});
+
+export const DEVICE_CAPABILITIES = ["ncz-block", "icons", "events"] as const;
+
 export type ContainerFormat = z.infer<typeof ContainerFormatSchema>;
 export type Storage = z.infer<typeof StorageSchema>;
 export type InstallTarget = z.infer<typeof InstallTargetSchema>;
@@ -193,3 +206,5 @@ export type ClaimJobResponse = z.infer<typeof ClaimJobResponseSchema>;
 export type JobProgressRequest = z.infer<typeof JobProgressRequestSchema>;
 export type JobCompleteRequest = z.infer<typeof JobCompleteRequestSchema>;
 export type DiscoveryReply = z.infer<typeof DiscoveryReplySchema>;
+export type CatalogQuery = z.infer<typeof CatalogQuerySchema>;
+export type EventsQuery = z.infer<typeof EventsQuerySchema>;

@@ -1,6 +1,8 @@
 import {
   type KeyStatus,
   PutKeysRequestSchema,
+  type ServerSettings,
+  ServerSettingsSchema,
   TitledbConfigSchema,
   type TitledbStatus,
 } from "@nslib/shared";
@@ -36,5 +38,12 @@ export async function registerKeysRoutes(api: FastifyInstance, ctx: AppContext):
     const status = await ctx.titledb.refresh();
     ctx.events.publish({ type: "library.changed", rev: ctx.repo.catalogRev() });
     return status;
+  });
+
+  api.get("/settings", async (): Promise<ServerSettings> => ctx.devices.getSettings());
+
+  api.put("/settings", async (request): Promise<ServerSettings> => {
+    const body = parseWith(ServerSettingsSchema, request.body);
+    return ctx.devices.updateSettings(body);
   });
 }

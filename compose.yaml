@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - "8465:8465"
+      - "8466:8466/udp"
     environment:
       NSLIB_TRUST_PROXY: "true"
       NSLIB_POLLING: "false"

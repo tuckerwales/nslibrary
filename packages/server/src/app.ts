@@ -1,10 +1,12 @@
 import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
-import { WEB_API_BASE_PATH } from "@nslib/shared";
+import { DEVICE_API_BASE_PATH, WEB_API_BASE_PATH } from "@nslib/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 import { registerAuthRoutes, requireSession } from "./api/auth-routes";
 import type { AppContext } from "./api/context";
+import { registerDeviceRoutes } from "./api/device-routes";
+import { registerDeviceWebRoutes } from "./api/device-web-routes";
 import { registerErrorHandling } from "./api/errors";
 import { registerKeysRoutes } from "./api/keys-routes";
 import { registerLibraryRoutes } from "./api/library-routes";
@@ -16,6 +18,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     trustProxy: ctx.config.trustProxy,
   });
   app.decorateRequest("username", null);
+  app.decorateRequest("device", null);
   registerErrorHandling(app);
   await app.register(cookie);
   await app.register(websocket);
@@ -30,10 +33,15 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
         await registerRootRoutes(secured, ctx);
         await registerLibraryRoutes(secured, ctx);
         await registerKeysRoutes(secured, ctx);
+        await registerDeviceWebRoutes(secured, ctx);
       });
     },
     { prefix: WEB_API_BASE_PATH },
   );
+
+  await app.register(async (api) => registerDeviceRoutes(api, ctx), {
+    prefix: DEVICE_API_BASE_PATH,
+  });
 
   const { webDir } = ctx.config;
   if (webDir) await app.register(fastifyStatic, { root: webDir, wildcard: false });

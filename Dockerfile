@@ -11,6 +11,7 @@ COPY packages/web/package.json packages/web/
 COPY packages/shared/package.json packages/shared/
 COPY packages/formats/package.json packages/formats/
 COPY packages/fixtures/package.json packages/fixtures/
+COPY packages/device-sim/package.json packages/device-sim/
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm --filter @nslib/web build \
@@ -44,6 +45,7 @@ ENV NODE_ENV=production \
     NSLIB_SEED_KEYS=/app/demo.keys
 
 EXPOSE 8465
+EXPOSE 8466/udp
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.NSLIB_PORT||process.env.PORT||8465)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

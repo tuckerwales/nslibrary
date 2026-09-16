@@ -1,6 +1,8 @@
 import type { AuthService, LoginRateLimiter } from "../auth/auth-service";
 import type { ServerConfig } from "../config";
 import type { Db } from "../db/client";
+import type { DeviceRow } from "../db/schema";
+import type { DeviceApiService } from "../device/service";
 import type { EventBus } from "../events";
 import type { KeyStore } from "../keys/store";
 import type { LibraryRepository } from "../library/repository";
@@ -19,6 +21,7 @@ export interface AppContext {
   loginLimiter: LoginRateLimiter;
   keys: KeyStore;
   titledb: TitledbService;
+  devices: DeviceApiService;
   iconDir: string;
   log: LogFn;
 }
@@ -26,5 +29,6 @@ export interface AppContext {
 declare module "fastify" {
   interface FastifyRequest {
     username: string | null;
+    device: DeviceRow | null;
   }
 }

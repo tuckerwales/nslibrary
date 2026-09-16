@@ -14,6 +14,7 @@ import {
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { applications, contentMetas, files, homebrew, libraryRoots } from "../db/schema";
+import { preferredFormatRank } from "./prefer";
 
 const fileInfoColumns = {
   id: files.id,
@@ -38,6 +39,7 @@ export function iconUrl(key: string | null): string | null {
 function loadContentRows(db: Db, applicationId?: string) {
   return db
     .select({
+      metaId: contentMetas.id,
       titleId: contentMetas.titleId,
       version: contentMetas.version,
       type: contentMetas.type,
@@ -85,6 +87,17 @@ function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {
 
 function uniqueFiles(rows: ContentRow[]): LibraryFileInfo[] {
   return [...new Map(rows.map((row) => [row.file.id, row.file])).values()];
+}
+
+function pickPreferredRow(group: ContentRow[]): ContentRow {
+  const first = group[0];
+  if (!first) throw new Error("content group is empty");
+  return group.reduce((best, row) => {
+    const bestRank = preferredFormatRank(best.file.format, true);
+    const rowRank = preferredFormatRank(row.file.format, true);
+    if (rowRank < bestRank || (rowRank === bestRank && row.file.id < best.file.id)) return row;
+    return best;
+  }, first);
 }
 
 function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
@@ -169,8 +182,9 @@ export function getApplication(db: Db, applicationId: string): AppDetail | null 
   if (rows.length === 0) return null;
 
   const contents: AppContent[] = [...groupBy(rows, contentKey).values()].map((group) => {
-    const head = group[0] as ContentRow;
+    const head = pickPreferredRow(group);
     return {
+      contentMetaId: head.metaId,
       titleId: head.titleId,
       type: head.type,
       version: head.version,
