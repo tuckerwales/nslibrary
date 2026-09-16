@@ -16,7 +16,8 @@
     "dev:server": "pnpm --filter @nslib/server dev",
     "dev:web": "pnpm --filter @nslib/web dev",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "test:switch": "cmake -B switch/build-host -S switch && cmake --build switch/build-host --target nslib-switch-tests && switch/build-host/nslib-switch-tests"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",

@@ -1,0 +1,21 @@
+<brls:Box
+    width="auto"
+    height="auto"
+    axis="column">
+    <brls:Label
+        id="status"
+        width="auto"
+        height="auto"
+        margin="20"
+        text=""/>
+    <brls:ScrollingFrame
+        width="auto"
+        height="auto"
+        grow="1.0">
+        <brls:Box
+            id="list"
+            width="auto"
+            height="auto"
+            axis="column"/>
+    </brls:ScrollingFrame>
+</brls:Box>

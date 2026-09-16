@@ -1,0 +1,40 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "Library",
+    "updates": "Updates",
+    "queue": "Queue",
+    "installed": "Installed",
+    "settings": "Settings"
+  },
+  "connect": {
+    "title": "Connect",
+    "intro": "Find your library on the LAN, or type its address.",
+    "discover": "Look for servers",
+    "none": "No servers answered. Enter the address instead.",
+    "manual": "Enter address",
+    "hint": "IP, hostname, or URL"
+  },
+  "pair": {
+    "title": "Pair",
+    "intro": "Open Devices in the web UI and enter the 6-digit code.",
+    "enter": "Enter pairing code"
+  },
+  "library": {
+    "install": "Install to SD?",
+    "nothing": "This title has no installable content."
+  },
+  "updates": {
+    "intro": "Updates in the library that look newer than what is installed."
+  },
+  "queue": {
+    "empty": "No jobs yet. Send a title from the web UI, or install from Library."
+  },
+  "settings": {
+    "url": "Server",
+    "name": "This Switch",
+    "repair": "Pair again",
+    "forget": "Forget this server",
+    "version": "App version"
+  }
+}

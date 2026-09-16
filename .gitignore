@@ -8,6 +8,7 @@ data/
 
 # Switch build outputs
 switch/build/
+switch/build-host/
 *.nro
 *.elf
 *.nacp

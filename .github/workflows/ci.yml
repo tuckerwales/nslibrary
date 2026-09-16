@@ -18,16 +18,25 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Switch host tests
+        run: |
+          cmake -B switch/build-host -S switch
+          cmake --build switch/build-host --target nslib-switch-tests -j"$(nproc)"
+          switch/build-host/nslib-switch-tests
 
-  # Enabled once the switch/ project lands (M4).
   switch:
-    if: ${{ hashFiles('switch/CMakeLists.txt') != '' }}
     runs-on: ubuntu-latest
     container: devkitpro/devkita64:latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Install Switch portlibs
+        run: |
+          pacman -Sy --noconfirm --needed \
+            switch-pkg-config switch-freetype switch-harfbuzz switch-libwebp \
+            switch-glfw switch-mesa switch-libdrm_nouveau \
+            switch-curl switch-mbedtls switch-zstd switch-glm switch-libpng switch-zlib
       - run: cmake -B switch/build -S switch -DPLATFORM_SWITCH=ON
       - run: cmake --build switch/build --target nslibrary.nro -j"$(nproc)"
       - uses: actions/upload-artifact@v4
