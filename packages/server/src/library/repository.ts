@@ -2,8 +2,10 @@ import { formatFromFileName } from "@nslib/formats";
 import { and, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import {
+  applications,
   containerEntries,
   contentMetas,
+  contentRecords,
   type FileRow,
   files,
   homebrew,
@@ -359,9 +361,46 @@ export class LibraryRepository {
             .run();
         }
         if (result.metas.length > 0) {
+          for (const meta of result.metas) {
+            const inserted = this.db
+              .insert(contentMetas)
+              .values({
+                fileId,
+                titleId: meta.titleId,
+                version: meta.version,
+                type: meta.type,
+                applicationId: meta.applicationId,
+                applicationIdSource: meta.applicationIdSource,
+                displayName: meta.displayName,
+                keyGeneration: meta.keyGeneration,
+                rightsId: meta.rightsId,
+                requiredSystemVersion: meta.requiredSystemVersion,
+                installSize: meta.installSize,
+                source: meta.source,
+              })
+              .returning({ id: contentMetas.id })
+              .get();
+            if (meta.records.length > 0) {
+              this.db
+                .insert(contentRecords)
+                .values(meta.records.map((record) => ({ metaId: inserted.id, ...record })))
+                .run();
+            }
+          }
+        }
+        if (result.application) {
+          const now = this.#now();
+          const row = {
+            name: result.application.name,
+            nameSource: "nacp" as const,
+            publisher: result.application.publisher,
+            updatedAt: now,
+            ...(outcome.iconKey ? { iconKey: outcome.iconKey } : {}),
+          };
           this.db
-            .insert(contentMetas)
-            .values(result.metas.map((meta) => ({ fileId, ...meta })))
+            .insert(applications)
+            .values({ applicationId: result.application.applicationId, ...row })
+            .onConflictDoUpdate({ target: applications.applicationId, set: row })
             .run();
         }
         if (result.homebrew) {
@@ -382,6 +421,8 @@ export class LibraryRepository {
           parseError: outcome.message,
           parserVersion: PARSER_VERSION,
           metadataSource,
+          verifyStatus: "unverified",
+          verifiedAt: null,
         })
         .where(eq(files.id, fileId))
         .run();
@@ -397,6 +438,34 @@ export class LibraryRepository {
       .run();
     if (result.changes > 0) this.#bumpCatalogRev();
     return result.changes;
+  }
+
+  /** Forces present files to be re-inspected (e.g. after keys are uploaded). */
+  invalidatePresentFiles(): number {
+    const result = this.db
+      .update(files)
+      .set({
+        parseStatus: "pending",
+        parserVersion: 0,
+        verifyStatus: "unverified",
+        verifiedAt: null,
+      })
+      .where(isNull(files.missingSince))
+      .run();
+    if (result.changes > 0) this.#bumpCatalogRev();
+    return result.changes;
+  }
+
+  setFileVerify(
+    fileId: number,
+    verifyStatus: FileRow["verifyStatus"],
+    sha256: string | null = null,
+  ): void {
+    this.db
+      .update(files)
+      .set({ verifyStatus, verifiedAt: this.#now(), ...(sha256 ? { sha256 } : {}) })
+      .where(eq(files.id, fileId))
+      .run();
   }
 
   catalogRev(): number {

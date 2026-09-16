@@ -25,10 +25,57 @@ export const UpdateRootRequestSchema = z.object({
   usePolling: z.boolean().optional(),
 });
 
+export const PutKeysRequestSchema = z.object({
+  contents: z
+    .string()
+    .min(1, "Paste the contents of prod.keys")
+    .max(512_000, "That file is too large to be prod.keys"),
+});
+
+export const TitledbConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  source: z.string().trim().max(4096).nullable().optional(),
+});
+
+export const VerifyRequestSchema = z.object({
+  mode: z.enum(["quick", "full"]).optional(),
+});
+
 export type SetupRequest = z.infer<typeof SetupRequestSchema>;
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export type CreateRootRequest = z.infer<typeof CreateRootRequestSchema>;
 export type UpdateRootRequest = z.infer<typeof UpdateRootRequestSchema>;
+export type PutKeysRequest = z.infer<typeof PutKeysRequestSchema>;
+export type TitledbConfig = z.infer<typeof TitledbConfigSchema>;
+export type VerifyRequest = z.infer<typeof VerifyRequestSchema>;
+
+export interface KeyStatus {
+  configured: boolean;
+  names: string[];
+  headerKey: boolean;
+  keyAreaKeyGenerations: number[];
+  titlekekGenerations: number[];
+}
+
+export interface TitledbStatus {
+  enabled: boolean;
+  source: string | null;
+  titleCount: number;
+  lastRefreshAt: number | null;
+  lastError: string | null;
+}
+
+export interface VerifyItem {
+  ncaId: string;
+  ok: boolean;
+  message: string;
+}
+
+export interface VerifyResult {
+  status: VerifyStatus;
+  mode: VerifyMode;
+  items: VerifyItem[];
+}
 
 export interface AuthStatus {
   setupRequired: boolean;
@@ -72,7 +119,9 @@ export type AppFlag =
   /** A DLC's base game was guessed from its title ID. */
   | "guessed-dlc-base"
   /** An update's version could not be read. */
-  | "unknown-version";
+  | "unknown-version"
+  /** Titledb lists a newer update than any file in the library. */
+  | "update-available";
 
 export interface AppSummary {
   applicationId: string;
@@ -89,6 +138,9 @@ export interface AppSummary {
   flags: AppFlag[];
 }
 
+export type VerifyStatus = "unverified" | "ok" | "bad" | "partial";
+export type VerifyMode = "quick" | "full";
+
 export interface LibraryFileInfo {
   id: number;
   rootId: number;
@@ -98,6 +150,7 @@ export interface LibraryFileInfo {
   parseStatus: ParseStatus;
   parseError: string | null;
   metadataSource: MetadataSource | null;
+  verifyStatus: VerifyStatus;
   missingSince: number | null;
 }
 
@@ -108,6 +161,8 @@ export interface AppContent {
   name: string;
   applicationIdSource: ApplicationIdSource;
   keyGeneration: number | null;
+  requiredSystemVersion: number | null;
+  installSize: number | null;
   files: LibraryFileInfo[];
 }
 

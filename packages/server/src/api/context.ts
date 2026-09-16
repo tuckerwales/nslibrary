@@ -2,8 +2,10 @@ import type { AuthService, LoginRateLimiter } from "../auth/auth-service";
 import type { ServerConfig } from "../config";
 import type { Db } from "../db/client";
 import type { EventBus } from "../events";
+import type { KeyStore } from "../keys/store";
 import type { LibraryRepository } from "../library/repository";
 import type { LibraryScanner } from "../library/scanner";
+import type { TitledbService } from "../titledb/service";
 
 export type LogFn = (message: string, err?: unknown) => void;
 
@@ -15,6 +17,8 @@ export interface AppContext {
   events: EventBus;
   auth: AuthService;
   loginLimiter: LoginRateLimiter;
+  keys: KeyStore;
+  titledb: TitledbService;
   iconDir: string;
   log: LogFn;
 }

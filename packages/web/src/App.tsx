@@ -10,6 +10,7 @@ import { HomebrewPage } from "./pages/HomebrewPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProblemsPage } from "./pages/ProblemsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 export function App() {
   const auth = useAuthStatus();
@@ -42,6 +43,7 @@ export function App() {
         <Route path="/homebrew" element={<HomebrewPage />} />
         <Route path="/problems" element={<ProblemsPage />} />
         <Route path="/folders" element={<FoldersPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Shell>

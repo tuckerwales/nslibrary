@@ -26,3 +26,17 @@ export function readU64(buf: Buffer, offset: number): number {
 export function readMagic(buf: Buffer, offset: number, length: number): string {
   return buf.toString("latin1", offset, offset + length);
 }
+
+/** Title IDs are stored as little-endian u64 and displayed as 16 uppercase hex digits. */
+export function readTitleId(buf: Buffer, offset: number): string {
+  return buf.readBigUInt64LE(offset).toString(16).toUpperCase().padStart(16, "0");
+}
+
+export function writeTitleId(buf: Buffer, offset: number, titleId: string): void {
+  buf.writeBigUInt64LE(BigInt(`0x${titleId}`), offset);
+}
+
+export function alignUp(value: number, alignment: number): number {
+  if (alignment <= 0) return value;
+  return Math.ceil(value / alignment) * alignment;
+}

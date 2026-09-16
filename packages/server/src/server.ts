@@ -8,8 +8,10 @@ import { AuthService, LoginRateLimiter } from "./auth/auth-service";
 import type { ServerConfig } from "./config";
 import { type Db, openDatabase } from "./db/client";
 import { EventBus } from "./events";
+import { KeyStore } from "./keys/store";
 import { LibraryRepository } from "./library/repository";
 import { LibraryScanner } from "./library/scanner";
+import { TitledbService } from "./titledb/service";
 
 const MISSING_FILE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -41,11 +43,15 @@ export async function createServer(
 
   const repo = new LibraryRepository(db, now);
   const events = new EventBus();
+  const keys = new KeyStore(config.dataDir);
+  await keys.load();
+  const titledb = new TitledbService(db, now);
   const scanner = new LibraryScanner(repo, events, {
     iconDir,
     forcePolling: config.forcePolling,
     pollIntervalMs: config.pollIntervalMs,
     stabilityThresholdMs: config.stabilityThresholdMs,
+    keys: () => keys.get(),
     log,
   });
   const auth = new AuthService(db, now);
@@ -57,6 +63,8 @@ export async function createServer(
     events,
     auth,
     loginLimiter: new LoginRateLimiter(),
+    keys,
+    titledb,
     iconDir,
     log,
   });

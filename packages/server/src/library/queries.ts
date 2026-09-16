@@ -24,6 +24,7 @@ const fileInfoColumns = {
   parseStatus: files.parseStatus,
   parseError: files.parseError,
   metadataSource: files.metadataSource,
+  verifyStatus: files.verifyStatus,
   missingSince: files.missingSince,
 };
 
@@ -44,10 +45,13 @@ function loadContentRows(db: Db, applicationId?: string) {
       applicationIdSource: contentMetas.applicationIdSource,
       displayName: contentMetas.displayName,
       keyGeneration: contentMetas.keyGeneration,
+      requiredSystemVersion: contentMetas.requiredSystemVersion,
+      installSize: contentMetas.installSize,
       file: fileInfoColumns,
       appName: applications.name,
       appPublisher: applications.publisher,
       appIconKey: applications.iconKey,
+      latestKnownVersion: applications.latestKnownVersion,
     })
     .from(contentMetas)
     .innerJoin(files, eq(files.id, contentMetas.fileId))
@@ -102,6 +106,11 @@ function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
   if (updateVersions.length > 1) flags.push("superseded-updates");
   if (rows.some((r) => r.applicationIdSource === "guess")) flags.push("guessed-dlc-base");
   if (patches.some((r) => r.version === null)) flags.push("unknown-version");
+  const latestKnown = first?.latestKnownVersion;
+  const newestOwned = updateVersions[0] ?? bases[0]?.version ?? null;
+  if (latestKnown != null && newestOwned != null && latestKnown > newestOwned) {
+    flags.push("update-available");
+  }
 
   // Filename-derived names: prefer the base game's file, then updates, then DLC.
   const nameSource = bases[0] ?? patches[0] ?? addons[0];
@@ -168,6 +177,9 @@ export function getApplication(db: Db, applicationId: string): AppDetail | null 
       name: head.displayName,
       applicationIdSource: head.applicationIdSource,
       keyGeneration: group.find((r) => r.keyGeneration !== null)?.keyGeneration ?? null,
+      requiredSystemVersion:
+        group.find((r) => r.requiredSystemVersion !== null)?.requiredSystemVersion ?? null,
+      installSize: group.find((r) => r.installSize !== null)?.installSize ?? null,
       files: uniqueFiles(group).sort((a, b) => a.relPath.localeCompare(b.relPath)),
     };
   });
@@ -236,7 +248,7 @@ export function getProblems(db: Db): ProblemsReport {
   };
 }
 
-export function getStats(db: Db, catalogRev: number): LibraryStats {
+export function getStats(db: Db, catalogRev: number, keysConfigured = false): LibraryStats {
   const presentFiles = db
     .select({ size: files.size })
     .from(files)
@@ -254,7 +266,7 @@ export function getStats(db: Db, catalogRev: number): LibraryStats {
       problems.unidentified.length +
       problems.missing.length +
       problems.duplicates.length,
-    keysConfigured: false,
+    keysConfigured,
     catalogRev,
   };
 }

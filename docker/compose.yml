@@ -1,0 +1,20 @@
+services:
+  nslibrary:
+    build: ..
+    image: nslibrary:local
+    ports:
+      - "8465:8465"
+    environment:
+      NSLIB_TRUST_PROXY: "true"
+      # Set to "true" when the library is on NFS/SMB and inotify is unreliable.
+      NSLIB_POLLING: "false"
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - nslib-data:/data
+      # Optional: NSLIB_LIBRARY=/path/to/games docker compose -f docker/compose.yml up --build
+      # - ${NSLIB_LIBRARY}:/library/games:ro
+    restart: unless-stopped
+
+volumes:
+  nslib-data:

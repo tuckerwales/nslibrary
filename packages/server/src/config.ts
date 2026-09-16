@@ -46,7 +46,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   return {
     dataDir: resolve(env.NSLIB_DATA_DIR ?? "data"),
     host: env.NSLIB_HOST ?? "0.0.0.0",
-    port: positiveInt("NSLIB_PORT", env.NSLIB_PORT, DEFAULT_SERVER_PORT),
+    port: positiveInt("NSLIB_PORT", env.NSLIB_PORT ?? env.PORT, DEFAULT_SERVER_PORT),
     webDir,
     forcePolling: flag(env.NSLIB_POLLING),
     pollIntervalMs: positiveInt("NSLIB_POLL_INTERVAL_MS", env.NSLIB_POLL_INTERVAL_MS, 2000),

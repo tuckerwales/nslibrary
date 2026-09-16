@@ -11,6 +11,17 @@ const PER_GENERATION_KEYS = [
   "titlekek",
 ];
 
+const KAEK_KIND = ["application", "ocean", "system"] as const;
+
+export function masterKeyIndex(keyGeneration: number): number {
+  return keyGeneration <= 1 ? 0 : keyGeneration - 1;
+}
+
+export function kaekName(kaekIndex: number, generation: number): string {
+  const kind = KAEK_KIND[kaekIndex] ?? "application";
+  return `key_area_key_${kind}_${generation.toString(16).padStart(2, "0")}`;
+}
+
 /**
  * A keyset with real key names and made-up values. Fixtures are encrypted with it so crypto
  * code paths run in CI without any console keys.

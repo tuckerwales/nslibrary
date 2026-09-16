@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p packages/web",
     "build": "pnpm --filter @nslib/web build",
+    "start": "pnpm --filter @nslib/server start",
     "dev:server": "pnpm --filter @nslib/server dev",
     "dev:web": "pnpm --filter @nslib/web dev",
     "lint": "biome check .",

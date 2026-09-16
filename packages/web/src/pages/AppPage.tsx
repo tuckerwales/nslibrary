@@ -1,6 +1,7 @@
 import type { AppContent, AppFlag, LibraryFileInfo } from "@nslib/shared";
 import { Link, useParams } from "react-router";
-import { ApiRequestError, useApp, useRoots } from "../api";
+import { ApiRequestError, useApp, useRoots, useVerifyFile } from "../api";
+import { Button } from "../components/Button";
 import { ContentStrip } from "../components/ContentStrip";
 import { FileName } from "../components/FileName";
 import { LoadError } from "../components/PageHeader";
@@ -16,6 +17,7 @@ const FLAG_NOTES: Record<AppFlag, string> = {
     "Some DLC was matched to this game by its title ID. That's usually right, but it isn't confirmed.",
   "unknown-version":
     "An update's file name doesn't include its version, so it can't be compared with other updates.",
+  "update-available": "A newer update is listed than any file in your library.",
 };
 
 const SECTIONS: { type: AppContent["type"]; title: string; empty: string }[] = [
@@ -42,18 +44,33 @@ function FileList({
   files: LibraryFileInfo[];
   rootPaths: Map<number, string>;
 }) {
+  const verify = useVerifyFile();
   return (
     <ul>
       {files.map((file) => (
         <li
           key={file.id}
-          className="flex flex-col gap-1 border-t border-line py-2.5 first:border-t-0 sm:grid sm:grid-cols-[minmax(0,1fr)_3rem_4.5rem_9rem] sm:items-baseline sm:gap-x-6"
+          className="flex flex-col gap-1 border-t border-line py-2.5 first:border-t-0 sm:grid sm:grid-cols-[minmax(0,1fr)_3rem_4.5rem_9rem_auto] sm:items-baseline sm:gap-x-6"
         >
           <FileName file={file} rootPath={rootPaths.get(file.rootId)} />
-          <span className="flex gap-3 text-sm text-muted sm:contents">
+          <span className="flex flex-wrap gap-3 text-sm text-muted sm:contents">
             <span className="sm:text-ink">{FORMAT_LABEL[file.format]}</span>
             <span className="sm:text-right sm:text-ink">{formatBytes(file.size)}</span>
             <span>{file.metadataSource ? SOURCE_LABEL[file.metadataSource] : ""}</span>
+            <span className="sm:justify-self-end">
+              <Button
+                variant="ghost"
+                className="h-8 px-2"
+                disabled={verify.isPending}
+                onClick={() => verify.mutate({ id: file.id })}
+              >
+                {file.verifyStatus === "ok"
+                  ? "Verified"
+                  : file.verifyStatus === "bad"
+                    ? "Verify failed"
+                    : "Verify"}
+              </Button>
+            </span>
           </span>
         </li>
       ))}

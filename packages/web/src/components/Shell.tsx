@@ -55,6 +55,7 @@ export function Shell({ username, children }: { username: string; children: Reac
           <NavItem to="/homebrew" label="Homebrew" count={stats?.homebrew} />
           <NavItem to="/problems" label="Problems" count={stats?.problems} alert />
           <NavItem to="/folders" label="Folders" />
+          <NavItem to="/settings" label="Settings" />
         </nav>
         <div className="hidden border-t border-line px-5 py-4 md:block">
           <p className="truncate text-sm text-muted">Signed in as {username}</p>

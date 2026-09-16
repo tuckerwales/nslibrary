@@ -15,6 +15,7 @@ const FILTERS: { flag: AppFlag | null; label: string }[] = [
   { flag: "superseded-updates", label: "Older updates" },
   { flag: "guessed-dlc-base", label: "Unconfirmed DLC" },
   { flag: "unknown-version", label: "Unknown update version" },
+  { flag: "update-available", label: "Newer update listed" },
 ];
 
 const FLAG_VALUES = new Set(FILTERS.map((f) => f.flag));
@@ -66,6 +67,16 @@ export function LibraryPage() {
           </p>
         )}
       </PageHeader>
+
+      {stats && !stats.keysConfigured && (
+        <p className="mb-6 max-w-[65ch] border-l-2 border-dlc pl-3">
+          Add your console's <span className="semi-condensed">prod.keys</span> in{" "}
+          <Link to="/settings" className="text-accent hover:underline">
+            Settings
+          </Link>{" "}
+          to show official names, icons, and firmware info. Keys stay on this computer.
+        </p>
+      )}
 
       <div className="flex flex-col gap-3">
         <label className="sr-only" htmlFor="library-search">

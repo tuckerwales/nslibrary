@@ -5,12 +5,16 @@ import type {
   AuthStatus,
   CreateRootRequest,
   HomebrewItem,
+  KeyStatus,
   LibraryRoot,
   LibraryStats,
   LoginRequest,
   ProblemsReport,
   SetupRequest,
+  TitledbStatus,
   UpdateRootRequest,
+  VerifyMode,
+  VerifyResult,
 } from "@nslib/shared";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -64,6 +68,8 @@ export const LIBRARY_QUERY_KEYS = [
   ["problems"],
   ["homebrew"],
   ["roots"],
+  ["keys"],
+  ["titledb"],
 ];
 
 export function useAuthStatus() {
@@ -179,5 +185,61 @@ export function useScanRoot() {
   return useMutation({
     mutationFn: (id: number) => request<LibraryRoot>("POST", `/roots/${id}/scan`),
     onSuccess: () => client.invalidateQueries({ queryKey: ["roots"] }),
+  });
+}
+
+export function useKeysStatus() {
+  return useQuery({
+    queryKey: ["keys"],
+    queryFn: () => request<KeyStatus>("GET", "/keys/status"),
+  });
+}
+
+export function usePutKeys() {
+  const invalidate = useInvalidateLibrary();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (contents: string) => request<KeyStatus>("PUT", "/keys", { contents }),
+    onSuccess: (status) => {
+      client.setQueryData(["keys"], status);
+      return invalidate();
+    },
+  });
+}
+
+export function useTitledb() {
+  return useQuery({
+    queryKey: ["titledb"],
+    queryFn: () => request<TitledbStatus>("GET", "/titledb"),
+  });
+}
+
+export function usePutTitledb() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { source: string | null }) =>
+      request<TitledbStatus>("PUT", "/titledb", body),
+    onSuccess: (status) => client.setQueryData(["titledb"], status),
+  });
+}
+
+export function useRefreshTitledb() {
+  const invalidate = useInvalidateLibrary();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => request<TitledbStatus>("POST", "/titledb/refresh"),
+    onSuccess: (status) => {
+      client.setQueryData(["titledb"], status);
+      return invalidate();
+    },
+  });
+}
+
+export function useVerifyFile() {
+  const invalidate = useInvalidateLibrary();
+  return useMutation({
+    mutationFn: ({ id, mode }: { id: number; mode?: VerifyMode }) =>
+      request<VerifyResult>("POST", `/files/${id}/verify`, { mode: mode ?? "full" }),
+    onSuccess: invalidate,
   });
 }

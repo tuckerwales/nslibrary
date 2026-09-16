@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import { opendir, stat, writeFile } from "node:fs/promises";
 import { basename, join, relative, sep } from "node:path";
-import { FormatError, formatFromFileName, type LibraryFileFormat } from "@nslib/formats";
+import {
+  FormatError,
+  formatFromFileName,
+  type Keyset,
+  type LibraryFileFormat,
+} from "@nslib/formats";
 import type { ScanProgress } from "@nslib/shared";
 import { type FSWatcher, watch } from "chokidar";
 import PQueue from "p-queue";
@@ -21,6 +26,7 @@ export interface ScannerOptions {
   stabilityThresholdMs?: number;
   /** Watcher events are batched for this long so renames arrive as unlink + add together. */
   watchBatchMs?: number;
+  keys?: () => Keyset | null;
   log?: (message: string, err?: unknown) => void;
 }
 
@@ -113,6 +119,7 @@ export class LibraryScanner {
       pollIntervalMs: 2000,
       stabilityThresholdMs: 5000,
       watchBatchMs: 300,
+      keys: () => null,
       ...options,
     };
     this.#queue = new PQueue({ concurrency: this.#options.parseConcurrency });
@@ -134,6 +141,12 @@ export class LibraryScanner {
   async scanAll(): Promise<ScanSummary[]> {
     const roots = this.#repo.listRoots().filter((root) => root.enabled);
     return Promise.all(roots.map((root) => this.scanRoot(root.id)));
+  }
+
+  /** Re-inspect every present file (after keys or titledb change). */
+  reparseAll(): Promise<ScanSummary[]> {
+    this.#repo.invalidatePresentFiles();
+    return this.scanAll();
   }
 
   /** Resolves once queued parsing and batched watcher events are handled. */
@@ -274,8 +287,11 @@ export class LibraryScanner {
 
     const fileStat = { size: reader.size, mtimeMs: reader.mtimeMs };
     try {
-      const result = await inspectLibraryFile(reader, fileName, file.format);
-      const iconKey = result.homebrew?.icon ? await this.#storeIcon(result.homebrew.icon) : null;
+      const result = await inspectLibraryFile(reader, fileName, file.format, {
+        keys: this.#options.keys?.() ?? null,
+      });
+      const icon = result.homebrew?.icon ?? result.application?.icon;
+      const iconKey = icon ? await this.#storeIcon(icon) : null;
       const identified = result.metas.length > 0 || result.homebrew !== null;
       this.#repo.saveInspection(fileId, fileStat, {
         status: identified ? "ok" : "unidentified",

@@ -1,0 +1,17 @@
+services:
+  nslibrary:
+    build: .
+    ports:
+      - "8465:8465"
+    environment:
+      NSLIB_TRUST_PROXY: "true"
+      NSLIB_POLLING: "false"
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - nslib-data:/data
+      # Add in Coolify (or here): /your/games:/library/games:ro
+    restart: unless-stopped
+
+volumes:
+  nslib-data:

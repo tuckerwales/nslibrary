@@ -1,4 +1,11 @@
-import { buildNro, buildXci, deterministicBytes, fakeJpeg } from "@nslib/fixtures";
+import {
+  buildNro,
+  buildTitleNsp,
+  buildXci,
+  deterministicBytes,
+  fakeJpeg,
+  generateFakeKeyset,
+} from "@nslib/fixtures";
 import { BufferReader, FormatError, formatFromFileName } from "@nslib/formats";
 import { describe, expect, it } from "vitest";
 import { displayNameFromFileName, inspectLibraryFile } from "../src/library/inspect";
@@ -8,10 +15,10 @@ const BASE = "0100ABCDEF012000";
 const UPDATE = "0100ABCDEF012800";
 const DLC = "0100ABCDEF013001";
 
-function inspect(data: Buffer, fileName: string) {
+function inspect(data: Buffer, fileName: string, keys?: Map<string, Buffer>) {
   const format = formatFromFileName(fileName);
   if (!format) throw new Error(`unsupported test file ${fileName}`);
-  return inspectLibraryFile(new BufferReader(data), fileName, format);
+  return inspectLibraryFile(new BufferReader(data), fileName, format, { keys });
 }
 
 describe("inspectLibraryFile", () => {
@@ -27,6 +34,11 @@ describe("inspectLibraryFile", () => {
         displayName: "Example Game",
         keyGeneration: 0x0b,
         rightsId: `${BASE}000000000000000B`,
+        requiredSystemVersion: null,
+        installSize: null,
+        records: [],
+        publisher: null,
+        icon: null,
         source: "ticket",
       },
     ]);
@@ -106,6 +118,74 @@ describe("inspectLibraryFile", () => {
     await expect(inspect(deterministicBytes("junk", 0x400), "junk.nsp")).rejects.toBeInstanceOf(
       FormatError,
     );
+  });
+});
+
+describe("inspectLibraryFile with keys", () => {
+  const keys = generateFakeKeyset();
+
+  it("reads name, version, firmware, and icon from CNMT and NACP", async () => {
+    const pkg = buildTitleNsp({
+      titleId: BASE,
+      version: 0,
+      keys,
+      name: "Example Game",
+      publisher: "Fixture Co",
+      requiredSystemVersion: 0x0c0000,
+    });
+    const result = await inspect(pkg.nsp, "ignored-name.nsp", keys);
+    expect(result.metadataSource).toBe("nacp");
+    expect(result.application).toMatchObject({
+      applicationId: BASE,
+      name: "Example Game",
+      publisher: "Fixture Co",
+    });
+    expect(result.application?.icon).toBeInstanceOf(Buffer);
+    expect(result.metas).toMatchObject([
+      {
+        titleId: BASE,
+        type: "application",
+        applicationId: BASE,
+        applicationIdSource: "exact",
+        version: 0,
+        displayName: "Example Game",
+        requiredSystemVersion: 0x0c0000,
+        source: "nacp",
+      },
+    ]);
+    expect(result.metas[0]?.records.length).toBe(2);
+    expect(result.metas[0]?.installSize).toBeGreaterThan(0);
+  });
+
+  it("maps DLC to its base game from the CNMT", async () => {
+    const pkg = buildTitleNsp({
+      titleId: DLC,
+      type: 0x82,
+      applicationId: BASE,
+      keys,
+      name: "Bonus Pack",
+    });
+    const result = await inspect(pkg.nsp, "Bonus Pack.nsp", keys);
+    expect(result.metas).toMatchObject([
+      {
+        titleId: DLC,
+        type: "addon",
+        applicationId: BASE,
+        applicationIdSource: "derived",
+        displayName: "Bonus Pack",
+        source: "nacp",
+      },
+    ]);
+  });
+
+  it("falls back to tickets when the CNMT cannot be decrypted", async () => {
+    const result = await inspect(
+      fakeNsp({ tickets: [BASE] }),
+      `Example Game [${BASE}][v0].nsp`,
+      keys,
+    );
+    expect(result.metas).toMatchObject([{ titleId: BASE, source: "ticket" }]);
+    expect(result.warnings.some((w) => w.includes("Couldn't read"))).toBe(true);
   });
 });
 

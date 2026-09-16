@@ -1,6 +1,6 @@
 import { formatProdKeys, generateFakeKeyset } from "@nslib/fixtures";
 import { describe, expect, it } from "vitest";
-import { parseKeyset } from "../src/index";
+import { aesEcb, keysetStatus, parseKeyset, unwrapKeyArea } from "../src/index";
 
 describe("parseKeyset", () => {
   it("round-trips a generated keyset", () => {
@@ -32,5 +32,23 @@ describe("parseKeyset", () => {
     const parsed = parseKeyset(text);
     expect([...parsed.keys.keys()]).toEqual(["header_key", "titlekek_00"]);
     expect(parsed.invalidLines).toEqual([6, 7]);
+  });
+
+  it("reports names without exposing key material", () => {
+    const status = keysetStatus(generateFakeKeyset());
+    expect(status.configured).toBe(true);
+    expect(status.headerKey).toBe(true);
+    expect(status.keyAreaKeyGenerations).toEqual([0, 1, 2, 3]);
+    expect(JSON.stringify(status)).not.toContain(
+      formatProdKeys(generateFakeKeyset()).slice(20, 52),
+    );
+  });
+
+  it("unwraps a key area with the matching KAEK", () => {
+    const keys = generateFakeKeyset();
+    const plain = Buffer.alloc(0x40, 0xab);
+    const kaek = keys.get("key_area_key_application_00")!;
+    const wrapped = aesEcb(kaek, plain, true);
+    expect(unwrapKeyArea(keys, wrapped, 0, 0).equals(plain)).toBe(true);
   });
 });

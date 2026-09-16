@@ -91,7 +91,37 @@ export const contentMetas = sqliteTable(
   ],
 );
 
-/** Metadata better than filenames (NACP with keys, or titledb). Empty until M2. */
+export const contentRecords = sqliteTable(
+  "content_records",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    metaId: integer("meta_id")
+      .notNull()
+      .references(() => contentMetas.id, { onDelete: "cascade" }),
+    ncaId: text("nca_id").notNull(),
+    type: text("type").notNull(),
+    size: integer("size").notNull(),
+    sha256: text("sha256").notNull(),
+    compressed: integer("compressed", { mode: "boolean" }).notNull().default(false),
+  },
+  (t) => [
+    index("content_records_meta_idx").on(t.metaId),
+    uniqueIndex("content_records_meta_nca_idx").on(t.metaId, t.ncaId),
+  ],
+);
+
+export const titledbTitles = sqliteTable("titledb_titles", {
+  titleId: text("title_id").primaryKey(),
+  name: text("name"),
+  publisher: text("publisher"),
+  description: text("description"),
+  iconUrl: text("icon_url"),
+  latestVersion: integer("latest_version"),
+  applicationId: text("application_id"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+/** Metadata better than filenames (NACP with keys, or titledb). */
 export const applications = sqliteTable("applications", {
   applicationId: text("application_id").primaryKey(),
   name: text("name"),
@@ -138,6 +168,17 @@ export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const titledbVersions = sqliteTable(
+  "titledb_versions",
+  {
+    titleId: text("title_id")
+      .notNull()
+      .references(() => titledbTitles.titleId, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+  },
+  (t) => [uniqueIndex("titledb_versions_idx").on(t.titleId, t.version)],
+);
 
 export type RootRow = typeof libraryRoots.$inferSelect;
 export type FileRow = typeof files.$inferSelect;

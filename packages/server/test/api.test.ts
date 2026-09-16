@@ -1,20 +1,30 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { buildNro, deterministicBytes, fakeJpeg } from "@nslib/fixtures";
+import {
+  buildNro,
+  buildTitleNsp,
+  deterministicBytes,
+  fakeJpeg,
+  formatProdKeys,
+  generateFakeKeyset,
+} from "@nslib/fixtures";
 import type {
   AppDetail,
   AppSummary,
   HomebrewItem,
+  KeyStatus,
   LibraryRoot,
   LibraryStats,
   ProblemsReport,
+  TitledbStatus,
+  VerifyResult,
 } from "@nslib/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SESSION_COOKIE } from "../src/auth/auth-service";
 import { createServer, type NslibServer } from "../src/server";
 import { fakeNsp, makeTempDir, removeDir, testConfig } from "./helpers";
 
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 describe("web API", () => {
   let dir: string;
@@ -282,6 +292,96 @@ describe("web API", () => {
       expect(res.statusCode).toBe(404);
       expect(res.json()).toEqual({
         error: { code: "NOT_FOUND", msg: "No route for GET /api/v1/nothing-here" },
+      });
+    });
+  });
+
+  describe("keys, titledb, and verify", () => {
+    const keys = generateFakeKeyset();
+    const BASE = "0100ABCDEF012000";
+
+    it("stores prod.keys without returning material, then reads CNMT names", async () => {
+      const session = await setUp();
+      expect((await call("GET", "/keys/status", { session })).json<KeyStatus>()).toMatchObject({
+        configured: false,
+        headerKey: false,
+      });
+
+      const saved = await call("PUT", "/keys", {
+        session,
+        body: { contents: formatProdKeys(keys) },
+      });
+      expect(saved.statusCode).toBe(200);
+      const status = saved.json<KeyStatus>();
+      expect(status.configured).toBe(true);
+      expect(status.headerKey).toBe(true);
+      expect(status.names).toContain("header_key");
+      expect(JSON.stringify(status)).not.toMatch(/[0-9a-f]{32}/i);
+
+      const library = join(dir, "keyed");
+      const pkg = buildTitleNsp({
+        titleId: BASE,
+        keys,
+        name: "Keyed Game",
+        publisher: "Fixture Co",
+        requiredSystemVersion: 0x0c0000,
+      });
+      await mkdir(library, { recursive: true });
+      await writeFile(join(library, "game.nsp"), pkg.nsp);
+      const root = (
+        await call("POST", "/roots", { session, body: { path: library } })
+      ).json<LibraryRoot>();
+      await server.scanner.scanRoot(root.id);
+
+      const apps = (await call("GET", "/apps", { session })).json<AppSummary[]>();
+      expect(apps).toMatchObject([{ name: "Keyed Game", publisher: "Fixture Co" }]);
+      const detail = (await call("GET", `/apps/${BASE}`, { session })).json<AppDetail>();
+      expect(detail.contents[0]).toMatchObject({
+        type: "application",
+        version: 0,
+        requiredSystemVersion: 0x0c0000,
+      });
+      expect(detail.iconUrl).toMatch(/\/icons\//);
+
+      const fileId = detail.contents[0]?.files[0]?.id;
+      expect(fileId).toBeTypeOf("number");
+      const verified = (
+        await call("POST", `/files/${fileId}/verify`, { session, body: { mode: "full" } })
+      ).json<VerifyResult>();
+      expect(verified.status).toBe("ok");
+      expect(verified.items.every((i) => i.ok)).toBe(true);
+    });
+
+    it("imports titledb names for titles without NACP", async () => {
+      const session = await setUp();
+      const library = join(dir, "tdb");
+      await mkdir(library, { recursive: true });
+      await writeFile(join(library, `Mystery [${BASE}][v0].nsp`), fakeNsp({ tickets: [BASE] }));
+      const root = (
+        await call("POST", "/roots", { session, body: { path: library } })
+      ).json<LibraryRoot>();
+      await server.scanner.scanRoot(root.id);
+      expect((await call("GET", "/apps", { session })).json<AppSummary[]>()[0]?.name).toBe(
+        "Mystery",
+      );
+
+      const titledbPath = join(dir, "titledb.json");
+      await writeFile(
+        titledbPath,
+        JSON.stringify({
+          [BASE]: { name: "From Titledb", publisher: "Someone", version: 196608 },
+        }),
+      );
+      expect(
+        (await call("PUT", "/titledb", { session, body: { source: titledbPath } })).statusCode,
+      ).toBe(200);
+      const refreshed = (await call("POST", "/titledb/refresh", { session })).json<TitledbStatus>();
+      expect(refreshed.titleCount).toBe(1);
+      expect(refreshed.lastError).toBeNull();
+      const apps = (await call("GET", "/apps", { session })).json<AppSummary[]>();
+      expect(apps[0]).toMatchObject({
+        name: "From Titledb",
+        flags: expect.arrayContaining(["update-available"]),
       });
     });
   });

@@ -6,6 +6,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { registerAuthRoutes, requireSession } from "./api/auth-routes";
 import type { AppContext } from "./api/context";
 import { registerErrorHandling } from "./api/errors";
+import { registerKeysRoutes } from "./api/keys-routes";
 import { registerLibraryRoutes } from "./api/library-routes";
 import { registerRootRoutes } from "./api/root-routes";
 
@@ -28,6 +29,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
         secured.addHook("onRequest", requireSession(ctx));
         await registerRootRoutes(secured, ctx);
         await registerLibraryRoutes(secured, ctx);
+        await registerKeysRoutes(secured, ctx);
       });
     },
     { prefix: WEB_API_BASE_PATH },

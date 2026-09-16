@@ -6,9 +6,9 @@
  *
  * Layout reference: nicoboss/nsz docs/formats.md.
  */
-import { createCipheriv } from "node:crypto";
 import { zstdDecompressSync } from "node:zlib";
 import { FormatError, hex, readMagic, readU64 } from "./binary";
+import { aesCtrAt } from "./crypto";
 import { type RandomAccessReader, readExact } from "./reader";
 
 export const NCZ_UNCOMPRESSED_PREFIX_SIZE = 0x4000;
@@ -136,27 +136,6 @@ export async function parseNczHeader(reader: RandomAccessReader): Promise<NczHea
       compressedBlockSizes,
     },
   };
-}
-
-/**
- * AES-128-CTR at an absolute NCA offset: counter = nonce (8 bytes) || BE64(offset >> 4).
- * Encryption and decryption are the same operation.
- */
-export function aesCtrAt(
-  key: Buffer,
-  cryptoCounter: Buffer,
-  absoluteOffset: number,
-  data: Buffer,
-): Buffer {
-  const aligned = absoluteOffset - (absoluteOffset % 16);
-  const iv = Buffer.alloc(16);
-  cryptoCounter.copy(iv, 0, 0, 8);
-  iv.writeBigUInt64BE(BigInt(aligned / 16), 8);
-  const cipher = createCipheriv("aes-128-ctr", key, iv);
-  if (absoluteOffset !== aligned) cipher.update(Buffer.alloc(absoluteOffset - aligned));
-  const out = cipher.update(data);
-  cipher.final();
-  return out;
 }
 
 /** Re-encrypts CTR/BKTR sections in place, for bytes at or after `from`. */

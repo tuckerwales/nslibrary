@@ -1,8 +1,10 @@
 node_modules/
 dist/
+packages/server/public/
 *.tsbuildinfo
 coverage/
 .env
+data/
 
 # Switch build outputs
 switch/build/

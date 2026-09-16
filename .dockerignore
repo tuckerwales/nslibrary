@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+data
+coverage
+*.tsbuildinfo
+switch
+PLAN.md
+**/*.nsp
+**/*.nsz
+**/*.xci
+**/*.xcz
+**/*.keys
+**/*.nro

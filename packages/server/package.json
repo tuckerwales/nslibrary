@@ -22,13 +22,13 @@
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.4",
     "p-queue": "^9.3.3",
+    "tsx": "^4.23.13",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@nslib/fixtures": "workspace:*",
     "@types/better-sqlite3": "^9.6.0",
     "@types/ws": "^8.18.1",
-    "drizzle-kit": "^0.31.10",
-    "tsx": "^4.23.13"
+    "drizzle-kit": "^0.31.10"
   }
 }
