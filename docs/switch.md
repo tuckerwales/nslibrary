@@ -56,7 +56,13 @@ CI builds the same target in `devkitpro/devkita64` and uploads the artifact.
 
 USB: on the Connect screen choose **USB cable** while NSLibrary is running on the computer (Electron, or Docker on Linux with `/dev/bus/usb`). Windows needs [WinUSB](windows-usb-driver.md).
 
-NSP, NSZ, XCI, and XCZ all install. Homebrew `.nro` files are written to `sdmc:/switch/<name>/`. Hash verification is on by default (Settings).
+NSP, NSZ, XCI, and XCZ all install, including **split** dumps (`Title.nsp/00`, `01`, … or `Title.nsp.00`). Homebrew `.nro` files are written to `sdmc:/switch/<name>/`. Hash verification is on by default (Settings).
+
+If a transfer drops, Range GET retries up to five times. A USB unplug marks the running job **interrupted**; reconnect (or **Resume** in the web History page) claims it again. NCAs already registered on the console are skipped.
+
+**HOME menu:** Settings in the web UI can download an NSP forwarder (needs `prod.keys`). Install that NSP and keep `nslibrary.nro` at `sdmc:/switch/nslibrary/nslibrary.nro`. **Update:** Settings on the Switch downloads a newer `.nro` from the server when `NSLIB_NRO_PATH` (or `data/update/nslibrary.nro`) is set.
+
+The UI follows the console language (English, Japanese, Chinese, German, French, Spanish, Italian, Portuguese, Russian, Korean, Dutch).
 
 A solid NSZ whose zstd window is larger than about 32 MB will fail in applet mode. Launch NSLibrary while holding R over a game (title override) for those files.
 

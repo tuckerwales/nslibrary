@@ -57,6 +57,11 @@ export class DiscoveryServer {
   }
 }
 
-export function discoveryReply(serverId: string, name: string, port: number): DiscoveryReply {
-  return { serverId, name, port, proto: DEVICE_API_PROTOCOL_VERSION };
+export function discoveryReply(
+  serverId: string,
+  name: string,
+  port: number,
+  tls = false,
+): DiscoveryReply {
+  return { serverId, name, port, proto: DEVICE_API_PROTOCOL_VERSION, tls };
 }

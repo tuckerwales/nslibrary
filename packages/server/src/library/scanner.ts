@@ -2,18 +2,27 @@ import { createHash } from "node:crypto";
 import { opendir, stat, writeFile } from "node:fs/promises";
 import { basename, join, relative, sep } from "node:path";
 import {
+  detectSplitDirectory,
   FormatError,
   formatFromFileName,
+  groupNumberedSplitFiles,
+  isLibraryOrSplitName,
   type Keyset,
   type LibraryFileFormat,
+  parseNumberedSplitName,
 } from "@nslib/formats";
 import type { ScanProgress } from "@nslib/shared";
 import { type FSWatcher, watch } from "chokidar";
 import PQueue from "p-queue";
 import type { RootRow } from "../db/schema";
 import type { EventBus } from "../events";
-import { FileHandleReader } from "./file-reader";
 import { inspectLibraryFile } from "./inspect";
+import {
+  fileStatFromLocated,
+  libraryIdentityRelPath,
+  locateOnDisk,
+  openLocatedFile,
+} from "./library-fs";
 import type { FileStat, LibraryRepository } from "./repository";
 
 export interface ScannerOptions {
@@ -242,18 +251,38 @@ export class LibraryScanner {
     skippedDirs: string[],
   ): Promise<void> {
     const dir = await opendir(absDir);
+    const numberedFiles: string[] = [];
     for await (const entry of dir) {
       if (entry.name.startsWith(".")) continue;
       const relPath = relDir ? `${relDir}/${entry.name}` : entry.name;
       const absPath = join(absDir, entry.name);
       if (entry.isDirectory()) {
         try {
+          const children = await opendir(absPath);
+          const childEntries: Array<{ name: string; isFile: boolean }> = [];
+          for await (const child of children) {
+            childEntries.push({
+              name: child.name,
+              isFile: child.isFile() || child.isSymbolicLink(),
+            });
+          }
+          const split = detectSplitDirectory(entry.name, childEntries);
+          if (split) {
+            const located = await locateOnDisk(absDir, entry.name);
+            if (located) out.set(relPath, fileStatFromLocated(located));
+            continue;
+          }
           await this.#walk(absPath, relPath, out, skippedDirs);
         } catch (err) {
           this.#options.log?.(`Skipping unreadable folder ${absPath}`, err);
           skippedDirs.push(relPath);
         }
-      } else if ((entry.isFile() || entry.isSymbolicLink()) && isLibraryFileName(entry.name)) {
+      } else if (entry.isFile() || entry.isSymbolicLink()) {
+        if (parseNumberedSplitName(entry.name)) {
+          numberedFiles.push(entry.name);
+          continue;
+        }
+        if (!isLibraryFileName(entry.name)) continue;
         try {
           const fileStat = await stat(absPath);
           if (fileStat.isFile())
@@ -262,6 +291,12 @@ export class LibraryScanner {
           // Broken symlink or the file vanished mid-walk.
         }
       }
+    }
+    for (const layout of groupNumberedSplitFiles(numberedFiles)) {
+      const relPath = relDir ? `${relDir}/${layout.relName}` : layout.relName;
+      if (out.has(relPath)) continue;
+      const located = await locateOnDisk(absDir, layout.relName);
+      if (located) out.set(relPath, fileStatFromLocated(located));
     }
   }
 
@@ -283,9 +318,15 @@ export class LibraryScanner {
     if (!file || !root) return;
 
     const fileName = basename(file.relPath);
-    let reader: FileHandleReader;
+    const located = await locateOnDisk(root.path, file.relPath);
+    if (!located) {
+      this.#repo.markMissing(root.id, file.relPath, false);
+      this.#notifyLibraryChanged();
+      return;
+    }
+    let reader: Awaited<ReturnType<typeof openLocatedFile>>;
     try {
-      reader = await FileHandleReader.open(join(root.path, ...file.relPath.split("/")));
+      reader = await openLocatedFile(located);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
         this.#repo.markMissing(root.id, file.relPath, false);
@@ -299,7 +340,7 @@ export class LibraryScanner {
       return;
     }
 
-    const fileStat = { size: reader.size, mtimeMs: reader.mtimeMs };
+    const fileStat = { size: reader.size, mtimeMs: reader.mtimeMs, format: located.format };
     try {
       const result = await inspectLibraryFile(reader, fileName, file.format, {
         keys: this.#options.keys?.() ?? null,
@@ -355,7 +396,8 @@ export class LibraryScanner {
         if (path === root.path) return false;
         const name = basename(path);
         if (name.startsWith(".")) return true;
-        return stats?.isFile() === true && !isLibraryFileName(name);
+        if (stats?.isDirectory()) return false;
+        return stats?.isFile() === true && !isLibraryOrSplitName(name);
       },
     });
     this.#watchers.set(root.id, watcher);
@@ -382,7 +424,11 @@ export class LibraryScanner {
   #queueWatchEvent(root: RootRow, absPath: string, type: WatchEventType): void {
     const relPath = relative(root.path, absPath).split(sep).join("/");
     if (relPath === "" || relPath.startsWith("..")) return;
-    if (type !== "unlinkDir" && !isLibraryFileName(basename(relPath))) return;
+    let identity = relPath;
+    if (type !== "unlinkDir") {
+      if (!isLibraryOrSplitName(basename(relPath))) return;
+      identity = libraryIdentityRelPath(relPath);
+    }
 
     let batch = this.#watchBatches.get(root.id);
     if (!batch) {
@@ -397,7 +443,7 @@ export class LibraryScanner {
       batch = { timer, events };
       this.#watchBatches.set(root.id, batch);
     }
-    batch.events.set(relPath, type);
+    batch.events.set(identity, type);
   }
 
   async #flushWatchEvents(
@@ -416,12 +462,12 @@ export class LibraryScanner {
     for (const [relPath, type] of events) {
       if (type !== "add" && type !== "change") continue;
       try {
-        const fileStat = await stat(join(rootPath, ...relPath.split("/")));
-        if (!fileStat.isFile()) continue;
-        const seen = this.#repo.upsertSeenFile(rootId, relPath, {
-          size: fileStat.size,
-          mtimeMs: Math.floor(fileStat.mtimeMs),
-        });
+        const located = await locateOnDisk(rootPath, relPath);
+        if (!located) {
+          changed = this.#repo.markMissing(rootId, relPath, false) > 0 || changed;
+          continue;
+        }
+        const seen = this.#repo.upsertSeenFile(rootId, relPath, fileStatFromLocated(located));
         changed = seen.changed || changed;
         if (seen.needsParse) void this.#parse(seen.fileId);
       } catch (err) {

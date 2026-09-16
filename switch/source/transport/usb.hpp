@@ -21,6 +21,7 @@ public:
 
     void setToken(std::string token) override { token_ = std::move(token); }
     void setTimeoutMs(long ms) override { timeoutMs_ = ms; }
+    void abort() override;
 
     HttpResponse request(
         const std::string& method,

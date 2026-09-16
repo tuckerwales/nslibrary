@@ -11,7 +11,7 @@ There are no download sources, no shop scraping, and no title keys handed out. K
 - **Metadata** — Container listings and tickets need no keys. Names, icons, firmware requirements, and NCA hashes need `prod.keys` dumped from your console. Optional titledb (a URL or file you supply) fills in names and latest-version numbers only.
 - **Device API** — A paired Switch browses the catalog and claims install jobs. The console always initiates; “Send to Switch” queues work for it to pick up.
 - **Discovery** — UDP `NSLIB?1` on port 8466. You can always type an IP by hand.
-- **USB** — A Switch plugged into the computer running NSLibrary (Electron, or Docker on Linux with device passthrough) uses the same device API inside `NSLU` frames.
+- **USB** — A Switch plugged into the computer running NSLibrary (Electron, or Docker on Linux with device passthrough) uses the same device API inside `NSLU` frames. Transfers time out so cancel and unplug can interrupt a job.
 - **Desktop app** — Electron wraps the same server: tray, native folder picker, USB, auto sign-in on this machine.
 - **Demo data** — Synthetic containers and a fake keyset so the UI is usable without real dumps. No copyrighted content.
 
@@ -114,6 +114,10 @@ You need [devkitPro](https://devkitpro.org) with `switch-curl` and `switch-zstd`
 | `NSLIB_SEED_DIR` / `NSLIB_SEED_KEYS` | — | Demo library path and matching fake `prod.keys` |
 | `PUID` / `PGID` | `1000` | Docker user that owns `/data` |
 | `NSLIB_LOG_LEVEL` | `info` | Fastify log level |
+| `NSLIB_TLS_KEY` / `NSLIB_TLS_CERT` | — | PEM files for optional HTTPS (LAN without a reverse proxy) |
+| `NSLIB_NRO_PATH` | `data/update/nslibrary.nro` if present | Switch app the console can download |
+| `NSLIB_FORWARDER_MAIN` | `data/forwarder/main` if present | ExeFS `main` for the HOME-menu NSP |
+| `NSLIB_APP_VERSION` | `0.1.0` | Advertised in device hello as `appLatest` |
 
 The server never writes into library folders. Missing files are marked, then purged after 30 days.
 

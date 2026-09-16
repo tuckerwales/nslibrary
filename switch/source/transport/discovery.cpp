@@ -49,7 +49,8 @@ std::vector<DiscoveredServer> discoverServers(int timeoutMs, uint16_t port) {
             char addr[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &src.sin_addr, addr, sizeof(addr));
             s.address = addr;
-            s.url = std::string("http://") + s.address + ":" + std::to_string(s.reply.port);
+            const char* scheme = s.reply.tls ? "https://" : "http://";
+            s.url = std::string(scheme) + s.address + ":" + std::to_string(s.reply.port);
             bool seen = false;
             for (const auto& e : out) {
                 if (e.reply.serverId == s.reply.serverId) {

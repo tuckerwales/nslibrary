@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "ライブラリ",
+    "updates": "更新",
+    "queue": "キュー",
+    "installed": "インストール済",
+    "missing": "未インストール",
+    "settings": "設定"
+  },
+  "connect": {
+    "title": "接続",
+    "intro": "LAN上のライブラリを探すか、アドレスを入力してください。",
+    "discover": "サーバーを探す",
+    "none": "応答がありません。アドレスを入力してください。",
+    "manual": "アドレスを入力",
+    "hint": "IP、ホスト名、またはURL",
+    "usb": "USBケーブル",
+    "usb_hint": "このパソコンでNSLibraryが動いています"
+  },
+  "pair": {
+    "title": "ペアリング",
+    "intro": "Webのデバイス画面で6桁のコードを確認して入力します。",
+    "enter": "ペアリングコードを入力"
+  },
+  "library": {
+    "install": "インストールしますか？",
+    "nothing": "このタイトルにインストールできる内容がありません。",
+    "empty": "ライブラリは空です。"
+  },
+  "detail": {
+    "base": "本体をインストール",
+    "update": "更新データをインストール",
+    "dlc": "DLCをインストール",
+    "sd": "SDカード",
+    "nand": "NAND",
+    "auto": "自動",
+    "install_body": "どのストレージにインストールしますか？",
+    "installed": "インストール済",
+    "not_installed": "このSwitchにはありません",
+    "firmware": "必要なファームウェア"
+  },
+  "updates": {
+    "intro": "ライブラリ側が新しい更新データです。"
+  },
+  "missing": {
+    "intro": "ライブラリにあるが、このSwitchには入っていない本体ソフトです。",
+    "empty": "ライブラリの本体ソフトはすべてインストール済みです。"
+  },
+  "queue": {
+    "empty": "ジョブはありません。Webから送るか、ライブラリからインストールしてください。",
+    "cancel": "このインストールをキャンセルしますか？"
+  },
+  "settings": {
+    "url": "サーバー",
+    "name": "このSwitch",
+    "repair": "再ペアリング",
+    "forget": "このサーバーを忘れる",
+    "version": "アプリのバージョン",
+    "update": "サーバーから更新をダウンロード",
+    "update_none": "このサーバーに新しいアプリはありません。",
+    "update_done": "更新しました。Homebrew MenuからNSLibraryを再起動してください。",
+    "target": "デフォルトの保存先",
+    "verify": "NCAハッシュを検証"
+  }
+}

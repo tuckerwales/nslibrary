@@ -25,6 +25,7 @@ public:
     virtual ~ITransport() = default;
     virtual void setToken(std::string token) = 0;
     virtual void setTimeoutMs(long ms) = 0;
+    virtual void abort() {}
     virtual HttpResponse request(
         const std::string& method,
         const std::string& path,

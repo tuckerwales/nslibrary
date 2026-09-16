@@ -40,6 +40,7 @@ struct HelloResponse {
     int proto = 0;
     int64_t catalogRev = 0;
     std::vector<std::string> caps;
+    std::optional<std::string> appLatest;
 };
 
 struct SpacePair {
@@ -141,6 +142,7 @@ struct DiscoveryReply {
     std::string name;
     int port = 0;
     int proto = 0;
+    bool tls = false;
 };
 
 std::optional<ApiErrorBody> tryParseError(const Json& v);

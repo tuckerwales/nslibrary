@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "Bibliothek",
+    "updates": "Updates",
+    "queue": "Warteschlange",
+    "installed": "Installiert",
+    "missing": "Nicht installiert",
+    "settings": "Einstellungen"
+  },
+  "connect": {
+    "title": "Verbinden",
+    "intro": "Bibliothek im LAN suchen oder Adresse eingeben.",
+    "discover": "Server suchen",
+    "none": "Keine Antwort. Adresse stattdessen eingeben.",
+    "manual": "Adresse eingeben",
+    "hint": "IP, Hostname oder URL",
+    "usb": "USB-Kabel",
+    "usb_hint": "Dieser Computer führt NSLibrary aus"
+  },
+  "pair": {
+    "title": "Koppeln",
+    "intro": "Im Web unter Geräte den 6-stelligen Code anzeigen und eingeben.",
+    "enter": "Kopplungscode eingeben"
+  },
+  "library": {
+    "install": "Installieren?",
+    "nothing": "Dieser Titel hat keinen installierbaren Inhalt.",
+    "empty": "Die Bibliothek ist leer."
+  },
+  "detail": {
+    "base": "Basis installieren",
+    "update": "Update installieren",
+    "dlc": "DLC installieren",
+    "sd": "SD-Karte",
+    "nand": "NAND",
+    "auto": "Auto",
+    "install_body": "Wohin installieren?",
+    "installed": "Installiert",
+    "not_installed": "Nicht auf dieser Switch",
+    "firmware": "Benötigte Firmware"
+  },
+  "updates": {
+    "intro": "Updates in der Bibliothek, die neuer wirken als die installierte Version."
+  },
+  "missing": {
+    "intro": "Basisspiele in der Bibliothek, die nicht auf dieser Switch sind. Zum Installieren öffnen.",
+    "empty": "Jedes Basisspiel der Bibliothek ist bereits installiert."
+  },
+  "queue": {
+    "empty": "Noch keine Aufträge. Vom Web senden oder aus der Bibliothek installieren.",
+    "cancel": "Diese Installation abbrechen?"
+  },
+  "settings": {
+    "url": "Server",
+    "name": "Diese Switch",
+    "repair": "Erneut koppeln",
+    "forget": "Diesen Server vergessen",
+    "version": "App-Version",
+    "update": "Update vom Server laden",
+    "update_none": "Dieser Server hat keine neuere App.",
+    "update_done": "Aktualisiert. NSLibrary im Homebrew-Menü neu starten.",
+    "target": "Standard-Speicher",
+    "verify": "NCA-Hashes prüfen"
+  }
+}

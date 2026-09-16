@@ -7,6 +7,7 @@ import { deterministicBytes } from "./bytes";
 import { buildCnmt, CnmtContentType, CnmtType, ncaId } from "./cnmt";
 import { aesCtrAt, aesEcb, nintendoXtsCrypt } from "./crypto";
 import { kaekName, masterKeyIndex } from "./keyset";
+import { buildNpdm } from "./npdm";
 import { buildNacp, fakeJpeg } from "./nro";
 import { buildPfs0 } from "./partition";
 import { buildRomfs } from "./romfs";
@@ -284,4 +285,65 @@ export function buildTitleNsp(options: TitlePackageOptions): TitlePackage {
   }
 
   return { nsp: buildPfs0(files), meta, control, program };
+}
+
+export interface ForwarderPackageOptions {
+  titleId: string;
+  keys: ReadonlyMap<string, Buffer>;
+  name: string;
+  publisher?: string;
+  icon?: Buffer | null;
+  /** ExeFS `main`. A stub is fine for packing tests. */
+  main: Buffer;
+  npdm?: Buffer;
+  keyGeneration?: number;
+}
+
+/** HOME-menu NSP: program (forwarder main) + control + meta. */
+export function buildForwarderNsp(options: ForwarderPackageOptions): TitlePackage {
+  const keyGeneration = options.keyGeneration ?? 0;
+  const npdm = options.npdm ?? buildNpdm({ titleId: options.titleId, name: options.name });
+  const program = buildNca({
+    seed: `${options.titleId}:forwarder`,
+    contentType: NcaContentType.Program,
+    titleId: options.titleId,
+    keys: options.keys,
+    keyGeneration,
+    fs: {
+      type: "pfs0",
+      data: buildPfs0([
+        { name: "main", data: options.main },
+        { name: "main.npdm", data: npdm },
+      ]),
+    },
+  });
+  const control = buildControlNca({
+    titleId: options.titleId,
+    keys: options.keys,
+    name: options.name,
+    publisher: options.publisher ?? "NSLibrary",
+    icon: options.icon,
+    keyGeneration,
+  });
+  const meta = buildMetaNca({
+    titleId: options.titleId,
+    version: 0,
+    type: CnmtType.Application,
+    keys: options.keys,
+    keyGeneration,
+    contents: [
+      { nca: program, type: CnmtContentType.Program },
+      { nca: control, type: CnmtContentType.Control },
+    ],
+  });
+  return {
+    nsp: buildPfs0([
+      { name: `${ncaId(meta)}.cnmt.nca`, data: meta },
+      { name: `${ncaId(control)}.nca`, data: control },
+      { name: `${ncaId(program)}.nca`, data: program },
+    ]),
+    meta,
+    control,
+    program,
+  };
 }

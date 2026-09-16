@@ -1,4 +1,6 @@
 import {
+  CreateForwarderRequestSchema,
+  type ForwarderStatus,
   type KeyStatus,
   PutKeysRequestSchema,
   type ServerSettings,
@@ -7,6 +9,7 @@ import {
   type TitledbStatus,
 } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
+import { forwarderStatus, packForwarder } from "../forwarder";
 import { EmptyKeysetError } from "../keys/store";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
@@ -45,5 +48,20 @@ export async function registerKeysRoutes(api: FastifyInstance, ctx: AppContext):
   api.put("/settings", async (request): Promise<ServerSettings> => {
     const body = parseWith(ServerSettingsSchema, request.body);
     return ctx.devices.updateSettings(body);
+  });
+
+  api.get("/forwarder", async (): Promise<ForwarderStatus> => {
+    return forwarderStatus(ctx.config, ctx.keys.get());
+  });
+
+  api.post("/forwarder", async (request, reply) => {
+    const body = parseWith(CreateForwarderRequestSchema, request.body ?? {});
+    const { nsp, loader } = packForwarder(ctx.config, ctx.keys.get(), body);
+    const name = (body.name ?? "NSLibrary").replace(/[^\w.-]+/g, "_");
+    reply
+      .header("content-type", "application/octet-stream")
+      .header("content-disposition", `attachment; filename="${name}.nsp"`)
+      .header("x-nslib-forwarder-loader", loader);
+    return reply.send(nsp);
   });
 }

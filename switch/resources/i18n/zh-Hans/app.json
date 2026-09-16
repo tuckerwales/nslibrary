@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "库",
+    "updates": "更新",
+    "queue": "队列",
+    "installed": "已安装",
+    "missing": "未安装",
+    "settings": "设置"
+  },
+  "connect": {
+    "title": "连接",
+    "intro": "在局域网中查找资料库，或手动输入地址。",
+    "discover": "查找服务器",
+    "none": "没有服务器应答。请改输入地址。",
+    "manual": "输入地址",
+    "hint": "IP、主机名或 URL",
+    "usb": "USB 线",
+    "usb_hint": "这台电脑正在运行 NSLibrary"
+  },
+  "pair": {
+    "title": "配对",
+    "intro": "在网页的设备页生成 6 位代码并输入。",
+    "enter": "输入配对码"
+  },
+  "library": {
+    "install": "要安装吗？",
+    "nothing": "此标题没有可安装内容。",
+    "empty": "资料库是空的。"
+  },
+  "detail": {
+    "base": "安装本体",
+    "update": "安装更新",
+    "dlc": "安装 DLC",
+    "sd": "SD 卡",
+    "nand": "NAND",
+    "auto": "自动",
+    "install_body": "安装到哪个存储？",
+    "installed": "已安装",
+    "not_installed": "本机没有",
+    "firmware": "需要的系统版本"
+  },
+  "updates": {
+    "intro": "资料库里比本机更新的补丁。"
+  },
+  "missing": {
+    "intro": "资料库中有、但本机尚未安装的本体。打开即可安装。",
+    "empty": "资料库中的本体都已安装。"
+  },
+  "queue": {
+    "empty": "还没有任务。从网页发送，或从资料库安装。",
+    "cancel": "取消这次安装？"
+  },
+  "settings": {
+    "url": "服务器",
+    "name": "本机",
+    "repair": "重新配对",
+    "forget": "忘记此服务器",
+    "version": "应用版本",
+    "update": "从服务器下载更新",
+    "update_none": "此服务器没有更新的应用。",
+    "update_done": "已更新。请从 Homebrew Menu 重新启动 NSLibrary。",
+    "target": "默认存储",
+    "verify": "校验 NCA 哈希"
+  }
+}

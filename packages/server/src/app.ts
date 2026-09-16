@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
@@ -13,10 +14,19 @@ import { registerLibraryRoutes } from "./api/library-routes";
 import { registerRootRoutes } from "./api/root-routes";
 
 export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
-  const app = Fastify({
-    logger: ctx.config.logLevel === false ? false : { level: ctx.config.logLevel },
-    trustProxy: ctx.config.trustProxy,
-  });
+  const logger = ctx.config.logLevel === false ? false : { level: ctx.config.logLevel };
+  const app = (
+    ctx.config.tlsKey && ctx.config.tlsCert
+      ? Fastify({
+          logger,
+          trustProxy: ctx.config.trustProxy,
+          https: {
+            key: readFileSync(ctx.config.tlsKey),
+            cert: readFileSync(ctx.config.tlsCert),
+          },
+        })
+      : Fastify({ logger, trustProxy: ctx.config.trustProxy })
+  ) as FastifyInstance;
   app.decorateRequest("username", null);
   app.decorateRequest("device", null);
   registerErrorHandling(app);

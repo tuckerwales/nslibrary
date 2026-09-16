@@ -1,6 +1,6 @@
 import type { JobSource, WebJob } from "@nslib/shared";
 import { Link } from "react-router";
-import { useCancelJob, useDevices, useJobs } from "../api";
+import { useCancelJob, useDevices, useJobs, useResumeJob } from "../api";
 import { Button } from "../components/Button";
 import { LoadError, PageHeader } from "../components/PageHeader";
 import { formatBytes, relativeTime, updateLabel } from "../format";
@@ -25,6 +25,7 @@ export function HistoryPage() {
   const devices = useDevices();
   const jobs = useJobs();
   const cancel = useCancelJob();
+  const resume = useResumeJob();
   const names = new Map((devices.data ?? []).map((d) => [d.id, d.name]));
   const list = [...(jobs.data ?? [])].sort((a, b) => b.updatedAt - a.updatedAt);
   const active = list.filter(
@@ -100,6 +101,16 @@ export function HistoryPage() {
                       {job.completedAt ? ` · ${relativeTime(job.completedAt)}` : ""}
                     </p>
                     {job.error && <p className="mt-1 text-sm text-danger">{job.error}</p>}
+                    {job.status === "interrupted" && (
+                      <Button
+                        variant="ghost"
+                        className="mt-2 h-8 px-2"
+                        disabled={resume.isPending}
+                        onClick={() => resume.mutate(job.id)}
+                      >
+                        Resume
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>

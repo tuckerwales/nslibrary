@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "Bibliotheek",
+    "updates": "Updates",
+    "queue": "Wachtrij",
+    "installed": "Geïnstalleerd",
+    "missing": "Niet geïnstalleerd",
+    "settings": "Instellingen"
+  },
+  "connect": {
+    "title": "Verbinden",
+    "intro": "Zoek de bibliotheek op het LAN, of typ het adres.",
+    "discover": "Servers zoeken",
+    "none": "Geen antwoord. Voer het adres in.",
+    "manual": "Adres invoeren",
+    "hint": "IP, hostnaam of URL",
+    "usb": "USB-kabel",
+    "usb_hint": "Deze computer draait NSLibrary"
+  },
+  "pair": {
+    "title": "Koppelen",
+    "intro": "Open Apparaten in de web-UI en voer de 6-cijferige code in.",
+    "enter": "Koppelcode invoeren"
+  },
+  "library": {
+    "install": "Installeren?",
+    "nothing": "Deze titel heeft geen installeerbare inhoud.",
+    "empty": "De bibliotheek is leeg."
+  },
+  "detail": {
+    "base": "Basis installeren",
+    "update": "Update installeren",
+    "dlc": "DLC installeren",
+    "sd": "SD-kaart",
+    "nand": "NAND",
+    "auto": "Auto",
+    "install_body": "Naar welke opslag?",
+    "installed": "Geïnstalleerd",
+    "not_installed": "Niet op deze Switch",
+    "firmware": "Vereiste firmware"
+  },
+  "updates": {
+    "intro": "Updates in de bibliotheek die nieuwer lijken dan wat er geïnstalleerd is."
+  },
+  "missing": {
+    "intro": "Basisspellen in de bibliotheek die niet op deze Switch staan. Open er een om te installeren.",
+    "empty": "Elk basisspel in de bibliotheek is al geïnstalleerd."
+  },
+  "queue": {
+    "empty": "Nog geen taken. Stuur een titel via het web, of installeer vanuit de bibliotheek.",
+    "cancel": "Deze installatie annuleren?"
+  },
+  "settings": {
+    "url": "Server",
+    "name": "Deze Switch",
+    "repair": "Opnieuw koppelen",
+    "forget": "Deze server vergeten",
+    "version": "App-versie",
+    "update": "Update van server downloaden",
+    "update_none": "Deze server heeft geen nieuwere app.",
+    "update_done": "Bijgewerkt. Start NSLibrary opnieuw via het Homebrew-menu.",
+    "target": "Standaardopslag",
+    "verify": "NCA-hashes controleren"
+  }
+}

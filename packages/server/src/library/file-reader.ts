@@ -1,7 +1,12 @@
 import { type FileHandle, open } from "node:fs/promises";
-import type { RandomAccessReader } from "@nslib/formats";
+import { ConcatReader, type RandomAccessReader } from "@nslib/formats";
 
-export class FileHandleReader implements RandomAccessReader {
+export interface ClosableReader extends RandomAccessReader {
+  readonly mtimeMs: number;
+  close(): Promise<void>;
+}
+
+export class FileHandleReader implements ClosableReader {
   readonly size: number;
   readonly mtimeMs: number;
   readonly #handle: FileHandle;
@@ -41,5 +46,38 @@ export class FileHandleReader implements RandomAccessReader {
 
   close(): Promise<void> {
     return this.#handle.close();
+  }
+}
+
+export class ConcatFileReader implements ClosableReader {
+  readonly size: number;
+  readonly mtimeMs: number;
+  readonly #inner: ConcatReader;
+  readonly #parts: FileHandleReader[];
+
+  private constructor(parts: FileHandleReader[]) {
+    this.#parts = parts;
+    this.#inner = new ConcatReader(parts.map((part) => ({ reader: part, size: part.size })));
+    this.size = this.#inner.size;
+    this.mtimeMs = parts.reduce((max, part) => Math.max(max, part.mtimeMs), 0);
+  }
+
+  static async open(paths: string[]): Promise<ConcatFileReader> {
+    const parts: FileHandleReader[] = [];
+    try {
+      for (const path of paths) parts.push(await FileHandleReader.open(path));
+      return new ConcatFileReader(parts);
+    } catch (err) {
+      await Promise.all(parts.map((part) => part.close()));
+      throw err;
+    }
+  }
+
+  read(offset: number, length: number): Promise<Buffer> {
+    return this.#inner.read(offset, length);
+  }
+
+  async close(): Promise<void> {
+    await Promise.all(this.#parts.map((part) => part.close()));
   }
 }

@@ -119,6 +119,7 @@ HelloResponse parseHello(const Json& v) {
     if (v.has("caps") && v["caps"].isArray()) {
         for (const auto& c : v["caps"].items()) r.caps.push_back(c.asString());
     }
+    if (v.has("appLatest") && v["appLatest"].isString()) r.appLatest = v["appLatest"].asString();
     return r;
 }
 
@@ -199,6 +200,7 @@ DiscoveryReply parseDiscoveryReply(const Json& v) {
     r.name = reqString(v["name"], "name");
     r.port = int(reqInt(v["port"], "port"));
     r.proto = int(reqInt(v["proto"], "proto"));
+    if (v.has("tls") && v["tls"].isBool()) r.tls = v["tls"].asBool();
     return r;
 }
 

@@ -17,6 +17,10 @@
 #include <cstdio>
 #include <thread>
 
+#ifdef __SWITCH__
+#include <sys/stat.h>
+#endif
+
 namespace nslib {
 namespace {
 
@@ -102,6 +106,14 @@ void Session::ensureClient() {
 HelloResponse Session::hello() {
     ensureClient();
     auto h = client_->hello();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        serverAppLatest_ = h.appLatest.value_or("");
+        canUpdate_ = false;
+        for (const auto& cap : h.caps) {
+            if (cap == "update") canUpdate_ = true;
+        }
+    }
     setStatus("Connected to " + h.serverName);
     return h;
 }
@@ -258,7 +270,10 @@ void Session::cancelJob(int64_t jobId) {
             if (j.id == jobId) j.status = "cancelled";
         }
     }
-    if (current) uiNotify("Cancelling install");
+    if (current) {
+        uiNotify("Cancelling install");
+        if (transport_) transport_->abort();
+    }
     if (hadWaiting) {
         JobComplete done;
         done.ok = false;
@@ -338,6 +353,48 @@ void Session::pump() {
 std::vector<uint8_t> Session::fetchIcon(const std::string& appId, std::optional<int64_t> rev) {
     ensureClient();
     return client_->getIcon(appId, rev);
+}
+
+std::string Session::serverAppLatest() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return serverAppLatest_;
+}
+
+bool Session::canUpdate() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return canUpdate_;
+}
+
+std::string Session::applyUpdate() {
+    ensureClient();
+    hello();
+    if (!canUpdate()) throw std::runtime_error("The server has no Switch app to download");
+#ifdef __SWITCH__
+    mkdir("sdmc:/switch", 0777);
+    mkdir("sdmc:/switch/nslibrary", 0777);
+    const char* part = "sdmc:/switch/nslibrary/nslibrary.nro.part";
+    const char* dest = "sdmc:/switch/nslibrary/nslibrary.nro";
+    FILE* f = fopen(part, "wb");
+    if (!f) throw std::runtime_error("Could not write the update file");
+    try {
+        client_->getUpdate([&](const uint8_t* p, size_t n) {
+            if (fwrite(p, 1, n, f) != n) throw std::runtime_error("Could not write the update file");
+        });
+    } catch (...) {
+        fclose(f);
+        remove(part);
+        throw;
+    }
+    fclose(f);
+    remove(dest);
+    if (rename(part, dest) != 0) {
+        remove(part);
+        throw std::runtime_error("Could not replace nslibrary.nro");
+    }
+    return dest;
+#else
+    throw std::runtime_error("Updates install only on the Switch");
+#endif
 }
 
 void Session::runInstall(Job job) {

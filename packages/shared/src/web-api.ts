@@ -309,6 +309,23 @@ export interface ServerSettings {
   requireUsbPairing: boolean;
 }
 
+export interface ForwarderStatus {
+  keys: boolean;
+  loader: "real" | "stub";
+  titleId: string;
+  name: string;
+}
+
+export const CreateForwarderRequestSchema = z.object({
+  titleId: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{16}$/)
+    .optional(),
+  name: z.string().trim().min(1).max(64).optional(),
+  publisher: z.string().trim().min(1).max(64).optional(),
+});
+export type CreateForwarderRequest = z.infer<typeof CreateForwarderRequestSchema>;
+
 export type ServerEvent =
   | { type: "scan.progress"; rootId: number; scan: ScanProgress }
   | { type: "library.changed"; rev: number }

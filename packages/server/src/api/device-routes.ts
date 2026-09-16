@@ -15,10 +15,11 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { etagFor, etagsMatch, parseRangeHeader } from "../device/range";
+import { openLocatedFile } from "../library/library-fs";
+import { rangeReadable } from "../library/range-stream";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
 
-const STREAM_CHUNK = 1024 * 1024;
 const TitleIdParams = z.object({
   appId: z
     .string()
@@ -52,6 +53,22 @@ export async function registerDeviceRoutes(api: FastifyInstance, ctx: AppContext
     secured.addHook("onRequest", requireDevice(ctx));
 
     secured.get("/hello", async () => ctx.devices.hello());
+
+    secured.get("/update", async (_request, reply) => {
+      const nroPath = ctx.devices.nroPath();
+      if (!nroPath)
+        throw new ApiError("NOT_FOUND", "No Switch app update is available on this server");
+      try {
+        const info = await stat(nroPath);
+        reply
+          .header("content-type", "application/octet-stream")
+          .header("content-length", String(info.size))
+          .header("content-disposition", 'attachment; filename="nslibrary.nro"');
+        return reply.send(createReadStream(nroPath));
+      } catch {
+        throw new ApiError("NOT_FOUND", "No Switch app update is available on this server");
+      }
+    });
 
     secured.put("/state", async (request, reply) => {
       const device = request.device;
@@ -145,14 +162,8 @@ async function sendLibraryFile(
   reply: FastifyReply,
   fileId: number,
 ): Promise<void> {
-  const located = ctx.devices.locateLibraryFile(fileId);
-  let disk: { size: number; mtimeMs: number };
-  try {
-    const info = await stat(located.absolutePath);
-    disk = { size: info.size, mtimeMs: Math.floor(info.mtimeMs) };
-  } catch {
-    throw new ApiError("FILE_MISSING", "This file is no longer on disk");
-  }
+  const located = await ctx.devices.locateLibraryFile(fileId);
+  const disk = { size: located.size, mtimeMs: located.mtimeMs };
 
   const etag = etagFor(disk.size, disk.mtimeMs);
   const ifMatch = headerString(request.headers["if-match"]);
@@ -192,11 +203,20 @@ async function sendLibraryFile(
     return reply.send(Buffer.alloc(0));
   }
 
-  const stream = createReadStream(located.absolutePath, {
-    start: range.start,
-    end: range.end,
-    highWaterMark: STREAM_CHUNK,
+  const source = await openLocatedFile(located);
+  const stream = rangeReadable(source, range.start, range.end);
+  const close = () => {
+    stream.destroy();
+    void source.close();
+  };
+  request.raw.on("close", close);
+  stream.on("end", () => {
+    request.raw.off("close", close);
+    void source.close();
   });
-  request.raw.on("close", () => stream.destroy());
+  stream.on("error", () => {
+    request.raw.off("close", close);
+    void source.close();
+  });
   return reply.send(stream);
 }

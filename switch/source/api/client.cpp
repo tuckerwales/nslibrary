@@ -2,6 +2,7 @@
 
 #include "api/url.hpp"
 
+#include <cstdint>
 #include <sstream>
 
 namespace nslib {
@@ -104,6 +105,14 @@ std::vector<uint8_t> DeviceApiClient::getIcon(const std::string& appId, std::opt
         throw ApiError(res.status, "NOT_FOUND", "icon HTTP " + std::to_string(res.status));
     }
     return std::vector<uint8_t>(res.body.begin(), res.body.end());
+}
+
+int DeviceApiClient::getUpdate(const std::function<void(const uint8_t*, size_t)>& sink) {
+    const int status = transport_.stream("/update", 0, UINT64_MAX, {}, sink);
+    if (status != 200 && status != 206) {
+        throw ApiError(status, "NOT_FOUND", "update HTTP " + std::to_string(status));
+    }
+    return status;
 }
 
 void DeviceApiClient::getFile(int64_t fileId, uint64_t offset, uint64_t length,

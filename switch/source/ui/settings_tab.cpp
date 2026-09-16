@@ -72,6 +72,27 @@ SettingsTab::SettingsTab() {
     ver->setText("app/settings/version"_i18n);
     ver->setDetailText(NSLIB_VERSION);
     list->addView(ver);
+
+    auto* update = new brls::DetailCell();
+    update->setText("app/settings/update"_i18n);
+    const std::string latest = session.serverAppLatest();
+    update->setDetailText(latest.empty() ? NSLIB_VERSION : latest);
+    update->registerClickAction([](brls::View*) {
+        try {
+            Session::instance().hello();
+            auto& s = Session::instance();
+            if (!s.canUpdate()) {
+                showError("app/settings/update_none"_i18n);
+                return true;
+            }
+            s.applyUpdate();
+            brls::Application::notify("app/settings/update_done"_i18n);
+        } catch (const std::exception& e) {
+            showError(e.what());
+        }
+        return true;
+    });
+    list->addView(update);
 }
 
 brls::View* SettingsTab::create() { return new SettingsTab(); }

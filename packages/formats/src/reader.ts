@@ -21,6 +21,36 @@ export class BufferReader implements RandomAccessReader {
 }
 
 /** A window onto part of another reader, e.g. one entry inside an NSP. */
+/** Concatenates several readers into one logical file (FAT32 `00`/`01` splits). */
+export class ConcatReader implements RandomAccessReader {
+  readonly size: number;
+  readonly #parts: ReadonlyArray<{ reader: RandomAccessReader; size: number }>;
+
+  constructor(parts: ReadonlyArray<{ reader: RandomAccessReader; size: number }>) {
+    this.#parts = parts;
+    this.size = parts.reduce((sum, part) => sum + part.size, 0);
+  }
+
+  async read(offset: number, length: number): Promise<Buffer> {
+    if (length <= 0 || offset >= this.size) return Buffer.alloc(0);
+    const chunks: Buffer[] = [];
+    let remaining = Math.min(length, this.size - offset);
+    let pos = offset;
+    for (const part of this.#parts) {
+      if (pos >= part.size) {
+        pos -= part.size;
+        continue;
+      }
+      const take = Math.min(remaining, part.size - pos);
+      chunks.push(await part.reader.read(pos, take));
+      remaining -= take;
+      pos = 0;
+      if (remaining === 0) break;
+    }
+    return Buffer.concat(chunks);
+  }
+}
+
 export class SliceReader implements RandomAccessReader {
   readonly size: number;
   readonly #parent: RandomAccessReader;

@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "Biblioteca",
+    "updates": "Actualizaciones",
+    "queue": "Cola",
+    "installed": "Instalados",
+    "missing": "No instalados",
+    "settings": "Ajustes"
+  },
+  "connect": {
+    "title": "Conectar",
+    "intro": "Busca la biblioteca en la red local o escribe su dirección.",
+    "discover": "Buscar servidores",
+    "none": "Ningún servidor respondió. Escribe la dirección.",
+    "manual": "Escribir dirección",
+    "hint": "IP, nombre de host o URL",
+    "usb": "Cable USB",
+    "usb_hint": "Este ordenador está ejecutando NSLibrary"
+  },
+  "pair": {
+    "title": "Emparejar",
+    "intro": "En la web, abre Dispositivos e introduce el código de 6 dígitos.",
+    "enter": "Introducir código"
+  },
+  "library": {
+    "install": "¿Instalar?",
+    "nothing": "Este título no tiene contenido instalable.",
+    "empty": "La biblioteca está vacía."
+  },
+  "detail": {
+    "base": "Instalar base",
+    "update": "Instalar actualización",
+    "dlc": "Instalar DLC",
+    "sd": "Tarjeta SD",
+    "nand": "NAND",
+    "auto": "Auto",
+    "install_body": "¿En qué almacenamiento?",
+    "installed": "Instalado",
+    "not_installed": "No está en esta Switch",
+    "firmware": "Firmware requerido"
+  },
+  "updates": {
+    "intro": "Actualizaciones de la biblioteca más nuevas que las instaladas."
+  },
+  "missing": {
+    "intro": "Juegos base de la biblioteca que no están en esta Switch. Ábrelo para instalar.",
+    "empty": "Todos los juegos base de la biblioteca ya están instalados."
+  },
+  "queue": {
+    "empty": "Aún no hay trabajos. Envíalos desde la web o instala desde la biblioteca.",
+    "cancel": "¿Cancelar esta instalación?"
+  },
+  "settings": {
+    "url": "Servidor",
+    "name": "Esta Switch",
+    "repair": "Emparejar de nuevo",
+    "forget": "Olvidar este servidor",
+    "version": "Versión de la app",
+    "update": "Descargar actualización del servidor",
+    "update_none": "Este servidor no tiene una app más nueva.",
+    "update_done": "Actualizado. Reinicia NSLibrary desde el menú Homebrew.",
+    "target": "Almacenamiento predeterminado",
+    "verify": "Verificar hashes NCA"
+  }
+}

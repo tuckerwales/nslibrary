@@ -4,6 +4,7 @@ export * from "./crypto";
 export * from "./keyset";
 export * from "./nca";
 export * from "./ncz";
+export * from "./npdm";
 export * from "./nro";
 export * from "./partition";
 export * from "./romfs";

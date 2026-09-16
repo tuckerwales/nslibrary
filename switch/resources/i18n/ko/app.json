@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "라이브러리",
+    "updates": "업데이트",
+    "queue": "대기열",
+    "installed": "설치됨",
+    "missing": "미설치",
+    "settings": "설정"
+  },
+  "connect": {
+    "title": "연결",
+    "intro": "LAN에서 라이브러리를 찾거나 주소를 입력하세요.",
+    "discover": "서버 찾기",
+    "none": "응답한 서버가 없습니다. 주소를 입력하세요.",
+    "manual": "주소 입력",
+    "hint": "IP, 호스트 이름 또는 URL",
+    "usb": "USB 케이블",
+    "usb_hint": "이 컴퓨터에서 NSLibrary가 실행 중입니다"
+  },
+  "pair": {
+    "title": "페어링",
+    "intro": "웹의 기기 화면에서 6자리 코드를 확인하고 입력하세요.",
+    "enter": "페어링 코드 입력"
+  },
+  "library": {
+    "install": "설치할까요?",
+    "nothing": "이 타이틀에 설치할 내용이 없습니다.",
+    "empty": "라이브러리가 비어 있습니다."
+  },
+  "detail": {
+    "base": "본편 설치",
+    "update": "업데이트 설치",
+    "dlc": "DLC 설치",
+    "sd": "SD 카드",
+    "nand": "NAND",
+    "auto": "자동",
+    "install_body": "어디에 설치할까요?",
+    "installed": "설치됨",
+    "not_installed": "이 Switch에 없음",
+    "firmware": "필요한 펌웨어"
+  },
+  "updates": {
+    "intro": "라이브러리에 설치된 것보다 새로운 업데이트입니다."
+  },
+  "missing": {
+    "intro": "라이브러리에는 있지만 이 Switch에는 없는 본편입니다. 열어 설치하세요.",
+    "empty": "라이브러리의 모든 본편이 이미 설치되어 있습니다."
+  },
+  "queue": {
+    "empty": "작업이 없습니다. 웹에서 보내거나 라이브러리에서 설치하세요.",
+    "cancel": "이 설치를 취소할까요?"
+  },
+  "settings": {
+    "url": "서버",
+    "name": "이 Switch",
+    "repair": "다시 페어링",
+    "forget": "이 서버 잊기",
+    "version": "앱 버전",
+    "update": "서버에서 업데이트 받기",
+    "update_none": "이 서버에 더 새로운 앱이 없습니다.",
+    "update_done": "업데이트했습니다. Homebrew Menu에서 NSLibrary를 다시 실행하세요.",
+    "target": "기본 저장소",
+    "verify": "NCA 해시 검증"
+  }
+}

@@ -51,6 +51,9 @@ public:
     std::vector<uint8_t> fetchIcon(const std::string& appId, std::optional<int64_t> rev);
 
     bool isInstalling() const { return installing_; }
+    std::string serverAppLatest() const;
+    bool canUpdate() const;
+    std::string applyUpdate();
 
 private:
     Session() = default;
@@ -66,6 +69,8 @@ private:
     std::deque<Job> pending_;
     DeviceState installed_;
     int64_t catalogRev_ = 0;
+    std::string serverAppLatest_;
+    bool canUpdate_ = false;
     std::string status_;
     JobProgress progress_;
     std::atomic<bool> installing_{false};

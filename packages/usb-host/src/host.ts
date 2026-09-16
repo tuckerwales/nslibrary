@@ -89,6 +89,8 @@ function openDeviceChannel(device: UsbDeviceLike): ByteChannel {
   const inn = iface.endpoints.find((e) => e.direction === "in");
   const out = iface.endpoints.find((e) => e.direction === "out");
   if (!inn || !out) throw new Error("USB Switch is missing bulk IN/OUT endpoints");
+  (inn as TransferEndpoint & { timeout?: number }).timeout = 15_000;
+  (out as TransferEndpoint & { timeout?: number }).timeout = 15_000;
 
   let closed = false;
   const leftover: Uint8Array[] = [];

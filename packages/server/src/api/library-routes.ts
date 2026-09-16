@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { VerifyRequestSchema, type VerifyResult } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { FileHandleReader } from "../library/file-reader";
+import { locateOnDisk, openLocatedFile } from "../library/library-fs";
 import {
   getApplication,
   getProblems,
@@ -67,7 +67,9 @@ export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContex
     if (!file || !root) throw new ApiError("NOT_FOUND", "That file is no longer in the library");
     if (file.missingSince !== null)
       throw new ApiError("FILE_MISSING", "This file is no longer on disk");
-    const reader = await FileHandleReader.open(join(root.path, ...file.relPath.split("/")));
+    const located = await locateOnDisk(root.path, file.relPath);
+    if (!located) throw new ApiError("FILE_MISSING", "This file is no longer on disk");
+    const reader = await openLocatedFile(located);
     try {
       return await verifyLibraryFile(ctx.repo, file, reader, body.mode ?? "full");
     } finally {

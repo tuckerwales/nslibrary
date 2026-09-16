@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "Bibliothèque",
+    "updates": "Mises à jour",
+    "queue": "File",
+    "installed": "Installés",
+    "missing": "Non installés",
+    "settings": "Paramètres"
+  },
+  "connect": {
+    "title": "Connexion",
+    "intro": "Trouvez la bibliothèque sur le LAN, ou saisissez son adresse.",
+    "discover": "Chercher des serveurs",
+    "none": "Aucune réponse. Saisissez l’adresse.",
+    "manual": "Saisir l’adresse",
+    "hint": "IP, nom d’hôte ou URL",
+    "usb": "Câble USB",
+    "usb_hint": "Cet ordinateur exécute NSLibrary"
+  },
+  "pair": {
+    "title": "Appairage",
+    "intro": "Dans l’interface web, ouvrez Appareils et saisissez le code à 6 chiffres.",
+    "enter": "Saisir le code"
+  },
+  "library": {
+    "install": "Installer ?",
+    "nothing": "Ce titre n’a pas de contenu installable.",
+    "empty": "La bibliothèque est vide."
+  },
+  "detail": {
+    "base": "Installer le jeu",
+    "update": "Installer la mise à jour",
+    "dlc": "Installer le DLC",
+    "sd": "Carte SD",
+    "nand": "NAND",
+    "auto": "Auto",
+    "install_body": "Installer sur quel stockage ?",
+    "installed": "Installé",
+    "not_installed": "Pas sur cette Switch",
+    "firmware": "Firmware requis"
+  },
+  "updates": {
+    "intro": "Mises à jour de la bibliothèque plus récentes que celles installées."
+  },
+  "missing": {
+    "intro": "Jeux de base dans la bibliothèque absents de cette Switch. Ouvrez-en un pour l’installer.",
+    "empty": "Tous les jeux de base de la bibliothèque sont déjà installés."
+  },
+  "queue": {
+    "empty": "Aucune tâche. Envoyez un titre depuis le web, ou installez depuis la bibliothèque.",
+    "cancel": "Annuler cette installation ?"
+  },
+  "settings": {
+    "url": "Serveur",
+    "name": "Cette Switch",
+    "repair": "Appairer à nouveau",
+    "forget": "Oublier ce serveur",
+    "version": "Version de l’appli",
+    "update": "Télécharger la mise à jour",
+    "update_none": "Ce serveur n’a pas d’appli plus récente.",
+    "update_done": "Mis à jour. Relancez NSLibrary depuis le menu Homebrew.",
+    "target": "Stockage par défaut",
+    "verify": "Vérifier les hachages NCA"
+  }
+}

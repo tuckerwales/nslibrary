@@ -63,6 +63,11 @@ export function testConfig(dataDir: string, overrides: Partial<ServerConfig> = {
     discoveryPort: null,
     usb: false,
     libraryScanDir: null,
+    tlsKey: null,
+    tlsCert: null,
+    nroPath: null,
+    forwarderMainPath: null,
+    appVersion: "0.1.0",
     log: () => {},
     ...overrides,
   };

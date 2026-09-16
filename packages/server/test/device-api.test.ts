@@ -144,6 +144,8 @@ describe("device API", () => {
     expect(HelloResponseSchema.parse(hello.json())).toEqual(hello.json());
     expect(hello.json().serverName).toBe("test");
     expect(hello.json().caps).toContain("events");
+    expect(hello.json().caps).toContain("resume");
+    expect(hello.json().appLatest).toBe("0.1.0");
   });
 
   it("expires pairing codes and rate-limits guesses", async () => {
@@ -354,5 +356,67 @@ describe("device API", () => {
     await unlink(join(dir, "library", `Example [${BASE}][v0].nsp`));
     const missing = await device("GET", `/files/${fileId}`, { token });
     expect(missing.json().error.code).toBe("FILE_MISSING");
+  });
+
+  it("resumes an interrupted job and keeps queued jobs queued", async () => {
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+    const [running] = (
+      await web("POST", "/jobs", {
+        session,
+        body: { deviceId, items: [contentMetaId], target: "sd" },
+      })
+    ).json<WebJob[]>();
+    expect((await device("POST", `/jobs/${running!.id}/claim`, { token })).statusCode).toBe(200);
+    server.devices.interruptActiveJobs(deviceId, "USB unplug mid-NCA");
+    const after = (await web("GET", `/jobs?deviceId=${deviceId}`, { session })).json<WebJob[]>();
+    expect(after[0]?.status).toBe("interrupted");
+
+    const resumed = await web("POST", `/jobs/${running!.id}/resume`, { session });
+    expect(resumed.statusCode).toBe(200);
+    expect(resumed.json<WebJob>().status).toBe("queued");
+    expect(
+      (await device("POST", `/jobs/${running!.id}/claim`, { token })).json<{ job: Job }>().job
+        .status,
+    ).toBe("claimed");
+  });
+
+  it("serves Range across split 00/01 parts", async () => {
+    const session = await setUp();
+    const { token } = (await pair(session)).json();
+    const library = join(dir, "library");
+    await mkdir(library, { recursive: true });
+    const nsp = fakeNsp({ tickets: [BASE], seed: "split-range" });
+    const splitDir = join(library, `Split [${BASE}][v0].nsp`);
+    await mkdir(splitDir);
+    await writeFile(join(splitDir, "00"), nsp.subarray(0, 32));
+    await writeFile(join(splitDir, "01"), nsp.subarray(32));
+    const root = (
+      await web("POST", "/roots", { session, body: { path: library, label: "lib" } })
+    ).json<LibraryRoot>();
+    await server.scanner.scanRoot(root.id);
+    const file = server.repo.listRootFiles(root.id)[0];
+    expect(file?.size).toBe(nsp.length);
+
+    const ranged = await device("GET", `/files/${file!.id}`, {
+      token,
+      headers: { range: "bytes=0-3" },
+    });
+    expect(ranged.statusCode).toBe(206);
+    expect(Buffer.from(ranged.rawPayload).equals(nsp.subarray(0, 4))).toBe(true);
+    const across = await device("GET", `/files/${file!.id}`, {
+      token,
+      headers: { range: `bytes=30-35` },
+    });
+    expect(across.statusCode).toBe(206);
+    expect(Buffer.from(across.rawPayload).equals(nsp.subarray(30, 36))).toBe(true);
+  });
+
+  it("returns 404 for /update when no nro is configured", async () => {
+    const session = await setUp();
+    const { token } = (await pair(session)).json();
+    const res = await device("GET", "/update", { token });
+    expect(res.statusCode).toBe(404);
   });
 });

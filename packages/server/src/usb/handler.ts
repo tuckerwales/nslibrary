@@ -1,4 +1,3 @@
-import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -18,8 +17,8 @@ import { ApiError, parseWith } from "../api/errors";
 import type { DeviceRow } from "../db/schema";
 import { etagFor, etagsMatch, parseRangeHeader } from "../device/range";
 import type { DeviceApiService } from "../device/service";
-
-const STREAM_CHUNK = 1024 * 1024;
+import type { LocatedLibraryFile } from "../library/library-fs";
+import { openLocatedFile } from "../library/library-fs";
 
 function headerOf(req: UsbRequestJson, name: string): string | undefined {
   if (!req.h) return undefined;
@@ -39,24 +38,17 @@ function pathParts(path: string): { path: string; query: URLSearchParams } {
   return { path: path.slice(0, q), query: new URLSearchParams(path.slice(q + 1)) };
 }
 
-async function readRange(absolutePath: string, start: number, length: number): Promise<Uint8Array> {
-  if (length <= STREAM_CHUNK) {
-    const fh = await import("node:fs/promises").then((m) => m.open(absolutePath, "r"));
-    try {
-      const buf = Buffer.alloc(length);
-      const { bytesRead } = await fh.read(buf, 0, length, start);
-      return buf.subarray(0, bytesRead);
-    } finally {
-      await fh.close();
-    }
+async function readRange(
+  located: LocatedLibraryFile,
+  start: number,
+  length: number,
+): Promise<Uint8Array> {
+  const source = await openLocatedFile(located);
+  try {
+    return new Uint8Array(await source.read(start, length));
+  } finally {
+    await source.close();
   }
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    const stream = createReadStream(absolutePath, { start, end: start + length - 1 });
-    stream.on("data", (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
-    stream.on("error", reject);
-    stream.on("end", () => resolve(Buffer.concat(chunks)));
-  });
 }
 
 export class DeviceUsbHandler implements UsbRequestHandler {
@@ -100,6 +92,17 @@ export class DeviceUsbHandler implements UsbRequestHandler {
 
       if (method === "GET" && path === "/hello") {
         return { status: 200, body: this.devices.hello() };
+      }
+      if (method === "GET" && path === "/update") {
+        const nroPath = this.devices.nroPath();
+        if (!nroPath)
+          throw new ApiError("NOT_FOUND", "No Switch app update is available on this server");
+        const payload = await readFile(nroPath);
+        return {
+          status: 200,
+          headers: { "content-type": "application/octet-stream" },
+          payload,
+        };
       }
       if (method === "PUT" && path === "/state") {
         this.devices.updateState(this.#device.id, parseWith(DeviceStateSchema, req.b));
@@ -212,14 +215,8 @@ export class DeviceUsbHandler implements UsbRequestHandler {
     ifRange: string | undefined,
     ifMatch: string | undefined,
   ): Promise<UsbHandlerResult> {
-    const located = this.devices.locateLibraryFile(fileId);
-    let disk: { size: number; mtimeMs: number };
-    try {
-      const info = await stat(located.absolutePath);
-      disk = { size: info.size, mtimeMs: Math.floor(info.mtimeMs) };
-    } catch {
-      throw new ApiError("FILE_MISSING", "This file is no longer on disk");
-    }
+    const located = await this.devices.locateLibraryFile(fileId);
+    const disk = { size: located.size, mtimeMs: located.mtimeMs };
     const etag = etagFor(disk.size, disk.mtimeMs);
     if (ifMatch && ifMatch !== "*" && !etagsMatch(ifMatch, etag)) {
       throw new ApiError("FILE_CHANGED", "The file changed since it was listed");
@@ -238,7 +235,7 @@ export class DeviceUsbHandler implements UsbRequestHandler {
     const range = parsed === "all" ? { start: 0, end: Math.max(0, disk.size - 1) } : parsed;
     const length = disk.size === 0 ? 0 : range.end - range.start + 1;
     const payload =
-      length === 0 ? new Uint8Array(0) : await readRange(located.absolutePath, range.start, length);
+      length === 0 ? new Uint8Array(0) : await readRange(located, range.start, length);
     const headers: Record<string, string> = {
       etag,
       "accept-ranges": "bytes",

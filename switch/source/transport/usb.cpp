@@ -1,40 +1,29 @@
 #include "transport/usb.hpp"
 
 #include "api/json.hpp"
+#include "transport/resume.hpp"
+#include "transport/usb_ds.hpp"
 #include "transport/usb_frame.hpp"
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
 #include <vector>
 
-#ifdef __SWITCH__
-#include <switch.h>
-#endif
-
 namespace nslib {
 namespace {
 
-#ifdef __SWITCH__
-void writeAll(const uint8_t* p, size_t n) {
-    while (n) {
-        const size_t w = usbCommsWrite(p, n);
-        if (w == 0) throw std::runtime_error("USB write failed");
-        p += w;
-        n -= w;
-    }
+uint64_t timeoutNs(long ms) {
+    if (ms <= 0) return UINT64_MAX;
+    return uint64_t(ms) * 1000000ull;
 }
 
-void readAll(uint8_t* p, size_t n) {
-    while (n) {
-        const size_t r = usbCommsRead(p, n);
-        if (r == 0) throw std::runtime_error("USB read failed");
-        p += r;
-        n -= r;
-    }
-}
+#ifdef __SWITCH__
+void writeAll(const uint8_t* p, size_t n, long ms) { usbDsWriteAll(p, n, timeoutNs(ms)); }
+void readAll(uint8_t* p, size_t n, long ms) { usbDsReadAll(p, n, timeoutNs(ms)); }
 #endif
 
 long long nowMs() {
@@ -45,17 +34,11 @@ long long nowMs() {
 
 } // namespace
 
-bool UsbTransport::available() {
-#ifdef __SWITCH__
-    return R_SUCCEEDED(usbCommsInitialize());
-#else
-    return false;
-#endif
-}
+bool UsbTransport::available() { return usbDsAvailable(); }
 
 UsbTransport::UsbTransport() {
 #ifdef __SWITCH__
-    if (R_FAILED(usbCommsInitialize())) throw std::runtime_error("usbCommsInitialize failed");
+    usbDsStart();
     lastTrafficMs_ = nowMs();
     pingThread_ = std::thread([this] { pingLoop(); });
 #else
@@ -65,11 +48,14 @@ UsbTransport::UsbTransport() {
 
 UsbTransport::~UsbTransport() {
     running_ = false;
+    usbDsCancel();
     if (pingThread_.joinable()) pingThread_.join();
 #ifdef __SWITCH__
-    usbCommsExit();
+    usbDsStop();
 #endif
 }
+
+void UsbTransport::abort() { usbDsCancel(); }
 
 void UsbTransport::pingLoop() {
     while (running_) {
@@ -84,17 +70,17 @@ void UsbTransport::pingLoop() {
             h.kind = FrameKind::Ping;
             h.requestId = nextId_++;
             auto bytes = encodeFrameHeader(h);
-            writeAll(bytes.data(), bytes.size());
+            writeAll(bytes.data(), bytes.size(), timeoutMs_);
             std::vector<uint8_t> resp(kUsbFrameHeaderSize);
-            readAll(resp.data(), resp.size());
+            readAll(resp.data(), resp.size(), timeoutMs_);
             const auto rh = decodeFrameHeader(resp);
             if (rh.jsonLength) {
                 std::vector<uint8_t> skip(rh.jsonLength);
-                readAll(skip.data(), skip.size());
+                readAll(skip.data(), skip.size(), timeoutMs_);
             }
             if (rh.payloadLength) {
                 std::vector<uint8_t> skip(size_t(rh.payloadLength));
-                readAll(skip.data(), skip.size());
+                readAll(skip.data(), skip.size(), timeoutMs_);
             }
             lastTrafficMs_ = nowMs();
 #endif
@@ -127,22 +113,25 @@ int UsbTransport::stream(
     const std::function<void(const uint8_t*, size_t)>& sink)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<std::pair<std::string, std::string>> headers = extraHeaders;
-    if (length) {
-        const uint64_t end = offset + length - 1;
-        char range[64];
-        std::snprintf(range, sizeof(range), "bytes=%llu-%llu",
-            static_cast<unsigned long long>(offset), static_cast<unsigned long long>(end));
-        bool hasRange = false;
-        for (const auto& h : headers) {
-            if (h.first == "Range" || h.first == "range") hasRange = true;
-        }
-        if (!hasRange) headers.emplace_back("range", range);
-    }
-    uint16_t status = 0;
-    std::string jsonOut;
-    exchangeLocked("GET", path, nullptr, headers, &status, &jsonOut, &sink, length);
-    return status;
+    return streamResuming(offset, length, sink,
+        [&](uint64_t off, uint64_t len, const ByteSink& emit) {
+            std::vector<std::pair<std::string, std::string>> headers = extraHeaders;
+            if (len) {
+                const uint64_t end = off + len - 1;
+                char range[64];
+                std::snprintf(range, sizeof(range), "bytes=%llu-%llu",
+                    static_cast<unsigned long long>(off), static_cast<unsigned long long>(end));
+                bool hasRange = false;
+                for (const auto& h : headers) {
+                    if (h.first == "Range" || h.first == "range") hasRange = true;
+                }
+                if (!hasRange) headers.emplace_back("range", range);
+            }
+            uint16_t status = 0;
+            std::string jsonOut;
+            exchangeLocked("GET", path, nullptr, headers, &status, &jsonOut, &emit, len);
+            return int(status);
+        });
 }
 
 uint32_t UsbTransport::exchangeLocked(
@@ -170,14 +159,14 @@ uint32_t UsbTransport::exchangeLocked(
     hdr.kind = FrameKind::Request;
     hdr.requestId = nextId_++;
     const auto frame = encodeFrame(hdr, reinterpret_cast<const uint8_t*>(jsonText.data()), jsonText.size(), nullptr, 0);
-    writeAll(frame.data(), frame.size());
+    writeAll(frame.data(), frame.size(), timeoutMs_);
     lastTrafficMs_ = nowMs();
 
     std::vector<uint8_t> respHdr(kUsbFrameHeaderSize);
-    readAll(respHdr.data(), respHdr.size());
+    readAll(respHdr.data(), respHdr.size(), timeoutMs_);
     const auto rh = decodeFrameHeader(respHdr);
     std::vector<uint8_t> jsonBytes(rh.jsonLength);
-    if (rh.jsonLength) readAll(jsonBytes.data(), jsonBytes.size());
+    if (rh.jsonLength) readAll(jsonBytes.data(), jsonBytes.size(), timeoutMs_);
     *jsonOut = std::string(reinterpret_cast<char*>(jsonBytes.data()), jsonBytes.size());
     if (rh.jsonLength) {
         try {
@@ -192,7 +181,7 @@ uint32_t UsbTransport::exchangeLocked(
     std::vector<uint8_t> chunk(1 << 16);
     while (remaining) {
         const size_t n = size_t(std::min(remaining, uint64_t(chunk.size())));
-        readAll(chunk.data(), n);
+        readAll(chunk.data(), n, timeoutMs_);
         if (sink) (*sink)(chunk.data(), n);
         remaining -= n;
         lastTrafficMs_ = nowMs();

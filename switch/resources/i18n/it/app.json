@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "Libreria",
+    "updates": "Aggiornamenti",
+    "queue": "Coda",
+    "installed": "Installati",
+    "missing": "Non installati",
+    "settings": "Impostazioni"
+  },
+  "connect": {
+    "title": "Connetti",
+    "intro": "Cerca la libreria in LAN oppure inserisci l’indirizzo.",
+    "discover": "Cerca server",
+    "none": "Nessun server ha risposto. Inserisci l’indirizzo.",
+    "manual": "Inserisci indirizzo",
+    "hint": "IP, hostname o URL",
+    "usb": "Cavo USB",
+    "usb_hint": "Questo computer sta eseguendo NSLibrary"
+  },
+  "pair": {
+    "title": "Associa",
+    "intro": "Nell’interfaccia web apri Dispositivi e inserisci il codice a 6 cifre.",
+    "enter": "Inserisci codice"
+  },
+  "library": {
+    "install": "Installare?",
+    "nothing": "Questo titolo non ha contenuto installabile.",
+    "empty": "La libreria è vuota."
+  },
+  "detail": {
+    "base": "Installa base",
+    "update": "Installa aggiornamento",
+    "dlc": "Installa DLC",
+    "sd": "Scheda SD",
+    "nand": "NAND",
+    "auto": "Auto",
+    "install_body": "Su quale memoria?",
+    "installed": "Installato",
+    "not_installed": "Non su questa Switch",
+    "firmware": "Firmware richiesto"
+  },
+  "updates": {
+    "intro": "Aggiornamenti in libreria più recenti di quelli installati."
+  },
+  "missing": {
+    "intro": "Giochi base in libreria assenti su questa Switch. Aprine uno per installarlo.",
+    "empty": "Tutti i giochi base della libreria sono già installati."
+  },
+  "queue": {
+    "empty": "Nessun lavoro. Invia un titolo dal web o installa dalla libreria.",
+    "cancel": "Annullare questa installazione?"
+  },
+  "settings": {
+    "url": "Server",
+    "name": "Questa Switch",
+    "repair": "Associa di nuovo",
+    "forget": "Dimentica questo server",
+    "version": "Versione app",
+    "update": "Scarica aggiornamento dal server",
+    "update_none": "Questo server non ha un’app più recente.",
+    "update_done": "Aggiornato. Riavvia NSLibrary dal menu Homebrew.",
+    "target": "Memoria predefinita",
+    "verify": "Verifica hash NCA"
+  }
+}

@@ -65,6 +65,8 @@ export const HelloResponseSchema = z.object({
   proto: z.number().int().positive(),
   catalogRev: revision,
   caps: z.array(z.string()),
+  /** Latest Switch app version the server can serve (`GET /update`). */
+  appLatest: z.string().optional(),
 });
 
 /** [free bytes, total bytes] */
@@ -170,6 +172,8 @@ export const DiscoveryReplySchema = z.object({
   name: z.string(),
   port: z.number().int().min(1).max(65535),
   proto: z.number().int().positive(),
+  /** True when the HTTP port speaks TLS. */
+  tls: z.boolean().optional(),
 });
 
 export const CatalogQuerySchema = z.object({
@@ -183,7 +187,7 @@ export const EventsQuerySchema = z.object({
   wait: z.coerce.number().int().min(0).max(30).optional(),
 });
 
-export const DEVICE_CAPABILITIES = ["ncz-block", "icons", "events"] as const;
+export const DEVICE_CAPABILITIES = ["ncz-block", "icons", "events", "resume"] as const;
 
 export type ContainerFormat = z.infer<typeof ContainerFormatSchema>;
 export type Storage = z.infer<typeof StorageSchema>;

@@ -7,6 +7,7 @@ import type {
   CreateRootRequest,
   DeviceDetail,
   DeviceSummary,
+  ForwarderStatus,
   HomebrewItem,
   KeyStatus,
   LibraryRoot,
@@ -330,6 +331,48 @@ export function useCancelJob() {
     mutationFn: (id: number) => request<WebJob>("POST", `/jobs/${id}/cancel`),
     onSuccess: () => client.invalidateQueries({ queryKey: ["jobs"] }),
   });
+}
+
+export function useResumeJob() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => request<WebJob>("POST", `/jobs/${id}/resume`),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["jobs"] });
+      void client.invalidateQueries({ queryKey: ["devices"] });
+    },
+  });
+}
+
+export function useForwarderStatus() {
+  return useQuery({
+    queryKey: ["forwarder"],
+    queryFn: () => request<ForwarderStatus>("GET", "/forwarder"),
+  });
+}
+
+export async function downloadForwarder(body?: { titleId?: string; name?: string }): Promise<void> {
+  const response = await fetch(`${API_BASE}/forwarder`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : "{}",
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new ApiRequestError(
+      response.status,
+      data?.error?.code ?? "INTERNAL",
+      data?.error?.msg ?? `The server returned an error (${response.status})`,
+    );
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "NSLibrary.nsp";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function useServerSettings() {

@@ -38,6 +38,7 @@ public:
     void getFile(int64_t fileId, uint64_t offset, uint64_t length,
         const std::function<void(const uint8_t*, size_t)>& sink);
     std::vector<uint8_t> getIcon(const std::string& appId, std::optional<int64_t> rev = {});
+    int getUpdate(const std::function<void(const uint8_t*, size_t)>& sink);
 
     std::vector<CatalogApp> fetchFullCatalog();
 

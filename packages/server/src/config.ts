@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_SERVER_PORT, DISCOVERY_PORT } from "@nslib/shared";
+import { APP_VERSION, DEFAULT_SERVER_PORT, DISCOVERY_PORT } from "@nslib/shared";
 import type { LogFn } from "./api/context";
 
 export interface ServerConfig {
@@ -35,6 +35,14 @@ export interface ServerConfig {
    * `/library/games`, `/library/updates`, …). Null disables the scan.
    */
   libraryScanDir: string | null;
+  /** PEM private key for optional HTTPS. Both tlsKey and tlsCert must be set. */
+  tlsKey: string | null;
+  tlsCert: string | null;
+  /** Switch `.nro` the device API serves at GET /update. */
+  nroPath: string | null;
+  /** Compiled forwarder `main` (exefs). Null uses a stub so the NSP still packs. */
+  forwarderMainPath: string | null;
+  appVersion: string;
 }
 
 const WEB_DIR_CANDIDATES = [
@@ -65,8 +73,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const webDir = env.NSLIB_WEB_DIR
     ? resolve(env.NSLIB_WEB_DIR)
     : (WEB_DIR_CANDIDATES.find((dir) => existsSync(join(dir, "index.html"))) ?? null);
+  const dataDir = resolve(env.NSLIB_DATA_DIR ?? "data");
+  const defaultNro = join(dataDir, "update", "nslibrary.nro");
+  const defaultForwarder = join(dataDir, "forwarder", "main");
   return {
-    dataDir: resolve(env.NSLIB_DATA_DIR ?? "data"),
+    dataDir,
     host: env.NSLIB_HOST ?? "0.0.0.0",
     port: positiveInt("NSLIB_PORT", env.NSLIB_PORT ?? env.PORT, DEFAULT_SERVER_PORT),
     webDir,
@@ -86,5 +97,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       : existsSync("/library")
         ? "/library"
         : null,
+    tlsKey: env.NSLIB_TLS_KEY ? resolve(env.NSLIB_TLS_KEY) : null,
+    tlsCert: env.NSLIB_TLS_CERT ? resolve(env.NSLIB_TLS_CERT) : null,
+    nroPath: env.NSLIB_NRO_PATH
+      ? resolve(env.NSLIB_NRO_PATH)
+      : existsSync(defaultNro)
+        ? defaultNro
+        : null,
+    forwarderMainPath: env.NSLIB_FORWARDER_MAIN
+      ? resolve(env.NSLIB_FORWARDER_MAIN)
+      : existsSync(defaultForwarder)
+        ? defaultForwarder
+        : null,
+    appVersion: env.NSLIB_APP_VERSION?.trim() || APP_VERSION,
   };
 }

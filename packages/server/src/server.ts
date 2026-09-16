@@ -66,13 +66,17 @@ export async function createServer(
     now,
     serverName: config.serverName,
     catalogRev: () => repo.catalogRev(),
+    appVersion: config.appVersion,
+    nroPath: config.nroPath,
+    tls: Boolean(config.tlsKey && config.tlsCert),
   });
   const discovery =
     config.discoveryPort === null
       ? null
       : new DiscoveryServer({
           port: config.discoveryPort,
-          reply: () => discoveryReply(devices.serverId, devices.serverName, config.port),
+          reply: () =>
+            discoveryReply(devices.serverId, devices.serverName, config.port, devices.tls),
           log,
         });
   app = await buildApp({

@@ -1,5 +1,4 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { join } from "node:path";
 import {
   applicationIdForPatch,
   type CatalogQuery,
@@ -38,6 +37,7 @@ import {
   settings,
 } from "../db/schema";
 import type { EventBus } from "../events";
+import { type LocatedLibraryFile, locateOnDisk } from "../library/library-fs";
 import { buildCatalogApps, paginateCatalog } from "./catalog";
 import { DeviceEventLog } from "./events";
 
@@ -84,6 +84,9 @@ export interface DeviceApiOptions {
   now?: () => number;
   serverName: string;
   catalogRev: () => number;
+  appVersion?: string;
+  nroPath?: string | null;
+  tls?: boolean;
 }
 
 export class DeviceApiService {
@@ -93,6 +96,9 @@ export class DeviceApiService {
   readonly #now: () => number;
   readonly #serverName: string;
   readonly #catalogRev: () => number;
+  readonly #appVersion: string;
+  readonly #nroPath: string | null;
+  readonly tls: boolean;
   readonly #waiters = new Map<number, number>();
   readonly #lastProgressAt = new Map<number, number>();
   readonly #lastJobEventAt = new Map<number, number>();
@@ -105,6 +111,9 @@ export class DeviceApiService {
     this.#now = options.now ?? Date.now;
     this.#serverName = options.serverName;
     this.#catalogRev = options.catalogRev;
+    this.#appVersion = options.appVersion ?? "0.1.0";
+    this.#nroPath = options.nroPath ?? null;
+    this.tls = options.tls ?? false;
     this.#serverId = this.#loadOrCreateServerId();
     this.#events.subscribe((event) => {
       if (event.type === "library.changed") {
@@ -322,13 +331,20 @@ export class DeviceApiService {
       .run();
   }
 
+  nroPath(): string | null {
+    return this.#nroPath;
+  }
+
   hello(): HelloResponse {
+    const caps: string[] = [...DEVICE_CAPABILITIES];
+    if (this.#nroPath) caps.push("update");
     return {
       serverId: this.#serverId,
       serverName: this.serverName,
       proto: DEVICE_API_PROTOCOL_VERSION,
       catalogRev: this.#catalogRev(),
-      caps: [...DEVICE_CAPABILITIES],
+      caps,
+      appLatest: this.#appVersion,
     };
   }
 
@@ -381,7 +397,7 @@ export class DeviceApiService {
     );
   }
 
-  locateLibraryFile(fileId: number): { absolutePath: string; size: number; mtimeMs: number } {
+  async locateLibraryFile(fileId: number): Promise<LocatedLibraryFile> {
     const file = this.#db.select().from(files).where(eq(files.id, fileId)).get();
     const root =
       file && this.#db.select().from(libraryRoots).where(eq(libraryRoots.id, file.rootId)).get();
@@ -389,11 +405,9 @@ export class DeviceApiService {
     if (file.missingSince !== null) {
       throw new ApiError("FILE_MISSING", "This file is no longer on disk");
     }
-    return {
-      absolutePath: join(root.path, ...file.relPath.split("/")),
-      size: file.size,
-      mtimeMs: file.mtimeMs,
-    };
+    const located = await locateOnDisk(root.path, file.relPath);
+    if (!located) throw new ApiError("FILE_MISSING", "This file is no longer on disk");
+    return located;
   }
 
   listDevices(): ReturnType<DeviceApiService["toSummary"]>[] {
@@ -468,7 +482,7 @@ export class DeviceApiService {
 
   claimJob(deviceId: number, jobId: number): Job {
     const row = this.#jobForDevice(deviceId, jobId);
-    if (row.status !== "queued") {
+    if (row.status !== "queued" && row.status !== "interrupted") {
       throw new ApiError("JOB_INVALID_STATE", "That job is no longer waiting to be claimed");
     }
     const now = this.#now();
@@ -527,6 +541,31 @@ export class DeviceApiService {
       .returning()
       .get();
     const job = this.toWebJob(updated);
+    this.#publishJob(job);
+    return job;
+  }
+
+  resumeJob(jobId: number): WebJob {
+    const row = this.#requireJob(jobId);
+    if (row.status !== "interrupted") {
+      throw new ApiError("JOB_INVALID_STATE", "Only interrupted installs can be resumed");
+    }
+    this.#requireActiveDevice(row.deviceId);
+    const now = this.#now();
+    const updated = this.#db
+      .update(installJobs)
+      .set({
+        status: "queued",
+        error: null,
+        completedAt: null,
+        updatedAt: now,
+        position: this.#nextPosition(row.deviceId),
+      })
+      .where(eq(installJobs.id, jobId))
+      .returning()
+      .get();
+    const job = this.toWebJob(updated);
+    this.log.append(row.deviceId, { t: "job.queued", job: this.toDeviceJob(job) });
     this.#publishJob(job);
     return job;
   }
@@ -596,11 +635,16 @@ export class DeviceApiService {
   ): Promise<EventsResponse> {
     const waitMs = (query.wait ?? 25) * 1000;
     if (query.cursor === undefined) {
-      const queued = this.listJobs(device.id).filter((job) => job.status === "queued");
+      const queued = this.listJobs(device.id).filter(
+        (job) => job.status === "queued" || job.status === "interrupted",
+      );
       return {
         cursor: String(this.log.head()),
         ev: [
-          ...queued.map((job) => ({ t: "job.queued" as const, job: this.toDeviceJob(job) })),
+          ...queued.map((job) => ({
+            t: "job.queued" as const,
+            job: this.toDeviceJob({ ...job, status: "queued" }),
+          })),
           { t: "catalog", rev: this.#catalogRev() },
         ],
       };
@@ -829,19 +873,17 @@ export class DeviceApiService {
       .where(
         and(
           eq(installJobs.deviceId, deviceId),
-          inArray(installJobs.status, ["queued", "claimed", "running"]),
+          inArray(installJobs.status, ["claimed", "running"]),
         ),
       )
       .all();
     for (const row of active) {
-      const status = row.status === "queued" ? "cancelled" : "interrupted";
       const updated = this.#db
         .update(installJobs)
-        .set({ status, error: message, updatedAt: now, completedAt: now })
+        .set({ status: "interrupted", error: message, updatedAt: now, completedAt: now })
         .where(eq(installJobs.id, row.id))
         .returning()
         .get();
-      if (row.status !== "queued") this.log.append(deviceId, { t: "job.cancel", id: row.id });
       this.#publishJob(this.toWebJob(updated));
     }
   }

@@ -236,6 +236,9 @@ importers:
       '@fastify/websocket':
         specifier: ^11.3.0
         version: 11.3.0
+      '@nslib/fixtures':
+        specifier: workspace:*
+        version: link:../fixtures
       '@nslib/formats':
         specifier: workspace:*
         version: link:../formats
@@ -267,9 +270,6 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@nslib/fixtures':
-        specifier: workspace:*
-        version: link:../fixtures
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0

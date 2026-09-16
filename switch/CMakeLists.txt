@@ -39,6 +39,7 @@ set(NSLIB_COMMON_SRC
     source/install/preflight.cpp
     source/install/pipeline.cpp
     source/transport/usb_frame.cpp
+    source/transport/resume.cpp
 )
 
 if (PLATFORM_SWITCH)
@@ -67,6 +68,7 @@ if (PLATFORM_SWITCH)
         source/app/session.cpp
         source/transport/http.cpp
         source/transport/usb.cpp
+        source/transport/usb_ds.cpp
         source/transport/discovery.cpp
         source/api/client.cpp
         source/api/poller.cpp
@@ -116,6 +118,16 @@ if (PLATFORM_SWITCH)
         ${ZSTD_LIBRARY_DIRS}
     )
 
+    add_executable(nslibrary-forwarder source/forwarder/main.cpp)
+    set_target_properties(nslibrary-forwarder PROPERTIES SUFFIX ".elf")
+    target_link_libraries(nslibrary-forwarder PRIVATE nx)
+    add_custom_command(TARGET nslibrary-forwarder POST_BUILD
+        COMMAND ${CMAKE_OBJCOPY} -O binary
+            $<TARGET_FILE:nslibrary-forwarder>
+            ${CMAKE_BINARY_DIR}/forwarder-main
+        COMMENT "Extracting forwarder main"
+    )
+
     set(NSLIB_ROMFS "${CMAKE_BINARY_DIR}/romfs")
     add_custom_target(${PROJECT_NAME}.nro DEPENDS ${PROJECT_NAME}
         COMMAND ${NX_NACPTOOL_EXE} --create "NSLibrary" "${PROJECT_AUTHOR}"
@@ -154,6 +166,7 @@ else()
         tests/preflight_test.cpp
         tests/pipeline_test.cpp
         tests/usb_frame_test.cpp
+        tests/resume_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source

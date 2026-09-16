@@ -169,4 +169,27 @@ describe("LibraryScanner", () => {
     expect(scanner.scanRoot(root.id)).toBe(first);
     return first;
   });
+
+  it("treats a folder of 00/01 parts as one NSP", async () => {
+    const nsp = fakeNsp({ tickets: [BASE_ID], seed: "split" });
+    const splitDir = join(library, `Split Game [${BASE_ID}][v0].nsp`);
+    await mkdir(splitDir);
+    await writeFile(join(splitDir, "00"), nsp.subarray(0, 64));
+    await writeFile(join(splitDir, "01"), nsp.subarray(64));
+    const root = repo.createRoot({ path: library });
+    expect(await scanner.scanRoot(root.id)).toMatchObject({
+      seen: 1,
+      parsed: 1,
+      added: 1,
+      error: null,
+    });
+    const [file] = repo.listRootFiles(root.id);
+    expect(file).toMatchObject({
+      relPath: `Split Game [${BASE_ID}][v0].nsp`,
+      format: "nsp",
+      size: nsp.length,
+      parseStatus: "ok",
+    });
+    expect(listApplications(db)[0]?.applicationId).toBe(BASE_ID);
+  });
 });

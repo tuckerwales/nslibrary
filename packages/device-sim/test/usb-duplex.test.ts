@@ -44,6 +44,11 @@ describe("USB device-sim over in-memory duplex", () => {
       discoveryPort: null,
       usb: false,
       libraryScanDir: null,
+      tlsKey: null,
+      tlsCert: null,
+      nroPath: null,
+      forwarderMainPath: null,
+      appVersion: "0.1.0",
       log: () => {},
     });
     const root = server.repo.createRoot({ path: library, label: "usb" });
@@ -110,6 +115,11 @@ describe("USB device-sim over in-memory duplex", () => {
       discoveryPort: null,
       usb: false,
       libraryScanDir: null,
+      tlsKey: null,
+      tlsCert: null,
+      nroPath: null,
+      forwarderMainPath: null,
+      appVersion: "0.1.0",
       log: () => {},
     });
     server.devices.updateSettings({ requireUsbPairing: true });
@@ -131,6 +141,75 @@ describe("USB device-sim over in-memory duplex", () => {
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     link.stop();
     await running.catch(() => undefined);
+    await server.close();
+  });
+
+  it("marks a running job interrupted when USB unplugs, then resumes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "nslib-usb-unplug-"));
+    dirs.push(dir);
+    const library = join(dir, "lib");
+    await mkdir(library);
+    const nsp = buildPfs0([{ name: "a.cnmt.nca", data: deterministicBytes("meta", 0x40) }]);
+    await writeFile(join(library, "game [0100ABCDEF012000][v0].nsp"), nsp);
+    const server = await createServer({
+      dataDir: join(dir, "data"),
+      databaseFile: ":memory:",
+      host: "127.0.0.1",
+      port: 0,
+      webDir: null,
+      forcePolling: true,
+      pollIntervalMs: 50,
+      stabilityThresholdMs: 100,
+      logLevel: false,
+      trustProxy: false,
+      seed: false,
+      seedLibraryDir: null,
+      seedKeysPath: null,
+      serverName: "test",
+      discoveryPort: null,
+      usb: false,
+      libraryScanDir: null,
+      tlsKey: null,
+      tlsCert: null,
+      nroPath: null,
+      forwarderMainPath: null,
+      appVersion: "0.1.0",
+      log: () => {},
+    });
+    const root = server.repo.createRoot({ path: library, label: "usb" });
+    await server.scanner.scanRoot(root.id);
+    const file = server.repo.listRootFiles(root.id)[0];
+    if (!file) throw new Error("expected scanned file");
+    const meta = server.sqlite
+      .prepare("select id from content_metas where file_id = ?")
+      .get(file.id) as { id: number } | undefined;
+    if (!meta) throw new Error("expected content meta");
+
+    const duplex = new MemoryDuplex();
+    const link = new UsbLink(duplex.a, {
+      handler: new DeviceUsbHandler(server.devices, join(dir, "data", "cache", "icons")),
+      idleMs: 0,
+    });
+    const running = link.run();
+    const client = new UsbDeviceClient(duplex.b);
+    await client.usbHello({
+      deviceUuid: randomUUID(),
+      name: "USB Switch",
+      fw: "19.0.1",
+      amsVersion: "1.8.0",
+      appVersion: "0.1.0",
+    });
+    const created = await client.exchange("POST", "/jobs", {
+      body: { contentMetaId: meta.id, target: "sd" },
+    });
+    const job = created.json.b as { id: number };
+    await client.exchange("POST", `/jobs/${job.id}/claim`);
+    duplex.a.close();
+    await running.catch(() => undefined);
+    const listed = server.devices.listJobs();
+    expect(listed[0]?.status).toBe("interrupted");
+    const resumed = server.devices.resumeJob(listed[0]!.id);
+    expect(resumed.status).toBe("queued");
     await server.close();
   });
 });

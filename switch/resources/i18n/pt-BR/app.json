@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "Biblioteca",
+    "updates": "Atualizações",
+    "queue": "Fila",
+    "installed": "Instalados",
+    "missing": "Não instalados",
+    "settings": "Ajustes"
+  },
+  "connect": {
+    "title": "Conectar",
+    "intro": "Encontre a biblioteca na LAN ou digite o endereço.",
+    "discover": "Procurar servidores",
+    "none": "Nenhum servidor respondeu. Digite o endereço.",
+    "manual": "Digitar endereço",
+    "hint": "IP, hostname ou URL",
+    "usb": "Cabo USB",
+    "usb_hint": "Este computador está executando o NSLibrary"
+  },
+  "pair": {
+    "title": "Emparelhar",
+    "intro": "Na interface web, abra Dispositivos e digite o código de 6 dígitos.",
+    "enter": "Inserir código"
+  },
+  "library": {
+    "install": "Instalar?",
+    "nothing": "Este título não tem conteúdo instalável.",
+    "empty": "A biblioteca está vazia."
+  },
+  "detail": {
+    "base": "Instalar base",
+    "update": "Instalar atualização",
+    "dlc": "Instalar DLC",
+    "sd": "Cartão SD",
+    "nand": "NAND",
+    "auto": "Auto",
+    "install_body": "Instalar em qual armazenamento?",
+    "installed": "Instalado",
+    "not_installed": "Não está neste Switch",
+    "firmware": "Firmware necessário"
+  },
+  "updates": {
+    "intro": "Atualizações na biblioteca mais novas do que as instaladas."
+  },
+  "missing": {
+    "intro": "Jogos base na biblioteca que não estão neste Switch. Abra um para instalar.",
+    "empty": "Todos os jogos base da biblioteca já estão instalados."
+  },
+  "queue": {
+    "empty": "Nenhum trabalho ainda. Envie pela web ou instale pela biblioteca.",
+    "cancel": "Cancelar esta instalação?"
+  },
+  "settings": {
+    "url": "Servidor",
+    "name": "Este Switch",
+    "repair": "Emparelhar de novo",
+    "forget": "Esquecer este servidor",
+    "version": "Versão do app",
+    "update": "Baixar atualização do servidor",
+    "update_none": "Este servidor não tem um app mais novo.",
+    "update_done": "Atualizado. Reinicie o NSLibrary no menu Homebrew.",
+    "target": "Armazenamento padrão",
+    "verify": "Verificar hashes NCA"
+  }
+}

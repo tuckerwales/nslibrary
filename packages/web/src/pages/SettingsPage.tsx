@@ -1,5 +1,7 @@
 import { type FormEvent, useState } from "react";
 import {
+  downloadForwarder,
+  useForwarderStatus,
   useKeysStatus,
   usePutKeys,
   usePutSettings,
@@ -22,6 +24,9 @@ export function SettingsPage() {
   const putTitledb = usePutTitledb();
   const refreshTitledb = useRefreshTitledb();
   const [source, setSource] = useState<string | null>(null);
+  const [forwarderBusy, setForwarderBusy] = useState(false);
+  const [forwarderError, setForwarderError] = useState<string | null>(null);
+  const forwarder = useForwarderStatus();
 
   const titledbSource = source ?? titledb.data?.source ?? "";
 
@@ -121,6 +126,48 @@ export function SettingsPage() {
               />
             </div>
           </div>
+        )}
+      </section>
+
+      <section className="mt-12 max-w-2xl">
+        <h2 className="text-xl">HOME menu forwarder</h2>
+        <p className="mt-2 text-muted">
+          An NSP you can install so NSLibrary appears on the HOME menu and launches{" "}
+          <code className="text-sm">sdmc:/switch/nslibrary/nslibrary.nro</code>. Needs your{" "}
+          <code className="text-sm">prod.keys</code>. Sigpatches are required to install it.
+        </p>
+        {forwarder.data && (
+          <p className="mt-2 text-sm text-muted">
+            Title ID {forwarder.data.titleId}
+            {forwarder.data.loader === "stub"
+              ? ". The loader binary is a stub until you build the Switch forwarder target."
+              : ". Using the compiled Switch loader."}
+          </p>
+        )}
+        <div className="mt-4">
+          <Button
+            type="button"
+            disabled={forwarderBusy || forwarder.data?.keys === false}
+            onClick={() => {
+              setForwarderError(null);
+              setForwarderBusy(true);
+              void downloadForwarder()
+                .catch((err: unknown) => {
+                  setForwarderError(err instanceof Error ? err.message : String(err));
+                })
+                .finally(() => setForwarderBusy(false));
+            }}
+          >
+            {forwarderBusy ? "Building…" : "Download NSP"}
+          </Button>
+        </div>
+        {forwarder.data?.keys === false && (
+          <p className="mt-2 text-sm text-muted">Upload prod.keys first.</p>
+        )}
+        {forwarderError && (
+          <p role="alert" className="mt-2 text-sm text-danger">
+            {forwarderError}
+          </p>
         )}
       </section>
 

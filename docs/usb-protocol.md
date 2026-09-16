@@ -1,8 +1,8 @@
 # USB protocol (v1)
 
-The Switch is the USB device (libnx `usbComms`, VID `057E` / PID `3000`, one bulk IN and one bulk OUT endpoint). The library host uses libusb through `node-usb` (`packages/usb-host`). The link carries the same requests as the HTTP device API (`/api/device/v1`), so the server handles both transports with one `DeviceApiService`.
+The Switch is the USB device (raw libnx `usbDs` bulk endpoints, VID `057E` / PID `3000`). Transfers use `eventWait` timeouts so a cancel or unplug does not block forever. The library host uses libusb through `node-usb` (`packages/usb-host`). The link carries the same requests as the HTTP device API (`/api/device/v1`), so the server handles both transports with one `DeviceApiService`.
 
-Session start: `POST /usb/hello` with the device-info body. The Switch is trusted automatically unless **Require pairing for USB** is on. Ping every 5 s; 15 s of silence or a detach marks running jobs `interrupted`.
+Session start: `POST /usb/hello` with the device-info body. The Switch is trusted automatically unless **Require pairing for USB** is on. Ping every 5 s; 15 s of silence or a detach marks **running** jobs `interrupted` (queued jobs stay queued and can be claimed after reconnect).
 
 In-memory tests: `MemoryDuplex` + `UsbLink` + `UsbDeviceClient` (`packages/device-sim/test/usb-duplex.test.ts`).
 

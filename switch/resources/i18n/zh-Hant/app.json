@@ -1,0 +1,66 @@
+{
+  "title": "NSLibrary",
+  "tabs": {
+    "library": "資料庫",
+    "updates": "更新",
+    "queue": "佇列",
+    "installed": "已安裝",
+    "missing": "未安裝",
+    "settings": "設定"
+  },
+  "connect": {
+    "title": "連線",
+    "intro": "在區網尋找資料庫，或手動輸入位址。",
+    "discover": "尋找伺服器",
+    "none": "沒有伺服器回應。請改輸入位址。",
+    "manual": "輸入位址",
+    "hint": "IP、主機名稱或 URL",
+    "usb": "USB 線",
+    "usb_hint": "這台電腦正在執行 NSLibrary"
+  },
+  "pair": {
+    "title": "配對",
+    "intro": "在網頁的裝置頁產生 6 位數代碼並輸入。",
+    "enter": "輸入配對碼"
+  },
+  "library": {
+    "install": "要安裝嗎？",
+    "nothing": "此標題沒有可安裝內容。",
+    "empty": "資料庫是空的。"
+  },
+  "detail": {
+    "base": "安裝本體",
+    "update": "安裝更新",
+    "dlc": "安裝 DLC",
+    "sd": "SD 卡",
+    "nand": "NAND",
+    "auto": "自動",
+    "install_body": "安裝到哪個儲存空間？",
+    "installed": "已安裝",
+    "not_installed": "本機沒有",
+    "firmware": "需要的系統版本"
+  },
+  "updates": {
+    "intro": "資料庫裡比本機更新的更新檔。"
+  },
+  "missing": {
+    "intro": "資料庫中有、但本機尚未安裝的本體。開啟即可安裝。",
+    "empty": "資料庫中的本體都已安裝。"
+  },
+  "queue": {
+    "empty": "還沒有工作。從網頁傳送，或從資料庫安裝。",
+    "cancel": "取消這次安裝？"
+  },
+  "settings": {
+    "url": "伺服器",
+    "name": "本機",
+    "repair": "重新配對",
+    "forget": "忘記此伺服器",
+    "version": "應用程式版本",
+    "update": "從伺服器下載更新",
+    "update_none": "此伺服器沒有較新的應用程式。",
+    "update_done": "已更新。請從 Homebrew Menu 重新啟動 NSLibrary。",
+    "target": "預設儲存空間",
+    "verify": "驗證 NCA 雜湊"
+  }
+}

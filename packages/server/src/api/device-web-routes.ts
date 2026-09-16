@@ -61,6 +61,11 @@ export async function registerDeviceWebRoutes(
     return ctx.devices.cancelJob(id);
   });
 
+  api.post("/jobs/:id/resume", async (request): Promise<WebJob> => {
+    const { id } = parseWith(IdParams, request.params);
+    return ctx.devices.resumeJob(id);
+  });
+
   api.put("/jobs/order", async (request): Promise<WebJob[]> => {
     const body = parseWith(ReorderJobsRequestSchema, request.body);
     return ctx.devices.reorderJobs(body.deviceId, body.ids);

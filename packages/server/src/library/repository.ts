@@ -1,4 +1,4 @@
-import { formatFromFileName } from "@nslib/formats";
+import { formatFromFileName, type LibraryFileFormat } from "@nslib/formats";
 import { and, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import {
@@ -18,6 +18,7 @@ import { type InspectionResult, PARSER_VERSION } from "./inspect";
 export interface FileStat {
   size: number;
   mtimeMs: number;
+  format?: LibraryFileFormat;
 }
 
 export type InspectionOutcome =
@@ -57,10 +58,15 @@ function baseName(relPath: string): string {
   return relPath.slice(relPath.lastIndexOf("/") + 1);
 }
 
-function requireFormat(relPath: string) {
+function requireFormat(relPath: string, hint?: LibraryFileFormat) {
+  if (hint) return hint;
   const format = formatFromFileName(baseName(relPath));
   if (!format) throw new Error(`Unsupported library file: ${relPath}`);
   return format;
+}
+
+function diskColumns(stat: FileStat): { size: number; mtimeMs: number } {
+  return { size: stat.size, mtimeMs: stat.mtimeMs };
 }
 
 function isStale(row: FileRow): boolean {
@@ -187,7 +193,12 @@ export class LibraryRepository {
         if (row.size !== stat.size || row.mtimeMs !== stat.mtimeMs) {
           this.db
             .update(files)
-            .set({ ...stat, parseStatus: "pending", missingSince: null })
+            .set({
+              ...diskColumns(stat),
+              ...(stat.format ? { format: stat.format } : {}),
+              parseStatus: "pending",
+              missingSince: null,
+            })
             .where(eq(files.id, row.id))
             .run();
           result.toParse.push(row.id);
@@ -217,7 +228,7 @@ export class LibraryRepository {
             .update(files)
             .set({
               relPath,
-              format: requireFormat(relPath),
+              format: requireFormat(relPath, stat.format),
               parseStatus: "pending",
               missingSince: null,
             })
@@ -228,7 +239,13 @@ export class LibraryRepository {
         } else {
           const inserted = this.db
             .insert(files)
-            .values({ rootId, relPath, format: requireFormat(relPath), ...stat, firstSeenAt: now })
+            .values({
+              rootId,
+              relPath,
+              format: requireFormat(relPath, stat.format),
+              ...diskColumns(stat),
+              firstSeenAt: now,
+            })
             .returning({ id: files.id })
             .get();
           result.toParse.push(inserted.id);
@@ -264,7 +281,8 @@ export class LibraryRepository {
           this.db
             .update(files)
             .set({
-              ...stat,
+              ...diskColumns(stat),
+              ...(stat.format ? { format: stat.format } : {}),
               missingSince: null,
               ...(modified ? { parseStatus: "pending" as const } : {}),
             })
@@ -298,7 +316,7 @@ export class LibraryRepository {
           .update(files)
           .set({
             relPath,
-            format: requireFormat(relPath),
+            format: requireFormat(relPath, stat.format),
             parseStatus: "pending",
             missingSince: null,
           })
@@ -311,8 +329,8 @@ export class LibraryRepository {
           .values({
             rootId,
             relPath,
-            format: requireFormat(relPath),
-            ...stat,
+            format: requireFormat(relPath, stat.format),
+            ...diskColumns(stat),
             firstSeenAt: this.#now(),
           })
           .returning({ id: files.id })
