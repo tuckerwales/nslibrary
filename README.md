@@ -54,6 +54,8 @@ pnpm workspaces. Shared types live in `@nslib/shared`; parsers never write into 
 | `packages/server` | `@nslib/server` | HTTP APIs, scanner, SQLite (Drizzle), keys, titledb, UDP discovery |
 | `packages/web` | `@nslib/web` | React + Vite + TanStack Query UI |
 | `packages/device-sim` | `@nslib/device-sim` | CLI fake Switch for the device API (`nslib-sim`) |
+| `packages/usb-host` | `@nslib/usb-host` | USB frame session and node-usb attach |
+| `packages/electron` | `@nslib/desktop` | Electron window, tray, USB on the desktop |
 | `switch/` | — | libnx + Borealis client, host-native C++ tests |
 | `docker/` | — | Image entrypoint and compose overlay |
 | `docs/` | — | Device API, USB frames, keys, deploy |

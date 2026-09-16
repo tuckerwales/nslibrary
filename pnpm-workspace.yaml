@@ -1,7 +1,9 @@
 packages:
   - packages/*
 allowBuilds:
-  better-sqlite3: true
+  # v13 ships N-API .node files in the tarball. Allowing its implicit
+  # `node-gyp rebuild` (from binding.gyp) fails on machines without node-gyp.
+  better-sqlite3: false
   esbuild: true
   usb: true
   electron: true
