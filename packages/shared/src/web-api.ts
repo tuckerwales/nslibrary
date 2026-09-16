@@ -307,6 +307,7 @@ export type ServerEvent =
   | { type: "scan.progress"; rootId: number; scan: ScanProgress }
   | { type: "library.changed"; rev: number }
   | { type: "roots.changed" }
+  | { type: "device.paired"; deviceId: number; name: string }
   | { type: "device.online"; deviceId: number }
   | { type: "device.offline"; deviceId: number }
   | { type: "job.updated"; job: WebJob };

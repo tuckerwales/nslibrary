@@ -34,6 +34,10 @@ export function useLiveUpdates(enabled: boolean) {
             roots?.map((root) => (root.id === event.rootId ? { ...root, scan: event.scan } : root)),
           );
           break;
+        case "device.paired":
+          client.setQueryData(["pairing-code"], null);
+          void client.invalidateQueries({ queryKey: ["devices"] });
+          break;
         case "device.online":
         case "device.offline":
           void client.invalidateQueries({ queryKey: ["devices"] });
@@ -50,7 +54,11 @@ export function useLiveUpdates(enabled: boolean) {
       socket = new WebSocket(`${protocol}//${window.location.host}/api/v1/ws`);
       socket.onopen = () => {
         // Anything could have changed while disconnected.
-        if (attempts > 0) refreshLibrary();
+        if (attempts > 0) {
+          refreshLibrary();
+          void client.invalidateQueries({ queryKey: ["devices"] });
+          void client.invalidateQueries({ queryKey: ["jobs"] });
+        }
         attempts = 0;
       };
       socket.onmessage = (message) => {

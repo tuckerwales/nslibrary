@@ -259,6 +259,16 @@ export function useDevices() {
   });
 }
 
+/** Pairing code currently shown in the UI; cleared when a Switch consumes it. */
+export function useDisplayedPairingCode() {
+  return useQuery({
+    queryKey: ["pairing-code"],
+    queryFn: async (): Promise<PairingCode | null> => null,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  });
+}
+
 export function useDevice(id: number | null) {
   return useQuery({
     queryKey: ["devices", id],
@@ -271,7 +281,7 @@ export function usePairingCode() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: () => request<PairingCode>("POST", "/devices/pairing-code"),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["devices"] }),
+    onSuccess: (code) => client.setQueryData(["pairing-code"], code),
   });
 }
 

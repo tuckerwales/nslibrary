@@ -203,6 +203,7 @@ export class DeviceApiService {
         .get().id;
     }
 
+    this.#events.publish({ type: "device.paired", deviceId, name: body.name });
     return {
       token,
       deviceId,

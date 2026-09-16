@@ -1,8 +1,9 @@
-import type { DeviceSummary, PairingCode, WebJob } from "@nslib/shared";
+import type { DeviceSummary, WebJob } from "@nslib/shared";
 import { type FormEvent, useEffect, useState } from "react";
 import {
   useCancelJob,
   useDevices,
+  useDisplayedPairingCode,
   useJobs,
   usePairingCode,
   useRenameDevice,
@@ -32,7 +33,7 @@ function jobLabel(job: WebJob): string {
 
 function PairingPanel() {
   const pair = usePairingCode();
-  const [code, setCode] = useState<PairingCode | null>(null);
+  const code = useDisplayedPairingCode().data ?? null;
   const [now, setNow] = useState(Date.now);
 
   useEffect(() => {
@@ -68,10 +69,7 @@ function PairingPanel() {
         disabled={pair.isPending}
         onClick={() =>
           pair.mutate(undefined, {
-            onSuccess: (next) => {
-              setCode(next);
-              setNow(Date.now());
-            },
+            onSuccess: () => setNow(Date.now()),
           })
         }
       >

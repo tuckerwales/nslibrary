@@ -121,10 +121,18 @@ describe("device API", () => {
     const wrong = await pair(session, { code: issued.code === "000000" ? "000001" : "000000" });
     expect(wrong.json().error.code).toBe("PAIR_CODE_INVALID");
 
+    const published: unknown[] = [];
+    const stop = server.events.subscribe((event) => published.push(event));
     const res = await pair(session, { code: issued.code });
+    stop();
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(PairResponseSchema.parse(body)).toEqual(body);
+    expect(published).toContainEqual({
+      type: "device.paired",
+      deviceId: body.deviceId,
+      name: "Living room",
+    });
     expect(body.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     const listed = (await web("GET", "/devices", { session })).json<DeviceSummary[]>();
