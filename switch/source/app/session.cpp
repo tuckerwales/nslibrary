@@ -376,25 +376,38 @@ void Session::refreshCatalog() {
     brls::Logger::info("catalog begin");
     ensureClient();
     std::vector<CatalogApp> apps;
-    std::string cursor;
     int64_t rev = 0;
     bool full = false;
     size_t skipped = 0;
-    // A server that keeps handing back the same cursor would loop here forever.
-    std::string lastCursor;
-    for (size_t pageIndex = 0; pageIndex < kMaxCatalogPages; pageIndex++) {
-        auto page = client_->catalog(-1, cursor, 200);
-        rev = page.rev;
-        full = page.full;
-        skipped += page.skipped;
-        apps.insert(apps.end(), page.apps.begin(), page.apps.end());
-        if (!page.next) break;
-        if (*page.next == cursor || *page.next == lastCursor) {
-            brls::Logger::warning("catalog: server repeated cursor {}, stopping", *page.next);
-            break;
+    // Pages fetched while the library changes can mix two revisions. Start over when that happens,
+    // and if it keeps happening, remember the oldest revision so the next catalog event refetches.
+    for (int attempt = 0; attempt < kCatalogAttempts; attempt++) {
+        apps.clear();
+        skipped = 0;
+        full = false;
+        std::string cursor;
+        // A server that keeps handing back the same cursor would loop here forever.
+        std::string lastCursor;
+        int64_t firstRev = -1;
+        bool mixed = false;
+        for (size_t pageIndex = 0; pageIndex < kMaxCatalogPages; pageIndex++) {
+            auto page = client_->catalog(-1, cursor, 200);
+            if (firstRev < 0) firstRev = page.rev;
+            if (page.rev != firstRev) mixed = true;
+            rev = std::min(firstRev, page.rev);
+            full = page.full;
+            skipped += page.skipped;
+            apps.insert(apps.end(), page.apps.begin(), page.apps.end());
+            if (!page.next) break;
+            if (*page.next == cursor || *page.next == lastCursor) {
+                brls::Logger::warning("catalog: server repeated cursor {}, stopping", *page.next);
+                break;
+            }
+            lastCursor = cursor;
+            cursor = *page.next;
         }
-        lastCursor = cursor;
-        cursor = *page.next;
+        if (!mixed) break;
+        brls::Logger::warning("catalog: library changed while paging (attempt {})", attempt + 1);
     }
     size_t count = 0;
     {

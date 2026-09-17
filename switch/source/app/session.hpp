@@ -84,6 +84,7 @@ public:
     static constexpr long kMaxEventBackoffMs = 30000;
     /** 200 titles a page: enough for 400k titles, and a hard stop if a server paginates in a loop. */
     static constexpr size_t kMaxCatalogPages = 2000;
+    static constexpr int kCatalogAttempts = 3;
 
 private:
     Session() = default;
