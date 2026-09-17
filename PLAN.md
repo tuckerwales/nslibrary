@@ -1,7 +1,7 @@
 # NSLibrary — Switch game library + on-console installer
 
 ## Context
-You want one self-hosted place to manage your own Switch dumps (base games, updates, DLC, homebrew): scan folders, get metadata, spot missing or duplicate content, and install titles on a modded Switch. The Switch side is a homebrew app that connects to the library over LAN or USB and streams installs straight into the console's content storage, without copying the whole file to the SD card first. `/root/Workspace/nslibrary` is empty, so this is a new build.
+You want one self-hosted place to manage your own Switch dumps (base games, updates, DLC, homebrew): scan folders, get metadata, spot missing or duplicate content, and install titles on a modded Switch. The Switch side is a homebrew app that connects to the library over LAN or USB and streams installs straight into the console's content storage, without copying the whole file to the SD card first.
 
 **What it covers:** only files you already have. There are no download sources, no shop scraping, and no title keys handed out. Keys (`prod.keys`) come from your own console, stay on the server, and are optional.
 
@@ -17,6 +17,25 @@ You want one self-hosted place to manage your own Switch dumps (base games, upda
 - When a title exists as both NSP and NSZ, prefer NSZ. This is a setting.
 - A USB-connected Switch is trusted automatically. A setting can require pairing instead.
 - The NSP forwarder waits until M8.
+
+
+## Status (September 2026)
+
+This plan was written before the build started. Milestones M0–M8 are built; this section records where the code differs from the plan and what is still open. The rest of the document is the original plan.
+
+**Differs from the plan**
+- **Verify** runs in an in-process queue, one file at a time, with streaming NCZ decoding (`VerifyService`), not a piscina worker pool.
+- **Icons** are stored as read from NACP/NRO. There is no `sharp` resizing.
+- **titledb** is applied when the library is read (`library/titledb-join.ts`), not copied into `applications`.
+- **Catalog sync:** `GET /catalog?since` answers "no changes" or a full listing (`full: true`, empty `del`). The Switch client always fetches the full catalog, so there is no delta.
+- **Switch client:** installs and event polling run on the UI thread (`wait=0` polls), after crashes with worker threads.
+
+**Not built yet**
+- mDNS `_nslibrary._tcp` advertising (UDP discovery and manual entry work).
+- Desktop installers: `electron-builder` packages `src/main.ts` as-is, which needs `tsx`, so the main process needs bundling before NSIS/dmg/AppImage builds work. Releases publish the `.nro` and the Docker image only.
+- Moving Switch network and install work off the UI thread.
+
+**Verification not recorded here:** the on-hardware checks in §8 (cancel at 10/50/90%, applet memory with a max-window NSZ, USB unplug mid-NCA, SD full). Automated coverage is the Vitest suites, the device-sim contract tests, and the host-native `switch/tests`.
 
 ---
 
