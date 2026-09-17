@@ -41,6 +41,7 @@ function testConfig(dataDir: string): ServerConfig {
     stabilityThresholdMs: 100,
     logLevel: false,
     trustProxy: false,
+    setupToken: null,
     serverName: "sim",
     discoveryPort: null,
     usb: false,

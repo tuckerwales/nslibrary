@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { type AuthStatus, LoginRequestSchema, SetupRequestSchema } from "@nslib/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { SESSION_COOKIE } from "../auth/auth-service";
@@ -14,6 +15,21 @@ function cookieOptions(request: FastifyRequest, expiresAt: number) {
   };
 }
 
+function setupTokenMatches(expected: string, given: string | undefined): boolean {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return given !== undefined && timingSafeEqual(digest(expected), digest(given.trim()));
+}
+
+function signedOut(ctx: AppContext): AuthStatus {
+  const setupRequired = ctx.auth.isSetupRequired();
+  return {
+    setupRequired,
+    setupTokenRequired: setupRequired && ctx.config.setupToken !== null,
+    authenticated: false,
+    username: null,
+  };
+}
+
 function startSession(
   ctx: AppContext,
   request: FastifyRequest,
@@ -22,7 +38,7 @@ function startSession(
 ): AuthStatus {
   const { token, expiresAt } = ctx.auth.createSession(request.headers["user-agent"]);
   reply.setCookie(SESSION_COOKIE, token, cookieOptions(request, expiresAt));
-  return { setupRequired: false, authenticated: true, username };
+  return { setupRequired: false, setupTokenRequired: false, authenticated: true, username };
 }
 
 /** onRequest hook for routes that need a signed-in admin. */
@@ -40,15 +56,30 @@ export function requireSession(ctx: AppContext) {
 export async function registerAuthRoutes(api: FastifyInstance, ctx: AppContext): Promise<void> {
   api.get("/auth/status", async (request): Promise<AuthStatus> => {
     const session = ctx.auth.resolveSession(request.cookies[SESSION_COOKIE]);
+    if (!session) return signedOut(ctx);
     return {
-      setupRequired: ctx.auth.isSetupRequired(),
-      authenticated: session !== null,
-      username: session?.username ?? null,
+      setupRequired: false,
+      setupTokenRequired: false,
+      authenticated: true,
+      username: session.username,
     };
   });
 
   api.post("/auth/setup", async (request, reply) => {
     const body = parseWith(SetupRequestSchema, request.body);
+    const { setupToken } = ctx.config;
+    if (setupToken !== null && ctx.auth.isSetupRequired()) {
+      if (ctx.loginLimiter.isLimited(request.ip)) {
+        throw new ApiError("RATE_LIMITED", "Too many wrong setup tokens. Try again in 15 minutes.");
+      }
+      if (!setupTokenMatches(setupToken, body.setupToken)) {
+        ctx.loginLimiter.recordFailure(request.ip);
+        throw new ApiError(
+          "FORBIDDEN",
+          body.setupToken ? "That setup token is wrong" : "Enter the setup token from the server",
+        );
+      }
+    }
     if (!(await ctx.auth.createAdmin(body.username, body.password))) {
       throw new ApiError("CONFLICT", "An admin account already exists. Sign in instead.");
     }
@@ -71,6 +102,6 @@ export async function registerAuthRoutes(api: FastifyInstance, ctx: AppContext):
   api.post("/auth/logout", async (request, reply): Promise<AuthStatus> => {
     ctx.auth.deleteSession(request.cookies[SESSION_COOKIE]);
     reply.clearCookie(SESSION_COOKIE, { path: "/" });
-    return { setupRequired: ctx.auth.isSetupRequired(), authenticated: false, username: null };
+    return signedOut(ctx);
   });
 }

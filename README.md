@@ -107,6 +107,7 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 | `NSLIB_POLLING` | off | Poll library folders (NFS/SMB) instead of inotify |
 | `NSLIB_DISCOVERY` | on | `0` / `false` disables UDP discovery |
 | `NSLIB_DISCOVERY_PORT` | `8466` | UDP port for `NSLIB?1` |
+| `NSLIB_SETUP_TOKEN` | — | If set, creating the admin account asks for this value. Use it when the server is reachable before you've signed up |
 | `NSLIB_SERVER_NAME` | `NSLibrary` | Shown in hello and discovery |
 | `NSLIB_SEED` | off (on in the image) | Attach the demo library on first boot if no folders exist |
 | `NSLIB_SEED_DIR` / `NSLIB_SEED_KEYS` | — | Demo library path and matching fake `prod.keys` |

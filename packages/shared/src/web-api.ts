@@ -12,6 +12,8 @@ import type { ContentMetaType } from "./title-id";
 export const SetupRequestSchema = z.object({
   username: z.string().trim().min(1, "Enter a username").max(64),
   password: z.string().min(8, "Use at least 8 characters").max(256),
+  /** Required when the server sets NSLIB_SETUP_TOKEN. */
+  setupToken: z.string().max(256).optional(),
 });
 
 export const LoginRequestSchema = z.object({
@@ -112,6 +114,8 @@ export interface VerifyResult {
 
 export interface AuthStatus {
   setupRequired: boolean;
+  /** True while setup is required and the server asks for its setup token. */
+  setupTokenRequired: boolean;
   authenticated: boolean;
   username: string | null;
 }

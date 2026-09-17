@@ -24,6 +24,11 @@ export interface ServerConfig {
   seed: boolean;
   seedLibraryDir: string | null;
   seedKeysPath: string | null;
+  /**
+   * When set, first-run setup must supply this token, so a server reachable from the internet
+   * can't be claimed by whoever opens it first.
+   */
+  setupToken: string | null;
   /** Advertised in hello and UDP discovery. */
   serverName: string;
   /** UDP port for `NSLIB?1`. Null disables discovery. 0 binds an ephemeral port. */
@@ -88,6 +93,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     seed: flag(env.NSLIB_SEED),
     seedLibraryDir: env.NSLIB_SEED_DIR ? resolve(env.NSLIB_SEED_DIR) : null,
     seedKeysPath: env.NSLIB_SEED_KEYS ? resolve(env.NSLIB_SEED_KEYS) : null,
+    setupToken: env.NSLIB_SETUP_TOKEN?.trim() || null,
     serverName: env.NSLIB_SERVER_NAME?.trim() || "NSLibrary",
     discoveryPort: discoveryPort(env),
     usb: flag(env.NSLIB_USB),

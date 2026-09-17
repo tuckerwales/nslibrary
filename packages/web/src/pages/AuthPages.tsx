@@ -37,8 +37,9 @@ function FormError({ message }: { message: string | undefined }) {
   return <ErrorText className="text-sm">{message}</ErrorText>;
 }
 
-export function SetupPage() {
+export function SetupPage({ tokenRequired = false }: { tokenRequired?: boolean }) {
   const setup = useSetup();
+  const [setupToken, setSetupToken] = useState("");
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -50,7 +51,7 @@ export function SetupPage() {
       setMismatch(true);
       return;
     }
-    setup.mutate({ username, password });
+    setup.mutate({ username, password, ...(tokenRequired ? { setupToken } : {}) });
   };
 
   return (
@@ -59,6 +60,16 @@ export function SetupPage() {
       description="You'll use this account to manage your library. Only one account is needed."
     >
       <form className="mt-6 space-y-4" onSubmit={submit}>
+        {tokenRequired && (
+          <Field
+            label="Setup token"
+            autoComplete="off"
+            hint="The NSLIB_SETUP_TOKEN value this server was started with"
+            required
+            value={setupToken}
+            onChange={(e) => setSetupToken(e.target.value)}
+          />
+        )}
         <Field
           label="Username"
           autoComplete="username"

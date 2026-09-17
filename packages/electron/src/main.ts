@@ -69,6 +69,7 @@ async function boot(): Promise<void> {
     seed: false,
     seedLibraryDir: null,
     seedKeysPath: null,
+    setupToken: null,
     serverName: "NSLibrary",
     discoveryPort: desktop.allowLan ? 8466 : null,
     usb: true,

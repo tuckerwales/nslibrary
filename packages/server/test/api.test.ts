@@ -60,9 +60,33 @@ describe("web API", () => {
   }
 
   describe("authentication", () => {
+    it("requires the setup token when the server sets one", async () => {
+      await server.close();
+      server = await createServer(testConfig(join(dir, "data"), { setupToken: "s3cret-token" }));
+      expect((await call("GET", "/auth/status")).json()).toMatchObject({
+        setupRequired: true,
+        setupTokenRequired: true,
+      });
+      const body = { username: "admin", password: "correct horse" };
+      const missing = await call("POST", "/auth/setup", { body });
+      expect(missing.statusCode).toBe(403);
+      expect(server.auth.isSetupRequired()).toBe(true);
+      const wrong = await call("POST", "/auth/setup", { body: { ...body, setupToken: "nope" } });
+      expect(wrong.json().error.msg).toBe("That setup token is wrong");
+      const ok = await call("POST", "/auth/setup", {
+        body: { ...body, setupToken: "s3cret-token" },
+      });
+      expect(ok.statusCode).toBe(200);
+      expect((await call("GET", "/auth/status")).json()).toMatchObject({
+        setupRequired: false,
+        setupTokenRequired: false,
+      });
+    });
+
     it("walks through first-run setup, sign-out, and sign-in", async () => {
       expect((await call("GET", "/auth/status")).json()).toEqual({
         setupRequired: true,
+        setupTokenRequired: false,
         authenticated: false,
         username: null,
       });
@@ -89,6 +113,7 @@ describe("web API", () => {
       expect((await call("GET", "/roots", { session })).json()).toEqual([]);
       expect((await call("GET", "/auth/status", { session })).json()).toEqual({
         setupRequired: false,
+        setupTokenRequired: false,
         authenticated: true,
         username: "admin",
       });

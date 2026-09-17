@@ -42,7 +42,7 @@ export function App() {
     );
   }
 
-  if (auth.data.setupRequired) return <SetupPage />;
+  if (auth.data.setupRequired) return <SetupPage tokenRequired={auth.data.setupTokenRequired} />;
   if (!auth.data.authenticated) return <LoginPage />;
 
   return (

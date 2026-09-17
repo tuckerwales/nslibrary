@@ -59,6 +59,7 @@ export function testConfig(dataDir: string, overrides: Partial<ServerConfig> = {
     seed: false,
     seedLibraryDir: null,
     seedKeysPath: null,
+    setupToken: null,
     serverName: "test",
     discoveryPort: null,
     usb: false,
