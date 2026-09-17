@@ -45,3 +45,25 @@ describe("LibraryPage search", () => {
     expect(page.location()).toBe("/");
   });
 });
+
+describe("LibraryPage layout", () => {
+  afterEach(() => localStorage.clear());
+
+  it("switches to cards and remembers the choice", async () => {
+    setUp();
+    await screen.findByText("Example");
+    expect(screen.getByRole("button", { name: "List" }).getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Grid" }));
+    expect(screen.getByRole("button", { name: "Grid" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("list").className).toContain("grid-cols");
+    expect(localStorage.getItem("nslib.libraryLayout")).toBe("grid");
+  });
+
+  it("opens in the layout chosen last time", async () => {
+    localStorage.setItem("nslib.libraryLayout", "grid");
+    setUp();
+    await screen.findByText("Example");
+    expect(screen.getByRole("button", { name: "Grid" }).getAttribute("aria-pressed")).toBe("true");
+  });
+});

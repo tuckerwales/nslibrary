@@ -18,6 +18,14 @@ describe("TitleIcon", () => {
     rerender(<TitleIcon name="Example" seed="1" url="/b.png" />);
     expect(container.querySelector("img")?.getAttribute("src")).toBe("/b.png");
   });
+
+  it("fills its container when asked to", () => {
+    const { container } = render(<TitleIcon name="Example Game" seed="1" url={null} size="fill" />);
+    const tile = container.firstElementChild as HTMLElement;
+    expect(tile.className).toContain("w-full");
+    expect(tile.style.width).toBe("");
+    expect(tile.textContent).toBe("EG");
+  });
 });
 
 describe("Switch", () => {

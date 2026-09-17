@@ -1,12 +1,12 @@
 import type { AppFlag } from "@nslib/shared";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useApps, useRoots, useStats } from "../api";
 import { ButtonLink } from "../components/Button";
 import { LoadError, Loading } from "../components/Feedback";
 import { inputClass } from "../components/Field";
 import { PageHeader } from "../components/PageHeader";
-import { TitleList } from "../components/TitleList";
+import { type TitleLayout, TitleList } from "../components/TitleList";
 import { formatBytes, plural } from "../format";
 
 const FILTERS: { flag: AppFlag | null; label: string }[] = [
@@ -54,6 +54,88 @@ function useSearchDraft(q: string, setQ: (value: string, replace: boolean) => vo
   return [draft, setDraft] as const;
 }
 
+const LAYOUT_KEY = "nslib.libraryLayout";
+
+/** List or grid, remembered in this browser. Storage can be unavailable, so it only ever helps. */
+function useLibraryLayout() {
+  const [layout, setLayout] = useState<TitleLayout>(() => {
+    try {
+      return localStorage.getItem(LAYOUT_KEY) === "grid" ? "grid" : "list";
+    } catch {
+      return "list";
+    }
+  });
+  const choose = (value: TitleLayout) => {
+    setLayout(value);
+    try {
+      localStorage.setItem(LAYOUT_KEY, value);
+    } catch {
+      // Not remembered; the choice still applies to this visit.
+    }
+  };
+  return [layout, choose] as const;
+}
+
+const LAYOUTS: { value: TitleLayout; label: string; icon: ReactNode }[] = [
+  {
+    value: "list",
+    label: "List",
+    icon: <path d="M2 3.5h12M2 8h12M2 12.5h12" strokeLinecap="round" />,
+  },
+  {
+    value: "grid",
+    label: "Grid",
+    icon: (
+      <>
+        <rect x="2" y="2" width="5" height="5" rx="1" />
+        <rect x="9" y="2" width="5" height="5" rx="1" />
+        <rect x="2" y="9" width="5" height="5" rx="1" />
+        <rect x="9" y="9" width="5" height="5" rx="1" />
+      </>
+    ),
+  },
+];
+
+function LayoutToggle({
+  layout,
+  onChange,
+}: {
+  layout: TitleLayout;
+  onChange: (value: TitleLayout) => void;
+}) {
+  return (
+    <fieldset className="flex shrink-0 rounded-md border border-line p-0.5">
+      <legend className="sr-only">View as</legend>
+      {LAYOUTS.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={layout === option.value}
+          onClick={() => onChange(option.value)}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-[5px] px-2.5 text-sm ${
+            layout === option.value
+              ? "bg-ink font-semibold text-panel"
+              : "text-muted hover:text-ink"
+          }`}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden="true"
+          >
+            {option.icon}
+          </svg>
+          {option.label}
+        </button>
+      ))}
+    </fieldset>
+  );
+}
+
 export function LibraryPage() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
@@ -72,6 +154,7 @@ export function LibraryPage() {
     ),
   );
 
+  const [layout, setLayout] = useLibraryLayout();
   const apps = useApps(q, flag);
   const stats = useStats().data;
   const roots = useRoots().data;
@@ -111,14 +194,19 @@ export function LibraryPage() {
         <label className="sr-only" htmlFor="library-search">
           Search the library
         </label>
-        <input
-          id="library-search"
-          type="search"
-          placeholder="Search by name or title ID"
-          className={`${inputClass} max-w-md`}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-        />
+        <div className="flex items-center gap-3">
+          <input
+            id="library-search"
+            type="search"
+            placeholder="Search by name or title ID"
+            className={`${inputClass} min-w-0 max-w-md`}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          <div className="ml-auto">
+            <LayoutToggle layout={layout} onChange={setLayout} />
+          </div>
+        </div>
         <fieldset className="flex flex-wrap gap-1.5">
           <legend className="sr-only">Filter</legend>
           {FILTERS.map((filter) => (
@@ -145,7 +233,11 @@ export function LibraryPage() {
         ) : !apps.data ? (
           <Loading />
         ) : apps.data.length > 0 ? (
-          <TitleList key={`${q}\n${flag}`} items={apps.data.map((app) => ({ app }))} />
+          <TitleList
+            key={`${q}\n${flag}`}
+            items={apps.data.map((app) => ({ app }))}
+            layout={layout}
+          />
         ) : q || flag ? (
           <p className="text-muted">No games match this search.</p>
         ) : roots && roots.length === 0 ? (

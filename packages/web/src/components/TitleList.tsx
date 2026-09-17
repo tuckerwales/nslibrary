@@ -38,22 +38,61 @@ function TitleRow({ app, detail }: TitleListItem) {
   );
 }
 
+export type TitleLayout = "list" | "grid";
+
+/** A cover-art card, like the Switch app's library grid. */
+function TitleCard({ app, detail }: TitleListItem) {
+  return (
+    <li>
+      <Link
+        to={`/apps/${app.applicationId}`}
+        className="flex h-full flex-col gap-2 rounded-lg p-2 hover:bg-panel"
+      >
+        <TitleIcon name={app.name} seed={app.applicationId} url={app.iconUrl} size="fill" />
+        <span className="min-w-0">
+          <span className="block truncate font-semibold semi-condensed" title={app.name}>
+            {app.name}
+          </span>
+          <span className="block truncate text-sm text-muted">
+            {detail ?? formatBytes(app.totalSize)}
+          </span>
+        </span>
+        <ContentStrip app={app} />
+      </Link>
+    </li>
+  );
+}
+
 /**
- * A list of titles linking to their pages. Give it a `key` that changes with the search so the
- * visible count starts over.
+ * A list of titles linking to their pages, as rows or a grid of cards. Give it a `key` that
+ * changes with the search so the visible count starts over.
  */
-export function TitleList({ items }: { items: TitleListItem[] }) {
+export function TitleList({
+  items,
+  layout = "list",
+}: {
+  items: TitleListItem[];
+  layout?: TitleLayout;
+}) {
   const [visible, setVisible] = useState(TITLE_PAGE_SIZE);
   const shown = items.slice(0, visible);
   const remaining = items.length - shown.length;
 
   return (
     <>
-      <ul className="border-t border-line">
-        {shown.map((item) => (
-          <TitleRow key={item.app.applicationId} {...item} />
-        ))}
-      </ul>
+      {layout === "grid" ? (
+        <ul className="-mx-2 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-y-2">
+          {shown.map((item) => (
+            <TitleCard key={item.app.applicationId} {...item} />
+          ))}
+        </ul>
+      ) : (
+        <ul className="border-t border-line">
+          {shown.map((item) => (
+            <TitleRow key={item.app.applicationId} {...item} />
+          ))}
+        </ul>
+      )}
       {remaining > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button

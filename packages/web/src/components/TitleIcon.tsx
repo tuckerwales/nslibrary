@@ -24,9 +24,12 @@ export function TitleIcon({
   name: string;
   seed: string;
   url: string | null;
-  size?: number;
+  /** Pixels, or "fill" for a square as wide as its container. */
+  size?: number | "fill";
 }) {
-  const box = { width: size, height: size };
+  const fill = size === "fill";
+  const box = fill ? undefined : { width: size, height: size };
+  const shape = fill ? "aspect-square w-full" : "shrink-0";
   // Remember which URL failed, so a new URL (say, after keys are added) gets its own try.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   if (url && url !== failedUrl) {
@@ -34,18 +37,31 @@ export function TitleIcon({
       <img
         src={url}
         alt=""
-        width={size}
-        height={size}
-        className="shrink-0 rounded-md object-cover"
+        width={fill ? undefined : size}
+        height={fill ? undefined : size}
+        loading={fill ? "lazy" : undefined}
+        className={`${shape} rounded-md object-cover`}
         style={box}
         onError={() => setFailedUrl(url)}
       />
     );
   }
+  if (fill) {
+    // The initials scale with the tile, which only its own container units can do.
+    return (
+      <span
+        aria-hidden="true"
+        className={`title-tile grid ${shape} place-items-center rounded-md font-bold condensed [container-type:inline-size]`}
+        style={{ "--hue": hueFor(seed) } as CSSProperties}
+      >
+        <span className="text-[40cqi] leading-none">{initials(name)}</span>
+      </span>
+    );
+  }
   return (
     <span
       aria-hidden="true"
-      className="title-tile grid shrink-0 place-items-center rounded-md font-bold condensed"
+      className={`title-tile grid ${shape} place-items-center rounded-md font-bold condensed`}
       style={{ ...box, fontSize: Math.round(size * 0.4), "--hue": hueFor(seed) } as CSSProperties}
     >
       {initials(name)}
