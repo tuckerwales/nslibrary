@@ -31,7 +31,6 @@ This plan was written before the build started. Milestones M0–M8 are built; th
 - **Switch client:** installs and event polling run on the UI thread (`wait=0` polls), after crashes with worker threads.
 
 **Not built yet**
-- mDNS `_nslibrary._tcp` advertising (UDP discovery and manual entry work).
 - Desktop installers: `electron-builder` packages `src/main.ts` as-is, which needs `tsx`, so the main process needs bundling before NSIS/dmg/AppImage builds work. Releases publish the `.nro` and the Docker image only.
 - Moving Switch network and install work off the UI thread.
 

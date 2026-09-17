@@ -10,7 +10,7 @@ There are no download sources, no shop scraping, and no title keys handed out. K
 - **Web UI** — React app served by the same process: library, homebrew, problems, devices, folders, and settings.
 - **Metadata** — Container listings and tickets need no keys. Names, icons, firmware requirements, and NCA hashes need `prod.keys` dumped from your console. Optional titledb (a URL or file you supply, refreshed daily if it's a URL) fills in names, which game DLC belongs to, and latest-version numbers only.
 - **Device API** — A paired Switch browses the catalog and claims install jobs. The console always initiates; “Send to Switch” queues work for it to pick up.
-- **Discovery** — UDP `NSLIB?1` on port 8466. You can always type an IP by hand.
+- **Discovery** — UDP `NSLIB?1` on port 8466, plus mDNS `_nslibrary._tcp` so the server shows up in Bonjour/Avahi browsers. You can always type an IP by hand.
 - **USB** — A Switch plugged into the computer running NSLibrary (Electron, or Docker on Linux with device passthrough) uses the same device API inside `NSLU` frames. Transfers time out so cancel and unplug can interrupt a job.
 - **Desktop app** — Electron wraps the same server: tray, native folder picker, USB, auto sign-in on this machine.
 - **Demo data** — Synthetic containers and a fake keyset so the UI is usable without real dumps. No copyrighted content.
@@ -105,7 +105,7 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 | `NSLIB_WEB_DIR` | `packages/server/public` or `packages/web/dist` | Built UI; unset serves API only |
 | `NSLIB_TRUST_PROXY` | off | Set `true` behind Coolify / Traefik |
 | `NSLIB_POLLING` | off | Poll library folders (NFS/SMB) instead of inotify |
-| `NSLIB_DISCOVERY` | on | `0` / `false` disables UDP discovery |
+| `NSLIB_DISCOVERY` | on | `0` / `false` disables UDP discovery and mDNS advertising |
 | `NSLIB_DISCOVERY_PORT` | `8466` | UDP port for `NSLIB?1` |
 | `NSLIB_SETUP_TOKEN` | — | If set, creating the admin account asks for this value. Use it when the server is reachable before you've signed up |
 | `NSLIB_SERVER_NAME` | `NSLibrary` | Shown in hello and discovery |

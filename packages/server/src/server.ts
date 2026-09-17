@@ -1,5 +1,7 @@
 import { mkdir } from "node:fs/promises";
+import { hostname } from "node:os";
 import { join } from "node:path";
+import { DEVICE_API_PROTOCOL_VERSION } from "@nslib/shared";
 import type Database from "better-sqlite3";
 import type { FastifyInstance } from "fastify";
 import type { LogFn } from "./api/context";
@@ -8,6 +10,7 @@ import { AuthService, LoginRateLimiter } from "./auth/auth-service";
 import type { ServerConfig } from "./config";
 import { type Db, openDatabase } from "./db/client";
 import { DiscoveryServer, discoveryReply } from "./device/discovery";
+import { localAddresses, MdnsResponder } from "./device/mdns";
 import { DeviceApiService, STALE_JOB_MS } from "./device/service";
 import { EventBus } from "./events";
 import { KeyStore } from "./keys/store";
@@ -36,6 +39,7 @@ export interface NslibServer {
   devices: DeviceApiService;
   verify: VerifyService;
   discovery: DiscoveryServer | null;
+  mdns: MdnsResponder | null;
   /** Starts watchers, the startup scan, USB host, and periodic maintenance. Call after listen(). */
   start(): Promise<void>;
   close(): Promise<void>;
@@ -87,6 +91,24 @@ export async function createServer(
             discoveryReply(devices.serverId, devices.serverName, config.port, devices.tls),
           log,
         });
+  // Advertised alongside UDP discovery, and turned off with it.
+  const mdns =
+    config.discoveryPort === null
+      ? null
+      : new MdnsResponder({
+          service: () => ({
+            instance: devices.serverName,
+            host: hostname().split(".")[0] || "nslibrary",
+            port: config.port,
+            txt: {
+              id: devices.serverId,
+              proto: String(DEVICE_API_PROTOCOL_VERSION),
+              tls: devices.tls ? "1" : "0",
+            },
+            addresses: localAddresses(),
+          }),
+          log,
+        });
   app = await buildApp({
     config,
     db,
@@ -136,6 +158,7 @@ export async function createServer(
     devices,
     verify,
     discovery,
+    mdns,
     async start() {
       runMaintenance();
       maintenance = setInterval(runMaintenance, MAINTENANCE_INTERVAL_MS);
@@ -150,6 +173,9 @@ export async function createServer(
       titledbCheck.unref();
       if (discovery) {
         await discovery.start().catch((err) => log("UDP discovery failed to bind", err));
+      }
+      if (mdns) {
+        await mdns.start().catch((err) => log("mDNS advertising unavailable", err));
       }
       await applyDemoSeed({ config, repo, scanner, keys, log });
       await attachLibraryMounts({ config, repo, scanner, log });
@@ -176,6 +202,7 @@ export async function createServer(
       await usbHost?.stop();
       usbHost = null;
       await discovery?.close();
+      await mdns?.close();
       devices.close();
       verify.close();
       await fastify.close();
