@@ -52,6 +52,8 @@ CI builds the same target in `devkitpro/devkita64` and uploads the artifact.
 
 **Updates** lists library updates newer than what is installed, **Installed** groups this console's games, updates, and DLC (with firmware, Atmosphère, and free space at the top), and **Not installed** lists library base games this Switch does not have.
 
+If HOME says an update is required to start a game (for example after its update was removed), open the game or its update in **Installed** and choose **Reset required version**. This does the same thing as the DBI option: it sets the launch version the console expects back to 0. It won't help if the game really needs newer firmware than the console has.
+
 USB: on the Connect screen choose **USB cable** while NSLibrary is running on the computer (Electron, or Docker on Linux with `/dev/bus/usb`). Windows needs [WinUSB](windows-usb-driver.md).
 
 NSP, NSZ, XCI, and XCZ all install, including **split** dumps (`Title.nsp/00`, `01`, … or `Title.nsp.00`). Homebrew `.nro` files are written to `sdmc:/switch/<name>/`. Hash verification is on by default (Settings).

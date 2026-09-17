@@ -103,7 +103,12 @@
     "free": "{} liberi su {}",
     "free_only": "{} liberi",
     "other": "Altro",
-    "empty": "Non c’è nulla installato su questa Switch."
+    "empty": "Non c’è nulla installato su questa Switch.",
+    "required_version": "Versione richiesta",
+    "reset_version": "Reimposta versione richiesta",
+    "reset_body": "HOME chiede un aggiornamento quando la versione attesa è più recente di quella installata, ad esempio dopo aver rimosso un aggiornamento. Reimpostarla elimina questo requisito. Non serve se il firmware della console è troppo vecchio.",
+    "reset_done": "Versione richiesta reimpostata. Riavvia il gioco.",
+    "reset_failed": "Impossibile reimpostare la versione richiesta ({})"
   },
   "queue": {
     "empty": "Nessun lavoro. Invia un titolo dal web o installa dalla libreria.",

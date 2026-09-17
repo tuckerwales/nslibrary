@@ -103,7 +103,12 @@
     "free": "{} free of {}",
     "free_only": "{} free",
     "other": "Other",
-    "empty": "Nothing is installed on this Switch."
+    "empty": "Nothing is installed on this Switch.",
+    "required_version": "Required version",
+    "reset_version": "Reset required version",
+    "reset_body": "HOME asks for an update when the version it expects is newer than what is installed, for example after an update was removed. Resetting clears that requirement. It does not help if the console firmware is too old.",
+    "reset_done": "Required version reset. Try launching the game again.",
+    "reset_failed": "Could not reset the required version ({})"
   },
   "queue": {
     "empty": "No jobs yet. Send a title from the web UI, or install from Library.",

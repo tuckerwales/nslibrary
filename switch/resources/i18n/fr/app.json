@@ -103,7 +103,12 @@
     "free": "{} libres sur {}",
     "free_only": "{} libres",
     "other": "Autre",
-    "empty": "Rien n’est installé sur cette Switch."
+    "empty": "Rien n’est installé sur cette Switch.",
+    "required_version": "Version requise",
+    "reset_version": "Réinitialiser la version requise",
+    "reset_body": "HOME demande une mise à jour quand la version attendue est plus récente que celle installée, par exemple après la suppression d'une mise à jour. La réinitialisation supprime cette exigence. Cela n'aide pas si le firmware de la console est trop ancien.",
+    "reset_done": "Version requise réinitialisée. Relancez le jeu.",
+    "reset_failed": "Impossible de réinitialiser la version requise ({})"
   },
   "queue": {
     "empty": "Aucune tâche. Envoyez un titre depuis le web, ou installez depuis la bibliothèque.",

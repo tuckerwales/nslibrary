@@ -1,12 +1,14 @@
 #include "ui/main_activity.hpp"
 
 #include "app/session.hpp"
+#include "install/app_record.hpp"
 #include "installed/compare.hpp"
 #include "ui/format.hpp"
 #include "ui/widgets.hpp"
 
 #include <algorithm>
 #include <borealis.hpp>
+#include <cstdio>
 #include <unordered_map>
 #include <vector>
 
@@ -51,6 +53,43 @@ std::string titleName(const std::unordered_map<std::string, std::string>& names,
     return upperHex(t.titleId);
 }
 
+/** Offer DBI's "Reset required version" for the game `applicationId` (upper hex, 16 digits). */
+void confirmResetLaunchVersion(const std::string& name, const std::string& applicationId) {
+    uint64_t id = 0;
+    try {
+        id = std::stoull(applicationId, nullptr, 16);
+    } catch (...) {
+        return;
+    }
+    std::string body = name + "\n" + applicationId;
+#ifdef __SWITCH__
+    u32 required = 0;
+    if (R_SUCCEEDED(launchRequiredVersion(id, &required))) {
+        body += "\n" + "app/installed/required_version"_i18n + " " + formatVersion(required);
+    }
+#endif
+    body += "\n\n" + "app/installed/reset_body"_i18n;
+
+    auto* dialog = new brls::Dialog(body);
+    dialog->addButton("app/installed/reset_version"_i18n, [id]() {
+        brls::sync([id] {
+#ifdef __SWITCH__
+            const Result rc = resetLaunchVersion(id);
+            brls::Logger::info("resetLaunchVersion {:016X} rc=0x{:X}", id, rc);
+            if (R_FAILED(rc)) {
+                char code[16];
+                std::snprintf(code, sizeof(code), "0x%X", rc);
+                showError(brls::getStr("app/installed/reset_failed", std::string(code)));
+                return;
+            }
+#endif
+            showError("app/installed/reset_done"_i18n);
+        });
+    });
+    dialog->addButton("hints/cancel"_i18n, []() {});
+    dialog->open();
+}
+
 void addSection(brls::Box* box, const std::string& title, const std::vector<InstalledTitle>& titles,
     const std::unordered_map<std::string, std::string>& names, bool showVersion)
 {
@@ -60,7 +99,19 @@ void addSection(brls::Box* box, const std::string& title, const std::vector<Inst
         std::string detail;
         if (showVersion) detail = formatVersion(t.version) + "   ";
         detail += tr(storageKey(t.storage), t.storage);
-        box->addView(makeCell(titleName(names, t), detail));
+        const std::string name = titleName(names, t);
+        std::string applicationId;
+        if (t.type == "application") applicationId = upperHex(t.titleId);
+        else if (t.type == "patch") applicationId = baseTitleIdForPatch(t.titleId);
+        if (applicationId.empty()) {
+            box->addView(makeCell(name, detail));
+            continue;
+        }
+        // Games and their updates share one launch requirement, so either row can reset it.
+        box->addView(makeCell(name, detail, [name, applicationId](brls::View*) {
+            confirmResetLaunchVersion(name, applicationId);
+            return true;
+        }));
     }
 }
 

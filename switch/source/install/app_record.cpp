@@ -145,6 +145,22 @@ Result appRecordCommit(u64 applicationId, NcmStorageId storage, const NcmContent
     return 0;
 }
 
+Result launchRequiredVersion(u64 applicationId, u32* version) {
+    Result rc = avmInitialize();
+    if (R_FAILED(rc)) return rc;
+    rc = avmGetLaunchRequiredVersion(applicationId, version);
+    avmExit();
+    return rc;
+}
+
+Result resetLaunchVersion(u64 applicationId) {
+    Result rc = avmInitialize();
+    if (R_FAILED(rc)) return rc;
+    rc = avmPushLaunchVersion(applicationId, 0);
+    avmExit();
+    return rc;
+}
+
 } // namespace nslib
 
 #endif

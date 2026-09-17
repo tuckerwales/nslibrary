@@ -103,7 +103,12 @@
     "free": "{} libres de {}",
     "free_only": "{} libres",
     "other": "Otros",
-    "empty": "No hay nada instalado en esta Switch."
+    "empty": "No hay nada instalado en esta Switch.",
+    "required_version": "Versión requerida",
+    "reset_version": "Restablecer versión requerida",
+    "reset_body": "HOME pide una actualización cuando la versión que espera es más nueva que la instalada, por ejemplo tras eliminar una actualización. Restablecerla quita ese requisito. No sirve si el firmware de la consola es demasiado antiguo.",
+    "reset_done": "Versión requerida restablecida. Vuelve a iniciar el juego.",
+    "reset_failed": "No se pudo restablecer la versión requerida ({})"
   },
   "queue": {
     "empty": "Aún no hay trabajos. Envíalos desde la web o instala desde la biblioteca.",

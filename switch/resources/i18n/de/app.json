@@ -103,7 +103,12 @@
     "free": "{} frei von {}",
     "free_only": "{} frei",
     "other": "Sonstiges",
-    "empty": "Auf dieser Switch ist nichts installiert."
+    "empty": "Auf dieser Switch ist nichts installiert.",
+    "required_version": "Erforderliche Version",
+    "reset_version": "Erforderliche Version zurücksetzen",
+    "reset_body": "HOME verlangt ein Update, wenn die erwartete Version neuer ist als die installierte, z. B. nachdem ein Update entfernt wurde. Das Zurücksetzen hebt diese Anforderung auf. Bei zu alter Konsolen-Firmware hilft es nicht.",
+    "reset_done": "Erforderliche Version zurückgesetzt. Starte das Spiel erneut.",
+    "reset_failed": "Erforderliche Version konnte nicht zurückgesetzt werden ({})"
   },
   "queue": {
     "empty": "Noch keine Aufträge. Vom Web senden oder aus der Bibliothek installieren.",
