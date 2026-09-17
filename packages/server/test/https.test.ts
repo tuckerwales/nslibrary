@@ -42,21 +42,26 @@ describe("optional HTTPS", () => {
     dirs.push(dir);
     const key = join(dir, "key.pem");
     const cert = join(dir, "cert.pem");
-    execFileSync("openssl", [
-      "req",
-      "-x509",
-      "-newkey",
-      "rsa:2048",
-      "-keyout",
-      key,
-      "-out",
-      cert,
-      "-days",
-      "1",
-      "-nodes",
-      "-subj",
-      "/CN=localhost",
-    ]);
+    execFileSync(
+      "openssl",
+      [
+        "req",
+        "-x509",
+        "-newkey",
+        "rsa:2048",
+        "-keyout",
+        key,
+        "-out",
+        cert,
+        "-days",
+        "1",
+        "-nodes",
+        "-subj",
+        "/CN=localhost",
+      ],
+      // Captured rather than printed: OpenSSL writes key-generation progress to stderr.
+      { stdio: ["ignore", "ignore", "pipe"] },
+    );
     const server = await createServer(
       testConfig(join(dir, "data"), { tlsKey: key, tlsCert: cert, port: 0 }),
     );

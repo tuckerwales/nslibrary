@@ -6,6 +6,11 @@ export interface UsbHostHandle {
   stop(): Promise<void>;
 }
 
+export interface UsbHostOptions extends Omit<UsbLinkOptions, "handler"> {
+  /** Called once per attached Switch, so each console keeps its own session state. */
+  createHandler: () => UsbLinkOptions["handler"];
+}
+
 interface TransferEndpoint {
   direction: string;
   transfer(sizeOrData: number | Uint8Array, timeout?: number): Promise<Uint8Array | undefined>;
@@ -25,7 +30,7 @@ interface UsbDeviceLike {
  * Attach to a Nintendo Switch in usbComms gadget mode (VID 057E / PID 3000).
  * Dynamic-imports `usb` so tests and machines without libusb still load the rest of the package.
  */
-export async function startUsbHost(options: UsbLinkOptions): Promise<UsbHostHandle> {
+export async function startUsbHost(options: UsbHostOptions): Promise<UsbHostHandle> {
   let usb: typeof import("usb");
   try {
     usb = await import("usb");
@@ -44,7 +49,8 @@ export async function startUsbHost(options: UsbLinkOptions): Promise<UsbHostHand
     if (desc.deviceDescriptor?.idProduct !== USB_PRODUCT_ID) return;
     try {
       const channel = openDeviceChannel(device);
-      const link = new UsbLink(channel, options);
+      const { createHandler, ...linkOptions } = options;
+      const link = new UsbLink(channel, { ...linkOptions, handler: createHandler() });
       links.add(link);
       void link.run(abort.signal).finally(() => {
         links.delete(link);

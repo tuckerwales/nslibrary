@@ -14,6 +14,7 @@ import {
 } from "@nslib/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { LoginRateLimiter } from "../auth/auth-service";
 import { etagFor, etagsMatch, parseRangeHeader } from "../device/range";
 import { openLocatedFile } from "../library/library-fs";
 import { rangeReadable } from "../library/range-stream";
@@ -43,10 +44,31 @@ export function requireDevice(ctx: AppContext) {
   };
 }
 
+/** Wrong pairing codes allowed per address in 15 minutes, across however many codes are issued. */
+const PAIR_FAILURES_PER_ADDRESS = 10;
+
 export async function registerDeviceRoutes(api: FastifyInstance, ctx: AppContext): Promise<void> {
+  const pairLimiter = new LoginRateLimiter(PAIR_FAILURES_PER_ADDRESS);
+
   api.post("/pair", async (request): Promise<PairResponse> => {
     const body = parseWith(PairRequestSchema, request.body);
-    return ctx.devices.pair(body, "http");
+    // Checked first, so a guessing address can't use up the code's attempts for everyone else.
+    if (pairLimiter.isLimited(request.ip)) {
+      throw new ApiError(
+        "PAIR_RATE_LIMITED",
+        "Too many wrong pairing codes. Try again in 15 minutes.",
+      );
+    }
+    try {
+      const paired = ctx.devices.pair(body, "http");
+      pairLimiter.reset(request.ip);
+      return paired;
+    } catch (err) {
+      if (err instanceof ApiError && err.code !== "PAIR_CODE_EXPIRED") {
+        pairLimiter.recordFailure(request.ip);
+      }
+      throw err;
+    }
   });
 
   await api.register(async (secured) => {

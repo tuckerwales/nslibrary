@@ -815,6 +815,19 @@ export class DeviceApiService {
     return row.lastSeen !== null && this.#now() - row.lastSeen < ONLINE_AFTER_MS;
   }
 
+  /** Deletes finished jobs (the install history) completed longer than `maxAgeMs` ago. */
+  purgeFinishedJobs(maxAgeMs: number): number {
+    return this.#db
+      .delete(installJobs)
+      .where(
+        and(
+          inArray(installJobs.status, ["done", "failed", "cancelled"]),
+          lt(installJobs.completedAt, this.#now() - maxAgeMs),
+        ),
+      )
+      .run().changes;
+  }
+
   purgeExpiredPairingCodes(): void {
     this.#db.delete(pairingCodes).where(lt(pairingCodes.expiresAt, this.#now())).run();
   }

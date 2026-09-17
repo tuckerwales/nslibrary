@@ -166,6 +166,47 @@ describe("device API", () => {
     expect(limited.json().error.code).toBe("PAIR_RATE_LIMITED");
   });
 
+  it("stops one address from guessing across pairing codes without blocking others", async () => {
+    const session = await setUp();
+    const guess = (code: string, remoteAddress: string) =>
+      server.app.inject({
+        method: "POST",
+        url: "/api/device/v1/pair",
+        remoteAddress,
+        payload: {
+          code: code === "111111" ? "222222" : "111111",
+          deviceUuid: UUID,
+          name: "Guesser",
+          fw: "19.0.1",
+          amsVersion: "1.8.0",
+          appVersion: "0.1.0",
+        },
+      });
+    for (let round = 0; round < 2; round++) {
+      const { code } = (
+        await web("POST", "/devices/pairing-code", { session })
+      ).json<PairingCode>();
+      for (let i = 0; i < 5; i++) await guess(code, "10.0.0.66");
+    }
+    const { code } = (await web("POST", "/devices/pairing-code", { session })).json<PairingCode>();
+    expect((await guess(code, "10.0.0.66")).json().error.code).toBe("PAIR_RATE_LIMITED");
+    // The blocked address didn't touch this code's attempts, so the real console pairs.
+    const real = await server.app.inject({
+      method: "POST",
+      url: "/api/device/v1/pair",
+      remoteAddress: "10.0.0.7",
+      payload: {
+        code,
+        deviceUuid: UUID2,
+        name: "Living room",
+        fw: "19.0.1",
+        amsVersion: "1.8.0",
+        appVersion: "0.1.0",
+      },
+    });
+    expect(real.statusCode).toBe(200);
+  });
+
   it("rejects revoked tokens and allows re-pairing the same console", async () => {
     const session = await setUp();
     const first = (await pair(session)).json();
@@ -306,6 +347,35 @@ describe("device API", () => {
     expect(
       after.ev.some((e: { t: string; id?: number }) => e.t === "job.cancel" && e.id === job!.id),
     ).toBe(true);
+  });
+
+  it("purges install history older than the retention period", async () => {
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+    const create = async () =>
+      (
+        await web("POST", "/jobs", {
+          session,
+          body: { deviceId, items: [contentMetaId], target: "sd" },
+        })
+      ).json<WebJob[]>()[0]!;
+    const old = await create();
+    await device("POST", `/jobs/${old.id}/claim`, { token });
+    await device("POST", `/jobs/${old.id}/complete`, { token, body: { ok: true } });
+    const queued = await create();
+
+    // The web session has expired by now, so work with the service directly.
+    now += 91 * 24 * 60 * 60 * 1000;
+    const [recent] = server.devices.createJobs(deviceId, [contentMetaId], "sd");
+    server.devices.cancelJob(recent!.id);
+
+    expect(server.devices.purgeFinishedJobs(90 * 24 * 60 * 60 * 1000)).toBe(1);
+    const ids = server.devices
+      .listJobs(deviceId)
+      .map((job) => job.id)
+      .sort();
+    expect(ids).toEqual([queued.id, recent!.id].sort());
   });
 
   it("limits finished jobs but always lists active ones", async () => {

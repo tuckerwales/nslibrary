@@ -18,6 +18,8 @@ import { applyDemoSeed, attachLibraryMounts } from "./seed/bootstrap";
 import { TitledbService } from "./titledb/service";
 
 const MISSING_FILE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+/** Interrupted jobs are kept, since they can still be resumed. */
+const JOB_HISTORY_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const STALE_JOB_SWEEP_INTERVAL_MS = 60 * 1000;
 const TITLEDB_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -120,6 +122,7 @@ export async function createServer(
     repo.purgeMissing(MISSING_FILE_RETENTION_MS);
     auth.purgeExpiredSessions();
     devices.purgeExpiredPairingCodes();
+    devices.purgeFinishedJobs(JOB_HISTORY_RETENTION_MS);
   };
 
   return {
@@ -157,7 +160,7 @@ export async function createServer(
           const { startUsbHost } = await import("@nslib/usb-host/host");
           const { DeviceUsbHandler } = await import("./usb/handler");
           usbHost = await startUsbHost({
-            handler: new DeviceUsbHandler(devices, iconCacheDir),
+            createHandler: () => new DeviceUsbHandler(devices, iconCacheDir),
             log,
           });
           log("USB host listening for a Switch (057E:3000)");
