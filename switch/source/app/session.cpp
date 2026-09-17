@@ -366,12 +366,21 @@ void Session::refreshCatalog() {
     std::string cursor;
     int64_t rev = 0;
     bool full = false;
-    for (;;) {
+    size_t skipped = 0;
+    // A server that keeps handing back the same cursor would loop here forever.
+    std::string lastCursor;
+    for (size_t pageIndex = 0; pageIndex < kMaxCatalogPages; pageIndex++) {
         auto page = client_->catalog(-1, cursor, 200);
         rev = page.rev;
         full = page.full;
+        skipped += page.skipped;
         apps.insert(apps.end(), page.apps.begin(), page.apps.end());
         if (!page.next) break;
+        if (*page.next == cursor || *page.next == lastCursor) {
+            brls::Logger::warning("catalog: server repeated cursor {}, stopping", *page.next);
+            break;
+        }
+        lastCursor = cursor;
         cursor = *page.next;
     }
     size_t count = 0;
@@ -383,6 +392,7 @@ void Session::refreshCatalog() {
         status_ = "Library revision " + std::to_string(catalogRev_);
         count = catalog_.size();
     }
+    if (skipped) brls::Logger::warning("catalog: skipped {} title(s) this client could not read", skipped);
     brls::Logger::info("catalog ok apps={} rev={}", count, rev);
 }
 
@@ -563,6 +573,9 @@ void Session::pump() {
         currentJob_ = next;
         cancel_ = false;
     }
+    // Transports keep an abort until it is cleared here, so a cancel can never leak into the next job.
+    if (transport_) transport_->clearAbort();
+    if (controlTransport_) controlTransport_->clearAbort();
 #ifdef __SWITCH__
     brls::Logger::info("install schedule {}", next.name);
     brls::delay(0, [this, next]() {
@@ -650,6 +663,7 @@ bool Session::canUpdate() const {
 AvailableUpdate Session::checkServerUpdate() {
     ensureClient();
     updateCancel_ = false;
+    if (transport_) transport_->clearAbort();
     showProgress("Checking the library server for updates", [this] {
         updateCancel_ = true;
         if (transport_) transport_->abort();
@@ -709,6 +723,7 @@ void Session::installUpdate(const AvailableUpdate& update) {
     }
 
     ensureClient();
+    if (transport_) transport_->clearAbort();
     showProgress("Downloading NSLibrary " + update.manifest.version + " from the library", [this] {
         updateCancel_ = true;
         if (transport_) transport_->abort();

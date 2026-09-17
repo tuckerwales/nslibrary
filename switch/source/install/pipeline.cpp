@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <memory>
+#include <system_error>
 #include <thread>
 
 namespace nslib {
@@ -48,6 +50,27 @@ private:
     size_t pos_ = 0;
     bool last_ = false;
     bool eof_ = false;
+};
+
+/**
+ * Joins its thread on the way out. Without this, a throw between two bare `std::thread`s (an
+ * out-of-memory spawn, or a rethrow on the way out of runPipeline) destroys a joinable thread,
+ * and that calls std::terminate: the console dies with no error instead of a failed install.
+ */
+class ThreadJoiner {
+public:
+    explicit ThreadJoiner(std::thread t) : t_(std::move(t)) {}
+    ~ThreadJoiner() {
+        if (t_.joinable()) t_.join();
+    }
+    void join() {
+        if (t_.joinable()) t_.join();
+    }
+    ThreadJoiner(const ThreadJoiner&) = delete;
+    ThreadJoiner& operator=(const ThreadJoiner&) = delete;
+
+private:
+    std::thread t_;
 };
 
 } // namespace
@@ -140,7 +163,10 @@ PipelineStats runPipeline(const ReadFn& readAll, const WriteFn& write, bool isNc
         }
     };
 
-    std::thread decoder([&] {
+    PipelineStats stats;
+    Sha256 sha;
+
+    auto decodeLoop = [&] {
         try {
             RingSeq seq(compressed);
             auto emit = [&](const uint8_t* p, size_t n) { plain.push(p, n, false); };
@@ -159,11 +185,9 @@ PipelineStats runPipeline(const ReadFn& readAll, const WriteFn& write, bool isNc
         } catch (...) {
             capture(std::current_exception());
         }
-    });
+    };
 
-    PipelineStats stats;
-    Sha256 sha;
-    std::thread writer([&] {
+    auto writeLoop = [&] {
         try {
             std::vector<uint8_t> buf;
             size_t n = 0;
@@ -181,18 +205,29 @@ PipelineStats runPipeline(const ReadFn& readAll, const WriteFn& write, bool isNc
         } catch (...) {
             capture(std::current_exception());
         }
-    });
+    };
+
+    // ThreadJoiner, not a bare std::thread: if spawning the second worker throws (the console is
+    // out of thread handles), destroying a joinable thread would call std::terminate and take the
+    // app down instead of failing the install. Aborting the rings first unblocks whoever is waiting.
+    ThreadJoiner decoder{std::thread(decodeLoop)};
+    std::unique_ptr<ThreadJoiner> writer;
+    try {
+        writer = std::make_unique<ThreadJoiner>(std::thread(writeLoop));
+    } catch (const std::system_error& e) {
+        capture(std::current_exception());
+        throw InstallError("0x0", std::string("could not start the install writer thread: ") + e.what());
+    }
 
 #ifdef __SWITCH__
     // libcurl/mbedTLS on Switch is not safe off the main thread. The HTTP Range
     // GET (readAll) must run here; decode/write stay on worker threads.
     runReader();
 #else
-    std::thread reader(runReader);
-    reader.join();
+    ThreadJoiner{std::thread(runReader)}.join();
 #endif
     decoder.join();
-    writer.join();
+    writer->join();
     if (fail) std::rethrow_exception(fail);
     if (hash) stats.sha256 = sha.digest();
     return stats;

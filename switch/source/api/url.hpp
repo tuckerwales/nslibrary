@@ -22,6 +22,12 @@ std::string joinUrl(const std::string& base, const std::string& pathAndQuery);
 /** RFC 7233 `bytes=start-end` (inclusive). `length == UINT64_MAX` means open-ended. */
 std::string rangeHeader(uint64_t start, uint64_t length);
 
+/**
+ * Percent-encode everything outside RFC 3986 unreserved characters. App IDs and event cursors come
+ * from the server, so they are pasted into a URL only after this.
+ */
+std::string percentEncode(const std::string& value);
+
 std::string queryString(const std::vector<std::pair<std::string, std::string>>& params);
 
 } // namespace nslib

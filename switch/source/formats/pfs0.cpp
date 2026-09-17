@@ -51,7 +51,7 @@ const char* entryKindName(EntryKind kind) {
 
 Partition parsePfs0(const Reader& reader, uint64_t base, uint64_t end) {
     if (end == UINT64_MAX) end = reader.size();
-    if (base + 0x10 > end) {
+    if (!rangeFits(base, 0x10, end)) {
         throw FormatError("TRUNCATED", "PFS0 header at " + hexOffset(base) + " extends past " + hexOffset(end));
     }
 
@@ -73,7 +73,7 @@ Partition parsePfs0(const Reader& reader, uint64_t base, uint64_t end) {
 
     const uint64_t stringTableOffset = 0x10 + uint64_t(count) * kPfs0EntrySize;
     const uint64_t headerSize = stringTableOffset + stringTableSize;
-    if (base + headerSize > end) {
+    if (!rangeFits(base, headerSize, end)) {
         throw FormatError("TRUNCATED", "PFS0 header at " + hexOffset(base) + " extends past " + hexOffset(end));
     }
 
@@ -100,13 +100,14 @@ Partition parsePfs0(const Reader& reader, uint64_t base, uint64_t end) {
 
         PartitionEntry entry;
         entry.name = std::move(name);
-        entry.offset = dataStart + readU64(e);
+        const uint64_t relative = readU64(e);
         entry.size = readU64(e + 8);
         entry.kind = classifyEntry(entry.name);
-        if (entry.offset + entry.size > end) {
-            throw FormatError("TRUNCATED", "entry \"" + entry.name + "\" at " + hexOffset(entry.offset) + "+" +
+        if (!rangeFits(dataStart, relative, end) || !rangeFits(dataStart + relative, entry.size, end)) {
+            throw FormatError("TRUNCATED", "entry \"" + entry.name + "\" at " + hexOffset(relative) + "+" +
                 hexOffset(entry.size) + " extends past " + hexOffset(end));
         }
+        entry.offset = dataStart + relative;
         out.entries.push_back(std::move(entry));
     }
     return out;
@@ -114,7 +115,7 @@ Partition parsePfs0(const Reader& reader, uint64_t base, uint64_t end) {
 
 Hfs0Partition parseHfs0(const Reader& reader, uint64_t base, uint64_t end) {
     if (end == UINT64_MAX) end = reader.size();
-    if (base + 0x10 > end) {
+    if (!rangeFits(base, 0x10, end)) {
         throw FormatError("TRUNCATED", "HFS0 header at " + hexOffset(base) + " extends past " + hexOffset(end));
     }
 
@@ -136,7 +137,7 @@ Hfs0Partition parseHfs0(const Reader& reader, uint64_t base, uint64_t end) {
 
     const uint64_t stringTableOffset = 0x10 + uint64_t(count) * kHfs0EntrySize;
     const uint64_t headerSize = stringTableOffset + stringTableSize;
-    if (base + headerSize > end) {
+    if (!rangeFits(base, headerSize, end)) {
         throw FormatError("TRUNCATED", "HFS0 header at " + hexOffset(base) + " extends past " + hexOffset(end));
     }
 
@@ -163,15 +164,16 @@ Hfs0Partition parseHfs0(const Reader& reader, uint64_t base, uint64_t end) {
 
         Hfs0Entry entry;
         entry.name = std::move(name);
-        entry.offset = dataStart + readU64(e);
+        const uint64_t relative = readU64(e);
         entry.size = readU64(e + 8);
         entry.kind = classifyEntry(entry.name);
         entry.hashedSize = readU32(e + 0x14);
         std::memcpy(entry.sha256, e + 0x20, 32);
-        if (entry.offset + entry.size > end) {
-            throw FormatError("TRUNCATED", "entry \"" + entry.name + "\" at " + hexOffset(entry.offset) + "+" +
+        if (!rangeFits(dataStart, relative, end) || !rangeFits(dataStart + relative, entry.size, end)) {
+            throw FormatError("TRUNCATED", "entry \"" + entry.name + "\" at " + hexOffset(relative) + "+" +
                 hexOffset(entry.size) + " extends past " + hexOffset(end));
         }
+        entry.offset = dataStart + relative;
         out.entries.push_back(std::move(entry));
     }
     return out;

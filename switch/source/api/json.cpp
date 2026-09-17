@@ -83,6 +83,12 @@ void dumpValue(const Json& v, std::string& out) {
     }
 }
 
+/**
+ * Arrays and objects recurse, so a hostile or corrupt body like "[[[[[…" would run the console's
+ * stack into the ground before any length check fires. Real device-API bodies nest four deep.
+ */
+constexpr int kMaxDepth = 64;
+
 class Parser {
 public:
     explicit Parser(std::string_view in) : in_(in) {}
@@ -98,6 +104,24 @@ public:
 private:
     std::string_view in_;
     size_t i_ = 0;
+    int depth_ = 0;
+
+    /** Counts one level of array/object nesting for as long as it is in scope. */
+    class Nesting {
+    public:
+        explicit Nesting(Parser& p) : p_(p) {
+            if (++p_.depth_ > kMaxDepth) {
+                p_.depth_--;
+                throw JsonError("JSON nested deeper than " + std::to_string(kMaxDepth) + " levels");
+            }
+        }
+        ~Nesting() { p_.depth_--; }
+        Nesting(const Nesting&) = delete;
+        Nesting& operator=(const Nesting&) = delete;
+
+    private:
+        Parser& p_;
+    };
 
     bool eof() const { return i_ >= in_.size(); }
     char peek() const { return eof() ? 0 : in_[i_]; }
@@ -176,7 +200,42 @@ private:
                 throw JsonError("integer out of range: " + text);
             }
         }
-        return Json::number(std::stod(text));
+        try {
+            return Json::number(std::stod(text));
+        } catch (...) {
+            throw JsonError("number out of range: " + text);
+        }
+    }
+
+    uint32_t parseHex4() {
+        uint32_t code = 0;
+        for (int n = 0; n < 4; n++) {
+            const char h = get();
+            code <<= 4;
+            if (h >= '0' && h <= '9') code += uint32_t(h - '0');
+            else if (h >= 'a' && h <= 'f') code += uint32_t(h - 'a' + 10);
+            else if (h >= 'A' && h <= 'F') code += uint32_t(h - 'A' + 10);
+            else throw JsonError("invalid \\u escape");
+        }
+        return code;
+    }
+
+    static void appendUtf8(std::string& out, uint32_t code) {
+        if (code < 0x80) {
+            out.push_back(char(code));
+        } else if (code < 0x800) {
+            out.push_back(char(0xc0 | (code >> 6)));
+            out.push_back(char(0x80 | (code & 0x3f)));
+        } else if (code < 0x10000) {
+            out.push_back(char(0xe0 | (code >> 12)));
+            out.push_back(char(0x80 | ((code >> 6) & 0x3f)));
+            out.push_back(char(0x80 | (code & 0x3f)));
+        } else {
+            out.push_back(char(0xf0 | (code >> 18)));
+            out.push_back(char(0x80 | ((code >> 12) & 0x3f)));
+            out.push_back(char(0x80 | ((code >> 6) & 0x3f)));
+            out.push_back(char(0x80 | (code & 0x3f)));
+        }
     }
 
     Json parseString() {
@@ -200,25 +259,22 @@ private:
                 case 'r': out.push_back('\r'); break;
                 case 't': out.push_back('\t'); break;
                 case 'u': {
-                    unsigned code = 0;
-                    for (int n = 0; n < 4; n++) {
-                        const char h = get();
-                        code <<= 4;
-                        if (h >= '0' && h <= '9') code += unsigned(h - '0');
-                        else if (h >= 'a' && h <= 'f') code += unsigned(h - 'a' + 10);
-                        else if (h >= 'A' && h <= 'F') code += unsigned(h - 'A' + 10);
-                        else throw JsonError("invalid \\u escape");
+                    uint32_t code = parseHex4();
+                    // A non-ASCII title name arrives as a surrogate pair; pairing them keeps the
+                    // UTF-8 valid so nanovg does not draw the name as replacement boxes.
+                    if (code >= 0xd800 && code <= 0xdbff && in_.substr(i_, 2) == "\\u") {
+                        const size_t mark = i_;
+                        i_ += 2;
+                        const uint32_t low = parseHex4();
+                        if (low >= 0xdc00 && low <= 0xdfff) {
+                            code = 0x10000 + ((code - 0xd800) << 10) + (low - 0xdc00);
+                        } else {
+                            i_ = mark;
+                        }
                     }
-                    if (code < 0x80) {
-                        out.push_back(char(code));
-                    } else if (code < 0x800) {
-                        out.push_back(char(0xc0 | (code >> 6)));
-                        out.push_back(char(0x80 | (code & 0x3f)));
-                    } else {
-                        out.push_back(char(0xe0 | (code >> 12)));
-                        out.push_back(char(0x80 | ((code >> 6) & 0x3f)));
-                        out.push_back(char(0x80 | (code & 0x3f)));
-                    }
+                    // An unpaired surrogate has no UTF-8 encoding; U+FFFD keeps the string usable.
+                    if (code >= 0xd800 && code <= 0xdfff) code = 0xfffd;
+                    appendUtf8(out, code);
                     break;
                 }
                 default: throw JsonError("invalid string escape");
@@ -228,6 +284,7 @@ private:
     }
 
     Json parseArray() {
+        Nesting nest(*this);
         if (get() != '[') throw JsonError("expected array");
         Json arr = Json::array();
         skip();
@@ -246,6 +303,7 @@ private:
     }
 
     Json parseObject() {
+        Nesting nest(*this);
         if (get() != '{') throw JsonError("expected object");
         Json obj = Json::object();
         skip();
@@ -300,8 +358,9 @@ Json Json::number(double v) {
     Json j;
     j.type_ = Type::Number;
     j.isInt_ = false;
-    j.real_ = v;
-    j.int_ = int64_t(v);
+    // NaN and infinity have no JSON form and int64_t(v) would be undefined behaviour.
+    j.real_ = std::isfinite(v) ? v : 0.0;
+    j.int_ = int64_t(j.real_);
     return j;
 }
 

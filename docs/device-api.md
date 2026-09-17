@@ -23,7 +23,7 @@ A fake Switch for tests and debugging is `packages/device-sim` (`nslib-sim`).
 | `GET` | `/update` | yes | The Switch app (`nslibrary.nro`) |
 | `GET` | `/update/manifest` | yes | Exact bytes of the `update.json` next to the `.nro` |
 | `GET` | `/update/signature` | yes | Exact bytes of `update.json.sig` (64-byte Ed25519) |
-| `GET` | `/events?cursor&wait=25` | yes | Long-poll. Omitting `cursor` returns queued **and interrupted** jobs plus a catalog event. `wait` is seconds, 0–30 |
+| `GET` | `/events?cursor&wait=25` | yes | Long-poll. Omitting `cursor` — or sending one the in-memory log no longer covers, e.g. after a server restart — returns queued **and interrupted** jobs plus a catalog event, and a fresh cursor. `wait` is seconds, 0–30; only `wait > 0` counts as presence for the device's online marker |
 | `POST` | `/jobs` | yes | Queue an install started on the Switch |
 | `POST` | `/jobs/:id/claim` | yes | Claim a queued or interrupted job for this device |
 | `POST` | `/jobs/:id/progress` | yes | ≤1 Hz. Moves the job to `running` |

@@ -247,7 +247,8 @@ int HttpTransport::stream(
     const std::function<void(const uint8_t*, size_t)>& sink)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    abort_ = false;
+    // A cancel that arrived between two Range GETs still counts; only the next job clears it.
+    if (abort_) throw StreamFatal("cancelled");
     lastStreamError_.clear();
     brls::Logger::info("HTTP stream {} off={} len={}", path, offset, length);
     const std::string url = joinUrl(baseUrl_, std::string(kDeviceApiBasePath) + path);

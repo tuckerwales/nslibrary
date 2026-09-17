@@ -18,6 +18,11 @@ constexpr size_t kBlockHeaderSize = 0x18;
 constexpr uint64_t kMaxSections = 64;
 constexpr uint8_t kMinBlockExp = 14;
 constexpr uint8_t kMaxBlockExp = 32;
+// 1M blocks covers a 16 GB NCA at the smallest legal block size. Anything larger is a corrupt
+// header, and believing it would mean a multi-gigabyte allocation before the first byte arrives.
+constexpr uint32_t kMaxBlocks = 1u << 20;
+/** Cap on the solid-frame input buffer so a stalled zstd stream cannot grow it without bound. */
+constexpr size_t kMaxSolidInputBuffer = 16u << 20;
 
 void readFull(SeqSource& in, void* dst, size_t n) {
     auto* p = static_cast<uint8_t*>(dst);
@@ -113,6 +118,9 @@ void parseBlockHeader(NczHeader& h, const uint8_t* hdr, const uint8_t* sizes) {
     }
     h.block.blockSize = 1u << h.block.blockSizeExponent;
     const uint32_t blockCount = readU32(hdr + 0x0c);
+    if (blockCount > kMaxBlocks) {
+        throw FormatError("INVALID", "NCZ declares " + std::to_string(blockCount) + " blocks");
+    }
     h.block.decompressedSize = readU64(hdr + 0x10);
     const uint64_t expectCount = (h.block.decompressedSize + h.block.blockSize - 1) / h.block.blockSize;
     if (blockCount != expectCount) {
@@ -199,6 +207,9 @@ void decodeSolid(SeqSource& in, const uint8_t* first, size_t firstN, const NczHe
         filled = leftover;
         if (zin.pos == 0 && leftover == inBuf.size()) {
             // Need a bigger input buffer to make progress.
+            if (inBuf.size() >= kMaxSolidInputBuffer) {
+                throw FormatError("INVALID", "NCZ zstd stream makes no progress");
+            }
             inBuf.resize(inBuf.size() * 2);
         }
         if (zin.size == leftover && leftover < inBuf.size()) {
@@ -271,7 +282,10 @@ NczHeader parseNczHeader(const Reader& reader) {
 
     auto blockHeader = reader.readExact(h.dataOffset, kBlockHeaderSize);
     const uint32_t blockCount = readU32(blockHeader.data() + 0x0c);
-    auto sizes = reader.readExact(h.dataOffset + kBlockHeaderSize, blockCount * 4);
+    if (blockCount > kMaxBlocks) {
+        throw FormatError("INVALID", "NCZ declares " + std::to_string(blockCount) + " blocks");
+    }
+    auto sizes = reader.readExact(h.dataOffset + kBlockHeaderSize, size_t(uint64_t(blockCount) * 4));
     parseBlockHeader(h, blockHeader.data(), sizes.data());
     uint64_t compressedTotal = 0;
     for (uint32_t s : h.block.compressedBlockSizes) compressedTotal += s;
@@ -283,7 +297,12 @@ NczHeader parseNczHeader(const Reader& reader) {
 
 uint64_t nczOutputSize(const NczHeader& h) {
     uint64_t end = kNczPrefixSize;
-    for (const auto& s : h.sections) end = std::max(end, s.offset + s.size);
+    for (const auto& s : h.sections) {
+        if (s.size > UINT64_MAX - s.offset) {
+            throw FormatError("INVALID", "NCZ section at " + hexOffset(s.offset) + " has an impossible size");
+        }
+        end = std::max(end, s.offset + s.size);
+    }
     return end;
 }
 
@@ -311,7 +330,10 @@ void decodeNcz(SeqSource& in, const std::function<void(const uint8_t*, size_t)>&
         std::memcpy(hdr, peek, 8);
         std::memcpy(hdr + 8, rest, sizeof(rest));
         const uint32_t blockCount = readU32(hdr + 0x0c);
-        std::vector<uint8_t> sizes(blockCount * 4);
+        if (blockCount > kMaxBlocks) {
+            throw FormatError("INVALID", "NCZ declares " + std::to_string(blockCount) + " blocks");
+        }
+        std::vector<uint8_t> sizes(size_t(uint64_t(blockCount) * 4));
         readFull(in, sizes.data(), sizes.size());
         parseBlockHeader(h, hdr, sizes.data());
         decodeBlocks(in, h, out);

@@ -7,6 +7,7 @@ import {
   type CatalogResponse,
   DEVICE_API_PROTOCOL_VERSION,
   DEVICE_CAPABILITIES,
+  type DeviceEvent,
   type DeviceInfo,
   type DeviceState,
   type EventsResponse,
@@ -705,19 +706,7 @@ export class DeviceApiService {
   ): Promise<EventsResponse> {
     const waitMs = (query.wait ?? 25) * 1000;
     if (query.cursor === undefined) {
-      const queued = this.listJobs(device.id).filter(
-        (job) => job.status === "queued" || job.status === "interrupted",
-      );
-      return {
-        cursor: String(this.log.head()),
-        ev: [
-          ...queued.map((job) => ({
-            t: "job.queued" as const,
-            job: this.toDeviceJob({ ...job, status: "queued" }),
-          })),
-          { t: "catalog", rev: this.#catalogRev() },
-        ],
-      };
+      return { cursor: String(this.log.head()), ev: this.#resyncEvents(device.id) };
     }
     const cursor = Number(query.cursor);
     if (!Number.isInteger(cursor) || cursor < 0) {
@@ -726,14 +715,34 @@ export class DeviceApiService {
     const head = this.log.head();
     const oldest = this.log.since(device.id, -1)[0];
     if (cursor > head || (oldest !== undefined && cursor < oldest.id - 1 && cursor !== 0)) {
-      return { cursor: String(head), ev: [{ t: "catalog", rev: this.#catalogRev() }] };
+      // The log is in memory, so a restart rewinds it past the console's cursor. Resend the queued
+      // jobs with the resync: otherwise a "Send to Switch" from before the restart is never claimed.
+      return { cursor: String(head), ev: this.#resyncEvents(device.id) };
     }
+    // Only a long poll counts as presence. A wait=0 poller (the Switch client, which keeps libcurl
+    // on its UI thread) arrives every second, and publishing online/offline each time would make
+    // every open web page refetch its device list twice a second. `lastSeen` already covers it.
+    if (waitMs <= 0) return await this.log.wait(device.id, cursor, waitMs, signal);
     this.addWaiter(device.id);
     try {
       return await this.log.wait(device.id, cursor, waitMs, signal);
     } finally {
       this.removeWaiter(device.id);
     }
+  }
+
+  /** Everything a console needs to catch up when its cursor no longer matches the log. */
+  #resyncEvents(deviceId: number): DeviceEvent[] {
+    const queued = this.listJobs(deviceId).filter(
+      (job) => job.status === "queued" || job.status === "interrupted",
+    );
+    return [
+      ...queued.map((job) => ({
+        t: "job.queued" as const,
+        job: this.toDeviceJob({ ...job, status: "queued" }),
+      })),
+      { t: "catalog" as const, rev: this.#catalogRev() },
+    ];
   }
 
   addWaiter(deviceId: number): void {

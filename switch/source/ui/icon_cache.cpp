@@ -1,5 +1,6 @@
 #include "ui/icon_cache.hpp"
 
+#include "app/atomic_file.hpp"
 #include "app/session.hpp"
 
 #include <borealis.hpp>
@@ -14,8 +15,24 @@ namespace {
 
 constexpr const char* kIconDir = "sdmc:/config/nslibrary/icons";
 
+/**
+ * The app ID comes from the server, so it never goes into a path as-is: a value like "../../switch"
+ * would put the cache write outside the icon directory.
+ */
+std::string cacheKey(const std::string& appId) {
+    std::string out;
+    out.reserve(appId.size());
+    for (char c : appId) {
+        const bool safe = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+        out.push_back(safe ? c : '_');
+    }
+    if (out.size() > 64) out.resize(64);
+    if (out.empty()) out = "unknown";
+    return out;
+}
+
 std::string iconPath(const std::string& appId, std::optional<int64_t> rev) {
-    return std::string(kIconDir) + "/" + appId + "_" + (rev ? std::to_string(*rev) : "0") + ".jpg";
+    return std::string(kIconDir) + "/" + cacheKey(appId) + "_" + (rev ? std::to_string(*rev) : "0") + ".jpg";
 }
 
 std::vector<uint8_t> readFile(const std::string& path) {
@@ -28,8 +45,13 @@ void writeFile(const std::string& path, const std::vector<uint8_t>& bytes) {
     mkdir("sdmc:/config", 0777);
     mkdir("sdmc:/config/nslibrary", 0777);
     mkdir(kIconDir, 0777);
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out.write(reinterpret_cast<const char*>(bytes.data()), std::streamsize(bytes.size()));
+    try {
+        // Atomically, so a full or yanked SD card cannot leave a half-written JPEG that the next
+        // launch reads back as a valid cache entry.
+        writeFileAtomic(path, bytes.data(), bytes.size());
+    } catch (const std::exception& e) {
+        brls::Logger::warning("icon cache write {}: {}", path, e.what());
+    }
 }
 
 struct IconJob {

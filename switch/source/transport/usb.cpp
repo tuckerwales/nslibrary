@@ -131,7 +131,7 @@ int UsbTransport::stream(
     const std::vector<std::pair<std::string, std::string>>& extraHeaders,
     const std::function<void(const uint8_t*, size_t)>& sink)
 {
-    abort_ = false;
+    if (abort_) throw StreamFatal("cancelled");
     {
         std::lock_guard<std::mutex> lock(mutex_);
         lastStreamError_.clear();

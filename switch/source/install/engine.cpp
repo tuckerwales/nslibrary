@@ -117,11 +117,21 @@ struct ProgressClock {
     }
 };
 
+/** Tickets and certificates are a few KB; a header claiming more is corrupt, not a 4 GB read. */
+constexpr uint64_t kMaxSmallEntryBytes = 1024 * 1024;
+
 std::vector<uint8_t> readEntry(DeviceApiClient& client, const Job& job, const PartitionEntry& e) {
+    if (e.size > kMaxSmallEntryBytes) {
+        throw InstallError("0x0", "\"" + e.name + "\" is " + std::to_string(e.size) + " bytes, too large to be a " +
+            "ticket or certificate");
+    }
     std::vector<uint8_t> buf(size_t(e.size));
     size_t got = 0;
     client.getFile(job.fileId, e.offset, e.size, [&](const uint8_t* p, size_t m) {
-        std::memcpy(buf.data() + got, p, m);
+        // The transport already clamps to the requested length; clamp again so a transport bug
+        // cannot walk off the end of this buffer.
+        if (got + m > buf.size()) m = buf.size() - got;
+        if (m) std::memcpy(buf.data() + got, p, m);
         got += m;
     });
     buf.resize(got);
@@ -195,11 +205,26 @@ std::vector<uint8_t> readInstalledCnmt(NcmContentStorage* cs, const NcmContentId
     return readCnmtAt(path, 0, "installed meta NCA");
 }
 
-NcmContentId contentIdFromHex(const std::string& hex) {
+int hexDigit(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+/** `hex` must be the 32-character NCA ID; a shorter or non-hex name means a malformed container. */
+NcmContentId contentIdFromHex(const std::string& hex, const std::string& what) {
     NcmContentId id{};
+    if (hex.size() < 32) {
+        throw InstallError("0x0", what + " does not start with a 32-character NCA ID");
+    }
     for (int i = 0; i < 16; i++) {
-        const char byte[3] = {hex[size_t(i * 2)], hex[size_t(i * 2 + 1)], 0};
-        id.c[i] = uint8_t(strtoul(byte, nullptr, 16));
+        const int hi = hexDigit(hex[size_t(i * 2)]);
+        const int lo = hexDigit(hex[size_t(i * 2 + 1)]);
+        if (hi < 0 || lo < 0) {
+            throw InstallError("0x0", what + " does not start with a 32-character NCA ID");
+        }
+        id.c[i] = uint8_t(hi << 4 | lo);
     }
     return id;
 }
@@ -497,8 +522,7 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
         cancel.check();
         clock.emit("meta", metaEntry.name, 0, metaEntry.size);
 
-        std::string idHex = metaEntry.name.substr(0, 32);
-        NcmContentId metaId = contentIdFromHex(idHex);
+        NcmContentId metaId = contentIdFromHex(metaEntry.name, "\"" + metaEntry.name + "\"");
         const uint64_t metaSize = ncaSizeForEntry(reader, metaEntry);
 
         bool has = false;

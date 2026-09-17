@@ -187,6 +187,7 @@ else()
         tests/resume_test.cpp
         tests/update_test.cpp
         tests/client_fixes_test.cpp
+        tests/hardening_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source

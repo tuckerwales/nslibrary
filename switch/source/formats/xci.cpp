@@ -28,8 +28,11 @@ XciInfo parseXci(const Reader& reader) {
     XciInfo info;
     info.cardOffset = findCardHeader(reader);
     auto header = reader.readExact(info.cardOffset, size_t(kCardHeaderSize));
-    const uint64_t rootOff = info.cardOffset + readU64(header.data() + kRootPartitionOffsetField);
-    info.root = parseHfs0(reader, rootOff);
+    const uint64_t rootRelative = readU64(header.data() + kRootPartitionOffsetField);
+    if (!rangeFits(info.cardOffset, rootRelative, reader.size())) {
+        throw FormatError("TRUNCATED", "XCI root partition offset " + hexOffset(rootRelative) + " is past the end");
+    }
+    info.root = parseHfs0(reader, info.cardOffset + rootRelative);
 
     for (const auto& entry : info.root.entries) {
         if (!kKnownPartitions.count(entry.name)) continue;

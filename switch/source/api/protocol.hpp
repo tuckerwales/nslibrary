@@ -95,6 +95,8 @@ struct CatalogResponse {
     std::vector<CatalogApp> apps;
     std::vector<std::string> del;
     std::optional<std::string> next;
+    /** Entries the server sent that this client could not read. Logged, never fatal. */
+    size_t skipped = 0;
 };
 
 struct Job {

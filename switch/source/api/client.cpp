@@ -100,7 +100,7 @@ void DeviceApiClient::complete(int64_t id, const JobComplete& c) {
 }
 
 std::vector<uint8_t> DeviceApiClient::getIcon(const std::string& appId, std::optional<int64_t> rev) {
-    std::string path = "/icons/" + appId;
+    std::string path = "/icons/" + percentEncode(appId);
     if (rev) path += "?v=" + std::to_string(*rev);
     const auto res = call("GET", path, nullptr, true, 15000, kQuickConnectMs);
     if (res.status != 200) {

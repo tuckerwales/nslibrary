@@ -133,7 +133,9 @@ function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
     publisher: first?.appPublisher ?? null,
     iconUrl: iconUrl(first?.appIconKey ?? null),
     hasBase: bases.length > 0,
-    baseFormats: [...new Set(bases.map((r) => r.file.format))],
+    // Sorted: the row order out of SQLite is not stable for rows that tie on the sort key, and an
+    // API field that reorders between identical requests churns the UI and breaks snapshot tests.
+    baseFormats: [...new Set(bases.map((r) => r.file.format))].sort(),
     updateVersions,
     addonCount: new Set(addons.map((r) => r.titleId)).size,
     fileCount: allFiles.length,

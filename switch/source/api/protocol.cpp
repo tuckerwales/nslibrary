@@ -117,7 +117,9 @@ HelloResponse parseHello(const Json& v) {
     r.proto = int(reqInt(v["proto"], "proto"));
     r.catalogRev = reqInt(v["catalogRev"], "catalogRev");
     if (v.has("caps") && v["caps"].isArray()) {
-        for (const auto& c : v["caps"].items()) r.caps.push_back(c.asString());
+        for (const auto& c : v["caps"].items()) {
+            if (c.isString()) r.caps.push_back(c.asString());
+        }
     }
     if (v.has("appLatest") && v["appLatest"].isString()) r.appLatest = v["appLatest"].asString();
     return r;
@@ -140,14 +142,24 @@ DeviceState parseDeviceState(const Json& v) {
 CatalogResponse parseCatalog(const Json& v) {
     CatalogResponse r;
     r.rev = reqInt(v["rev"], "rev");
-    r.full = v["full"].asBool();
+    if (v.has("full") && v["full"].isBool()) r.full = v["full"].asBool();
     if (v.has("apps") && v["apps"].isArray()) {
-        for (const auto& a : v["apps"].items()) r.apps.push_back(parseApp(a));
+        for (const auto& a : v["apps"].items()) {
+            // One unreadable title should cost that title, not the whole library: throwing here
+            // leaves the console with an empty grid and no way back until the app restarts.
+            try {
+                r.apps.push_back(parseApp(a));
+            } catch (const JsonError&) {
+                r.skipped++;
+            }
+        }
     }
     if (v.has("del") && v["del"].isArray()) {
-        for (const auto& d : v["del"].items()) r.del.push_back(d.asString());
+        for (const auto& d : v["del"].items()) {
+            if (d.isString()) r.del.push_back(d.asString());
+        }
     }
-    if (v.has("next") && !v["next"].isNull()) r.next = v["next"].asString();
+    if (v.has("next") && v["next"].isString()) r.next = v["next"].asString();
     return r;
 }
 
@@ -195,7 +207,7 @@ JobProgress parseJobProgress(const Json& v) {
     if (v.has("item") && v["item"].isString()) p.item = v["item"].asString();
     p.done = reqUint(v["done"], "done");
     p.total = reqUint(v["total"], "total");
-    p.bps = v["bps"].asNumber();
+    if (v.has("bps") && v["bps"].isNumber()) p.bps = v["bps"].asNumber();
     return p;
 }
 
@@ -203,7 +215,9 @@ DiscoveryReply parseDiscoveryReply(const Json& v) {
     DiscoveryReply r;
     r.serverId = reqString(v["serverId"], "serverId");
     r.name = reqString(v["name"], "name");
-    r.port = int(reqInt(v["port"], "port"));
+    const int64_t port = reqInt(v["port"], "port");
+    if (port < 1 || port > 65535) throw JsonError("discovery port out of range");
+    r.port = int(port);
     r.proto = int(reqInt(v["proto"], "proto"));
     if (v.has("tls") && v["tls"].isBool()) r.tls = v["tls"].asBool();
     return r;

@@ -25,6 +25,7 @@ public:
     void setConnectTimeoutMs(long ms) override { readyTimeoutMs_ = ms; }
     /** Stops delivering the current stream. The rest of the chunk is drained so framing stays in sync. */
     void abort() override { abort_ = true; }
+    void clearAbort() override { abort_ = false; }
     std::string lastStreamError() const override;
 
     /**

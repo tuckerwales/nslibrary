@@ -501,6 +501,50 @@ describe("device API", () => {
     expect((await hello()).appLatest).toBe("0.3.0");
   });
 
+  it("resends queued jobs when the console's event cursor is ahead of the log", async () => {
+    // The event log lives in memory, so restarting the server rewinds it past whatever cursor the
+    // Switch is holding. The resync has to carry the queued jobs, or a "Send to Switch" from before
+    // the restart is never claimed.
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+
+    const created = await web("POST", "/jobs", {
+      session,
+      body: { deviceId, items: [contentMetaId], target: "sd" },
+    });
+    expect(created.statusCode).toBe(201);
+    const [job] = created.json<WebJob[]>();
+
+    const stale = (await device("GET", "/events?cursor=99999&wait=0", { token })).json();
+    expect(stale.ev.some((e: { t: string }) => e.t === "catalog")).toBe(true);
+    const queued = stale.ev.filter((e: { t: string }) => e.t === "job.queued");
+    expect(queued).toHaveLength(1);
+    expect(queued[0].job.id).toBe(job!.id);
+    // The cursor it hands back is usable straight away.
+    expect(Number(stale.cursor)).toBeLessThan(99999);
+    const next = await device("GET", `/events?cursor=${stale.cursor}&wait=0`, { token });
+    expect(next.statusCode).toBe(200);
+  });
+
+  it("does not publish online/offline churn for zero-wait polls", async () => {
+    // The Switch polls once a second with wait=0 because libcurl has to stay on its UI thread.
+    // Treating each poll as connect-then-disconnect made every open web page refetch twice a second.
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+
+    const published: { type: string }[] = [];
+    const stop = server.events.subscribe((event) => published.push(event));
+    for (let i = 0; i < 3; i++) await device("GET", "/events?wait=0&cursor=0", { token });
+    stop();
+    expect(published.filter((e) => e.type === "device.online")).toHaveLength(0);
+    expect(published.filter((e) => e.type === "device.offline")).toHaveLength(0);
+
+    // Polling still keeps the device online, via lastSeen.
+    const detail = (await web("GET", `/devices/${deviceId}`, { session })).json<DeviceDetail>();
+    expect(detail.online).toBe(true);
+  });
+
   it("returns 404 for /update when no nro is configured", async () => {
     const session = await setUp();
     const { token } = (await pair(session)).json();

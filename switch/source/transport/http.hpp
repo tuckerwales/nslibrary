@@ -23,6 +23,7 @@ public:
     void setTimeoutMs(long ms) override { timeoutMs_ = ms; }
     void setConnectTimeoutMs(long ms) override { connectTimeoutMs_ = ms; }
     void abort() override { abort_ = true; }
+    void clearAbort() override { abort_ = false; }
     bool aborted() const { return abort_; }
     std::string lastStreamError() const override;
 

@@ -38,7 +38,8 @@ public:
     uint64_t size() const override { return size_; }
 
     void read(uint64_t offset, void* dst, size_t n) const override {
-        if (offset + n > size_) {
+        // Offsets come from container headers, so `offset + n` can wrap; compare without adding.
+        if (offset > size_ || uint64_t(n) > size_ - offset) {
             throw FormatError("TRUNCATED", "read past end of buffer");
         }
         if (n) std::memcpy(dst, data_ + offset, n);
@@ -58,7 +59,7 @@ public:
     uint64_t size() const override { return size_; }
 
     void read(uint64_t offset, void* dst, size_t n) const override {
-        if (offset + n > size_) {
+        if (offset > size_ || uint64_t(n) > size_ - offset) {
             throw FormatError("TRUNCATED", "read past end of slice");
         }
         inner_->read(base_ + offset, dst, n);
@@ -140,6 +141,11 @@ inline uint64_t parseTitleId(const std::string& s) {
         else throw FormatError("INVALID", "title ID must be 16 hex digits");
     }
     return v;
+}
+
+/** True when `[offset, offset+length)` fits inside `[0, end)` without the addition wrapping. */
+inline bool rangeFits(uint64_t offset, uint64_t length, uint64_t end) {
+    return offset <= end && length <= end - offset;
 }
 
 inline std::string hexOffset(uint64_t n) {

@@ -28,6 +28,12 @@ public:
     /** How long to wait for the connection itself (TCP connect, TLS handshake, USB host ready). */
     virtual void setConnectTimeoutMs(long ms) { (void)ms; }
     virtual void abort() {}
+    /**
+     * Clear a pending abort. Only the owner of the next job calls this: a transport must not drop a
+     * cancel on its own when a new request starts, or a cancel that lands between two Range GETs is
+     * silently lost and the install keeps running.
+     */
+    virtual void clearAbort() {}
     /** Body of the last stream() answered with a non-2xx status (usually a JSON error). */
     virtual std::string lastStreamError() const { return {}; }
     virtual HttpResponse request(

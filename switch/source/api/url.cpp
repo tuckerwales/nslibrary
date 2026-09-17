@@ -99,14 +99,32 @@ std::string rangeHeader(uint64_t start, uint64_t length) {
     return buf;
 }
 
+std::string percentEncode(const std::string& value) {
+    static const char* kHex = "0123456789ABCDEF";
+    std::string out;
+    out.reserve(value.size());
+    for (unsigned char c : value) {
+        const bool unreserved = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+            c == '-' || c == '.' || c == '_' || c == '~';
+        if (unreserved) {
+            out.push_back(char(c));
+        } else {
+            out.push_back('%');
+            out.push_back(kHex[c >> 4]);
+            out.push_back(kHex[c & 0xf]);
+        }
+    }
+    return out;
+}
+
 std::string queryString(const std::vector<std::pair<std::string, std::string>>& params) {
     if (params.empty()) return {};
     std::string out = "?";
     for (size_t i = 0; i < params.size(); i++) {
         if (i) out.push_back('&');
-        out += params[i].first;
+        out += percentEncode(params[i].first);
         out.push_back('=');
-        out += params[i].second;
+        out += percentEncode(params[i].second);
     }
     return out;
 }
