@@ -1,21 +1,35 @@
 <brls:Box
     width="auto"
     height="auto"
-    axis="column">
+    axis="column"
+    paddingTop="16"
+    paddingLeft="30"
+    paddingRight="30">
+    <brls:Header
+        id="header"
+        width="auto"
+        height="auto"
+        marginRight="20"/>
     <brls:Label
         id="status"
         width="auto"
         height="auto"
-        margin="20"
+        marginTop="10"
+        marginRight="20"
+        fontSize="18"
+        visibility="gone"
         text=""/>
     <brls:ScrollingFrame
         width="auto"
         height="auto"
-        grow="1.0">
+        grow="1.0"
+        marginTop="10">
         <brls:Box
             id="list"
             width="auto"
             height="auto"
-            axis="column"/>
+            axis="column"
+            paddingRight="20"
+            paddingBottom="24"/>
     </brls:ScrollingFrame>
 </brls:Box>

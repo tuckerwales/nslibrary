@@ -11,59 +11,126 @@
   "connect": {
     "title": "连接",
     "intro": "在局域网中查找资料库，或手动输入地址。",
+    "usb": "USB 线",
+    "usb_connect": "通过 USB 连接",
+    "usb_hint": "这台电脑正在运行 NSLibrary",
+    "lan": "此网络中",
     "discover": "查找服务器",
     "none": "没有服务器应答。请改输入地址。",
+    "by_address": "手动输入地址",
     "manual": "输入地址",
+    "address": "地址",
     "hint": "IP、主机名或 URL",
-    "usb": "USB 线",
-    "usb_hint": "这台电脑正在运行 NSLibrary"
+    "connecting": "正在连接资料库…",
+    "change": "更换服务器",
+    "offline": "无法连接资料库，正在后台重试。",
+    "failed": "连接失败"
   },
   "pair": {
     "title": "配对",
     "intro": "在网页的设备页生成 6 位代码并输入。",
+    "server": "服务器",
+    "code": "配对码",
     "enter": "输入配对码"
   },
   "library": {
-    "install": "要安装吗？",
     "nothing": "此标题没有可安装内容。",
     "empty": "资料库是空的。"
   },
   "detail": {
-    "base": "安装本体",
-    "update": "安装更新",
-    "dlc": "安装 DLC",
-    "sd": "SD 卡",
-    "nand": "NAND",
-    "auto": "自动",
+    "base": "本体",
     "install_body": "安装到哪个存储？",
     "installed": "已安装",
     "not_installed": "本机没有",
-    "firmware": "需要的系统版本"
+    "on_console": "本机已有",
+    "firmware": "需要的系统版本",
+    "warn_firmware": "警告：本机系统版本低于所需版本",
+    "warn_battery": "警告：电量低于 15% 且未在充电。"
+  },
+  "type": {
+    "patch": "更新",
+    "addon": "DLC",
+    "applications": "游戏",
+    "patches": "更新",
+    "addons": "DLC"
+  },
+  "storage": {
+    "sd": "SD 卡",
+    "nand": "主机存储",
+    "auto": "自动"
+  },
+  "job": {
+    "queued": "等待中",
+    "claimed": "已领取",
+    "running": "安装中",
+    "done": "已安装",
+    "failed": "失败",
+    "cancelled": "已取消",
+    "interrupted": "已中断"
+  },
+  "phase": {
+    "preflight": "正在检查空间",
+    "ticket": "正在写入 ticket",
+    "meta": "正在写入元数据",
+    "content": "正在复制内容",
+    "commit": "正在收尾",
+    "record": "正在注册"
+  },
+  "progress": {
+    "installing": "正在安装",
+    "starting": "正在开始…",
+    "cancel_hint": "按 B 取消"
+  },
+  "notify": {
+    "installing": "正在安装 {}",
+    "installed": "已安装 {}",
+    "cancelled": "已取消 {}"
   },
   "updates": {
-    "intro": "资料库里比本机更新的补丁。"
+    "intro": "资料库里比本机更新的补丁。",
+    "empty": "已安装的游戏在资料库中没有更新的版本。"
   },
   "missing": {
     "intro": "资料库中有、但本机尚未安装的本体。打开即可安装。",
     "empty": "资料库中的本体都已安装。"
   },
+  "installed": {
+    "console": "本机",
+    "firmware": "系统版本",
+    "ams": "Atmosphère",
+    "free": "剩余 {} / 共 {}",
+    "free_only": "剩余 {}",
+    "other": "其他",
+    "empty": "本机没有安装任何内容。"
+  },
   "queue": {
     "empty": "还没有任务。从网页发送，或从资料库安装。",
-    "cancel": "取消这次安装？"
+    "cancel": "取消这次安装？",
+    "cancel_now": "取消安装",
+    "start": "现在开始这次安装？",
+    "start_now": "立即开始",
+    "left": "剩余 {}"
   },
   "settings": {
-    "url": "服务器",
+    "server": "服务器",
+    "installs": "安装",
+    "app": "应用",
     "name": "本机",
     "repair": "重新配对",
     "forget": "忘记此服务器",
+    "forget_confirm": "忘记此服务器，下次重新配对？",
+    "target": "默认存储",
+    "verify": "校验 NCA 哈希",
     "version": "应用版本",
     "update": "检查更新",
-    "update_checking": "正在查询最新的签名发布…",
     "update_none": "已是最新的签名版本。",
     "update_available": "GitHub 上有更新的签名构建。下载并替换？",
     "update_available_server": "媒体库服务器上有更新的已签名版本。要下载并替换吗？",
     "update_done": "已更新。请从 Homebrew Menu 重新启动 NSLibrary。",
-    "target": "默认存储",
-    "verify": "校验 NCA 哈希"
+    "update_check_server": "正在检查资料库服务器的更新",
+    "update_check_github": "正在检查 GitHub 的更新",
+    "update_downloading": "正在下载 NSLibrary {}",
+    "update_downloading_server": "正在从资料库下载 NSLibrary {}",
+    "log": "日志文件"
   }
 }

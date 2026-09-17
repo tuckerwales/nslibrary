@@ -11,59 +11,126 @@
   "connect": {
     "title": "Connetti",
     "intro": "Cerca la libreria in LAN oppure inserisci l’indirizzo.",
+    "usb": "Cavo USB",
+    "usb_connect": "Connetti via USB",
+    "usb_hint": "Questo computer sta eseguendo NSLibrary",
+    "lan": "In questa rete",
     "discover": "Cerca server",
     "none": "Nessun server ha risposto. Inserisci l’indirizzo.",
+    "by_address": "Tramite indirizzo",
     "manual": "Inserisci indirizzo",
+    "address": "Indirizzo",
     "hint": "IP, hostname o URL",
-    "usb": "Cavo USB",
-    "usb_hint": "Questo computer sta eseguendo NSLibrary"
+    "connecting": "Connessione alla libreria…",
+    "change": "Cambia server",
+    "offline": "Libreria irraggiungibile. Nuovo tentativo in background.",
+    "failed": "Connessione non riuscita"
   },
   "pair": {
     "title": "Associa",
     "intro": "Nell’interfaccia web apri Dispositivi e inserisci il codice a 6 cifre.",
+    "server": "Server",
+    "code": "Codice di abbinamento",
     "enter": "Inserisci codice"
   },
   "library": {
-    "install": "Installare?",
     "nothing": "Questo titolo non ha contenuto installabile.",
     "empty": "La libreria è vuota."
   },
   "detail": {
-    "base": "Installa base",
-    "update": "Installa aggiornamento",
-    "dlc": "Installa DLC",
-    "sd": "Scheda SD",
-    "nand": "NAND",
-    "auto": "Auto",
+    "base": "Gioco base",
     "install_body": "Su quale memoria?",
     "installed": "Installato",
     "not_installed": "Non su questa Switch",
-    "firmware": "Firmware richiesto"
+    "on_console": "Su questa Switch",
+    "firmware": "Firmware richiesto",
+    "warn_firmware": "Attenzione: questa console è più vecchia del firmware richiesto",
+    "warn_battery": "Attenzione: la batteria è sotto il 15% e non è in carica."
+  },
+  "type": {
+    "patch": "Aggiornamento",
+    "addon": "DLC",
+    "applications": "Giochi",
+    "patches": "Aggiornamenti",
+    "addons": "DLC"
+  },
+  "storage": {
+    "sd": "Scheda SD",
+    "nand": "Memoria di sistema",
+    "auto": "Automatico"
+  },
+  "job": {
+    "queued": "In attesa",
+    "claimed": "Assegnato",
+    "running": "Installazione",
+    "done": "Installato",
+    "failed": "Non riuscito",
+    "cancelled": "Annullato",
+    "interrupted": "Interrotto"
+  },
+  "phase": {
+    "preflight": "Controllo dello spazio",
+    "ticket": "Scrittura del ticket",
+    "meta": "Scrittura dei metadati",
+    "content": "Copia dei contenuti",
+    "commit": "Completamento",
+    "record": "Registrazione"
+  },
+  "progress": {
+    "installing": "Installazione",
+    "starting": "Avvio…",
+    "cancel_hint": "Premi B per annullare"
+  },
+  "notify": {
+    "installing": "Installazione di {}",
+    "installed": "{} installato",
+    "cancelled": "{} annullato"
   },
   "updates": {
-    "intro": "Aggiornamenti in libreria più recenti di quelli installati."
+    "intro": "Aggiornamenti in libreria più recenti di quelli installati.",
+    "empty": "I giochi installati non hanno aggiornamenti più recenti nella libreria."
   },
   "missing": {
     "intro": "Giochi base in libreria assenti su questa Switch. Aprine uno per installarlo.",
     "empty": "Tutti i giochi base della libreria sono già installati."
   },
+  "installed": {
+    "console": "Questa console",
+    "firmware": "Firmware",
+    "ams": "Atmosphère",
+    "free": "{} liberi su {}",
+    "free_only": "{} liberi",
+    "other": "Altro",
+    "empty": "Non c’è nulla installato su questa Switch."
+  },
   "queue": {
     "empty": "Nessun lavoro. Invia un titolo dal web o installa dalla libreria.",
-    "cancel": "Annullare questa installazione?"
+    "cancel": "Annullare questa installazione?",
+    "cancel_now": "Annulla installazione",
+    "start": "Avviare subito questa installazione?",
+    "start_now": "Avvia ora",
+    "left": "{} rimanenti"
   },
   "settings": {
-    "url": "Server",
+    "server": "Server",
+    "installs": "Installazioni",
+    "app": "App",
     "name": "Questa Switch",
     "repair": "Associa di nuovo",
     "forget": "Dimentica questo server",
+    "forget_confirm": "Dimenticare questo server e abbinarlo di nuovo la prossima volta?",
+    "target": "Memoria predefinita",
+    "verify": "Verifica hash NCA",
     "version": "Versione app",
     "update": "Cerca aggiornamenti",
-    "update_checking": "Cerco l’ultima versione firmata…",
     "update_none": "Hai già l’ultima versione firmata.",
     "update_available": "Su GitHub c’è una build firmata più recente. Scaricare e sostituire?",
     "update_available_server": "Sul server della libreria c'è una build firmata più recente. Scaricarla e sostituire l'app?",
     "update_done": "Aggiornato. Riavvia NSLibrary dal menu Homebrew.",
-    "target": "Memoria predefinita",
-    "verify": "Verifica hash NCA"
+    "update_check_server": "Ricerca di aggiornamenti sul server della libreria",
+    "update_check_github": "Ricerca di aggiornamenti su GitHub",
+    "update_downloading": "Download di NSLibrary {}",
+    "update_downloading_server": "Download di NSLibrary {} dalla libreria",
+    "log": "File di log"
   }
 }

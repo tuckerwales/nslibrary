@@ -11,36 +11,80 @@
   "connect": {
     "title": "Connect",
     "intro": "Find your library on the LAN, or type its address.",
+    "usb": "USB cable",
+    "usb_connect": "Connect over USB",
+    "usb_hint": "This computer is running NSLibrary",
+    "lan": "On this network",
     "discover": "Look for servers",
     "none": "No servers answered. Enter the address instead.",
+    "by_address": "By address",
     "manual": "Enter address",
+    "address": "Address",
     "hint": "IP, hostname, or URL",
-    "usb": "USB cable",
-    "usb_hint": "This computer is running NSLibrary"
+    "connecting": "Connecting to the library…",
+    "change": "Change server",
+    "offline": "Library unreachable. Retrying in the background.",
+    "failed": "Connection failed"
   },
   "pair": {
     "title": "Pair",
     "intro": "Open Devices in the web UI and enter the 6-digit code.",
+    "server": "Server",
+    "code": "Pairing code",
     "enter": "Enter pairing code"
   },
   "library": {
-    "install": "Install?",
     "nothing": "This title has no installable content.",
     "empty": "The library is empty."
   },
   "detail": {
-    "base": "Install base",
-    "update": "Install update",
-    "dlc": "Install DLC",
-    "sd": "SD card",
-    "nand": "NAND",
-    "auto": "Auto",
+    "base": "Base game",
     "install_body": "Install to which storage?",
     "installed": "Installed",
     "not_installed": "Not on this Switch",
+    "on_console": "On this Switch",
     "firmware": "Requires firmware",
     "warn_firmware": "Warning: this console is older than the required firmware",
     "warn_battery": "Warning: the battery is below 15% and not charging."
+  },
+  "type": {
+    "patch": "Update",
+    "addon": "DLC",
+    "applications": "Games",
+    "patches": "Updates",
+    "addons": "DLC"
+  },
+  "storage": {
+    "sd": "SD card",
+    "nand": "System memory",
+    "auto": "Automatic"
+  },
+  "job": {
+    "queued": "Waiting",
+    "claimed": "Claimed",
+    "running": "Installing",
+    "done": "Installed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "interrupted": "Interrupted"
+  },
+  "phase": {
+    "preflight": "Checking space",
+    "ticket": "Writing ticket",
+    "meta": "Writing metadata",
+    "content": "Copying content",
+    "commit": "Finishing up",
+    "record": "Registering"
+  },
+  "progress": {
+    "installing": "Installing",
+    "starting": "Starting…",
+    "cancel_hint": "Press B to cancel"
+  },
+  "notify": {
+    "installing": "Installing {}",
+    "installed": "Installed {}",
+    "cancelled": "Cancelled {}"
   },
   "updates": {
     "intro": "Updates in the library that look newer than what is installed.",
@@ -50,24 +94,43 @@
     "intro": "Base games in the library that are not on this Switch. Open one to install.",
     "empty": "Every base game in the library is already installed."
   },
+  "installed": {
+    "console": "This console",
+    "firmware": "Firmware",
+    "ams": "Atmosphère",
+    "free": "{} free of {}",
+    "free_only": "{} free",
+    "other": "Other",
+    "empty": "Nothing is installed on this Switch."
+  },
   "queue": {
     "empty": "No jobs yet. Send a title from the web UI, or install from Library.",
-    "cancel": "Cancel this install?"
+    "cancel": "Cancel this install?",
+    "cancel_now": "Cancel install",
+    "start": "Start this install now?",
+    "start_now": "Start now",
+    "left": "{} left"
   },
   "settings": {
-    "url": "Server",
+    "server": "Server",
+    "installs": "Installs",
+    "app": "App",
     "name": "This Switch",
     "repair": "Pair again",
     "forget": "Forget this server",
+    "forget_confirm": "Forget this server and pair again next time?",
+    "target": "Default storage",
+    "verify": "Verify NCA hashes",
     "version": "App version",
     "update": "Check for updates",
-    "update_checking": "Looking up the latest signed release…",
     "update_none": "You're already on the latest signed release.",
     "update_available": "A newer signed build is on GitHub. Download and replace this app?",
     "update_available_server": "A newer signed build is on your library server. Download and replace this app?",
     "update_done": "Updated. Restart NSLibrary from the Homebrew Menu.",
-    "target": "Default storage",
-    "verify": "Verify NCA hashes",
+    "update_check_server": "Checking the library server for updates",
+    "update_check_github": "Checking GitHub for updates",
+    "update_downloading": "Downloading NSLibrary {}",
+    "update_downloading_server": "Downloading NSLibrary {} from the library",
     "log": "Log file"
   }
 }

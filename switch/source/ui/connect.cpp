@@ -7,23 +7,15 @@
 #endif
 #include "ui/main_activity.hpp"
 #include "ui/pair.hpp"
+#include "ui/widgets.hpp"
 
 #include <borealis.hpp>
-#include <functional>
 #include <string>
 
 using namespace brls::literals;
 
 namespace nslib {
 namespace {
-
-brls::DetailCell* makeCell(const std::string& title, const std::string& detail, std::function<bool(brls::View*)> onClick) {
-    auto* cell = new brls::DetailCell();
-    cell->setText(title);
-    cell->setDetailText(detail);
-    cell->registerClickAction(std::move(onClick));
-    return cell;
-}
 
 void afterUrl() {
     if (Session::instance().hasToken()) {
@@ -38,18 +30,21 @@ void afterUrl() {
 brls::View* ConnectActivity::createContentView() {
     auto* scroll = new brls::ScrollingFrame();
     auto* box = new brls::Box(brls::Axis::COLUMN);
-    box->setPadding(30, 40, 30, 40);
+    box->setPadding(20, 40, 30, 40);
     scroll->setContentView(box);
     auto* frame = new brls::AppletFrame(scroll);
     frame->setTitle("app/connect/title"_i18n);
 
     auto* intro = new brls::Label();
     intro->setText("app/connect/intro"_i18n);
+    intro->setFontSize(18);
+    intro->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
     box->addView(intro);
 
 #ifdef __SWITCH__
     if (UsbTransport::available()) {
-        box->addView(makeCell("app/connect/usb"_i18n, "app/connect/usb_hint"_i18n, [](brls::View*) {
+        box->addView(makeHeader("app/connect/usb"_i18n));
+        box->addView(makeCell("app/connect/usb_connect"_i18n, "app/connect/usb_hint"_i18n, [](brls::View*) {
             brls::sync([] {
                 try {
                     Session::instance().usbHello();
@@ -63,6 +58,7 @@ brls::View* ConnectActivity::createContentView() {
     }
 #endif
 
+    box->addView(makeHeader("app/connect/lan"_i18n));
     // Discovery results go in their own box so searching again replaces them instead of appending.
     auto* results = new brls::Box(brls::Axis::COLUMN);
     box->addView(makeCell("app/connect/discover"_i18n, "", [results](brls::View*) {
@@ -75,8 +71,8 @@ brls::View* ConnectActivity::createContentView() {
         replaceChildren(results, [&found](brls::Box* list) {
             for (const auto& s : found) {
                 const std::string url = s.url;
-                const std::string label = s.reply.name + "  " + url;
-                list->addView(makeCell(label, s.reply.serverId.substr(0, 8), [url](brls::View*) {
+                const std::string name = s.reply.name.empty() ? url : s.reply.name;
+                list->addView(makeCell(name, url, [url](brls::View*) {
                     brls::sync([url] {
                         Session::instance().setUrl(url);
                         afterUrl();
@@ -89,6 +85,7 @@ brls::View* ConnectActivity::createContentView() {
     }));
     box->addView(results);
 
+    box->addView(makeHeader("app/connect/by_address"_i18n));
     box->addView(makeCell("app/connect/manual"_i18n, Session::instance().settings.url, [](brls::View* view) {
         auto* cell = static_cast<brls::DetailCell*>(view);
         brls::Application::getImeManager()->openForText(

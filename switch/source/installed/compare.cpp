@@ -40,7 +40,7 @@ InstalledSummary summarizeInstalled(const std::vector<InstalledTitle>& titles, c
     return out;
 }
 
-std::vector<UpdateCandidate> findUpdates(const std::vector<CatalogApp>& catalog, const std::vector<InstalledTitle>& titles) {
+std::unordered_map<std::string, InstalledSummary> summarizeInstalledByApp(const std::vector<InstalledTitle>& titles) {
     std::unordered_map<std::string, InstalledSummary> byApp;
     for (const auto& t : titles) {
         const std::string key = t.type == "patch" ? baseTitleIdForPatch(t.titleId) : upper(t.titleId);
@@ -53,16 +53,28 @@ std::vector<UpdateCandidate> findUpdates(const std::vector<CatalogApp>& catalog,
             s.patchStorage = t.storage;
         }
     }
+    return byApp;
+}
+
+const InstalledSummary* findInstalled(
+    const std::unordered_map<std::string, InstalledSummary>& byApp, const std::string& appId)
+{
+    auto it = byApp.find(upper(appId));
+    return it == byApp.end() ? nullptr : &it->second;
+}
+
+std::vector<UpdateCandidate> findUpdates(const std::vector<CatalogApp>& catalog, const std::vector<InstalledTitle>& titles) {
+    const auto byApp = summarizeInstalledByApp(titles);
 
     std::vector<UpdateCandidate> out;
     for (const auto& app : catalog) {
         if (app.updates.empty()) continue;
-        auto it = byApp.find(upper(app.id));
-        if (it == byApp.end() || !it->second.baseInstalled) continue;
+        const InstalledSummary* s = findInstalled(byApp, app.id);
+        if (!s || !s->baseInstalled) continue;
         uint32_t newest = 0;
         for (const auto& u : app.updates) newest = std::max(newest, u.version);
-        if (newest <= it->second.patchVersion) continue;
-        out.push_back(UpdateCandidate{&app, it->second.patchVersion, newest});
+        if (newest <= s->patchVersion) continue;
+        out.push_back(UpdateCandidate{&app, s->patchVersion, newest});
     }
     return out;
 }

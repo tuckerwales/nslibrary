@@ -6,6 +6,7 @@
 #include "installed/scanner.hpp"
 #include "transport/http.hpp"
 #include "transport/resume.hpp"
+#include "ui/format.hpp"
 
 #ifdef __SWITCH__
 #include "transport/usb.hpp"
@@ -17,7 +18,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
 #include <thread>
 
 namespace nslib {
@@ -31,16 +31,29 @@ void uiNotify(const std::string& text) {
 #endif
 }
 
+/** Translated UI text. Only the Switch build has Borealis, so host builds keep the raw argument. */
+std::string uiText(const std::string& key, const std::string& arg = "") {
+#ifdef __SWITCH__
+    if (key.empty()) return arg;
+    return arg.empty() ? brls::getStr(key) : brls::getStr(key, arg);
+#else
+    (void)key;
+    return arg;
+#endif
+}
+
 void refreshTabsLater() {
 #ifdef __SWITCH__
     brls::sync([] { refreshVisibleTabs(); });
 #endif
 }
 
+/** "Copying content   48%   10.8 GB / 22.5 GB" for the queue tab and the status line. */
 std::string formatProgressLine(const JobProgress& p) {
-    char line[160];
-    std::snprintf(line, sizeof(line), "%s  %llu / %llu", p.phase.c_str(), static_cast<unsigned long long>(p.done),
-        static_cast<unsigned long long>(p.total));
+    std::string line = uiText(installPhaseKey(p.phase), p.phase);
+    const std::string pct = formatPercent(p.done, p.total);
+    if (!pct.empty()) line += "   " + pct;
+    if (p.total) line += "   " + formatOfTotal(p.done, p.total);
     return line;
 }
 
@@ -262,7 +275,7 @@ void Session::markOnline() {
 void Session::markOffline(const std::string& why) {
     if (!offline_.exchange(true)) {
         brls::Logger::warning("library unreachable: {}", why);
-        uiNotify("Library unreachable. Retrying in the background.");
+        uiNotify(uiText("app/connect/offline"));
         refreshTabsLater();
     }
 }
@@ -664,7 +677,7 @@ AvailableUpdate Session::checkServerUpdate() {
     ensureClient();
     updateCancel_ = false;
     if (transport_) transport_->clearAbort();
-    showProgress("Checking the library server for updates", [this] {
+    showProgress(uiText("app/settings/update_check_server"), [this] {
         updateCancel_ = true;
         if (transport_) transport_->abort();
     });
@@ -691,7 +704,7 @@ AvailableUpdate Session::checkServerUpdate() {
 
 AvailableUpdate Session::checkGithubUpdate() {
     updateCancel_ = false;
-    showProgress("Checking GitHub for updates", [this] { updateCancel_ = true; });
+    showProgress(uiText("app/settings/update_check_github"), [this] { updateCancel_ = true; });
     try {
         auto found = fetchSignedUpdate(NSLIB_VERSION, &updateCancel_);
         hideProgress();
@@ -704,14 +717,12 @@ AvailableUpdate Session::checkGithubUpdate() {
 
 void Session::installUpdate(const AvailableUpdate& update) {
     const auto progress = [](uint64_t done, uint64_t total) {
-        char line[80];
-        std::snprintf(line, sizeof(line), "Downloading %llu / %llu", static_cast<unsigned long long>(done),
-            static_cast<unsigned long long>(total));
-        updateProgress(line, done, total);
+        updateProgress(formatOfTotal(done, total), done, total);
     };
     updateCancel_ = false;
     if (!update.fromServer) {
-        showProgress("Downloading NSLibrary " + update.manifest.version, [this] { updateCancel_ = true; });
+        showProgress(uiText("app/settings/update_downloading", update.manifest.version),
+            [this] { updateCancel_ = true; });
         try {
             installSignedNro(update, kSwitchNroPath, progress, &updateCancel_);
         } catch (...) {
@@ -724,7 +735,7 @@ void Session::installUpdate(const AvailableUpdate& update) {
 
     ensureClient();
     if (transport_) transport_->clearAbort();
-    showProgress("Downloading NSLibrary " + update.manifest.version + " from the library", [this] {
+    showProgress(uiText("app/settings/update_downloading_server", update.manifest.version), [this] {
         updateCancel_ = true;
         if (transport_) transport_->abort();
     });
@@ -748,11 +759,12 @@ void Session::installUpdate(const AvailableUpdate& update) {
 #endif
 
 void Session::runInstall(Job job) {
-    setStatus("Installing " + job.name);
+    const std::string shown = cleanTitleName(job.name);
+    setStatus(uiText("app/notify/installing", shown));
 #ifdef __SWITCH__
-    showProgress("Installing " + job.name);
+    showProgress(uiText("app/notify/installing", shown));
 #endif
-    uiNotify("Installing " + job.name);
+    uiNotify(uiText("app/notify/installing", shown));
 
     JobComplete done;
     done.ok = false;
@@ -778,12 +790,12 @@ void Session::runInstall(Job job) {
         done.ok = true;
         done.msg = "installed";
         brls::Logger::info("install engine ok {}", job.name);
-        uiNotify("Installed " + job.name);
+        uiNotify(uiText("app/notify/installed", shown));
     } catch (const InstallError& e) {
         brls::Logger::error("install engine: {}", e.what());
         done.result = e.result;
         done.msg = e.what();
-        if (e.result == "cancelled") uiNotify("Cancelled " + job.name);
+        if (e.result == "cancelled") uiNotify(uiText("app/notify/cancelled", shown));
         else uiNotify(std::string(e.what()));
     } catch (const std::exception& e) {
         brls::Logger::error("install engine: {}", e.what());
@@ -791,7 +803,7 @@ void Session::runInstall(Job job) {
         if (cancel_ || std::string(e.what()) == "cancelled") {
             done.result = "cancelled";
             done.msg = "cancelled";
-            uiNotify("Cancelled " + job.name);
+            uiNotify(uiText("app/notify/cancelled", shown));
         } else {
             uiNotify(e.what());
         }

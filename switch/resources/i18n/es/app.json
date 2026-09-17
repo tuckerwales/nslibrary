@@ -11,59 +11,126 @@
   "connect": {
     "title": "Conectar",
     "intro": "Busca la biblioteca en la red local o escribe su dirección.",
+    "usb": "Cable USB",
+    "usb_connect": "Conectar por USB",
+    "usb_hint": "Este ordenador está ejecutando NSLibrary",
+    "lan": "En esta red",
     "discover": "Buscar servidores",
     "none": "Ningún servidor respondió. Escribe la dirección.",
+    "by_address": "Por dirección",
     "manual": "Escribir dirección",
+    "address": "Dirección",
     "hint": "IP, nombre de host o URL",
-    "usb": "Cable USB",
-    "usb_hint": "Este ordenador está ejecutando NSLibrary"
+    "connecting": "Conectando con la biblioteca…",
+    "change": "Cambiar de servidor",
+    "offline": "No se puede contactar con la biblioteca. Reintentando en segundo plano.",
+    "failed": "Error de conexión"
   },
   "pair": {
     "title": "Emparejar",
     "intro": "En la web, abre Dispositivos e introduce el código de 6 dígitos.",
+    "server": "Servidor",
+    "code": "Código de emparejamiento",
     "enter": "Introducir código"
   },
   "library": {
-    "install": "¿Instalar?",
     "nothing": "Este título no tiene contenido instalable.",
     "empty": "La biblioteca está vacía."
   },
   "detail": {
-    "base": "Instalar base",
-    "update": "Instalar actualización",
-    "dlc": "Instalar DLC",
-    "sd": "Tarjeta SD",
-    "nand": "NAND",
-    "auto": "Auto",
+    "base": "Juego base",
     "install_body": "¿En qué almacenamiento?",
     "installed": "Instalado",
     "not_installed": "No está en esta Switch",
-    "firmware": "Firmware requerido"
+    "on_console": "En esta Switch",
+    "firmware": "Firmware requerido",
+    "warn_firmware": "Aviso: esta consola es anterior al firmware requerido",
+    "warn_battery": "Aviso: la batería está por debajo del 15 % y no se está cargando."
+  },
+  "type": {
+    "patch": "Actualización",
+    "addon": "DLC",
+    "applications": "Juegos",
+    "patches": "Actualizaciones",
+    "addons": "DLC"
+  },
+  "storage": {
+    "sd": "Tarjeta SD",
+    "nand": "Memoria del sistema",
+    "auto": "Automático"
+  },
+  "job": {
+    "queued": "En espera",
+    "claimed": "Asignado",
+    "running": "Instalando",
+    "done": "Instalado",
+    "failed": "Fallido",
+    "cancelled": "Cancelado",
+    "interrupted": "Interrumpido"
+  },
+  "phase": {
+    "preflight": "Comprobando espacio",
+    "ticket": "Escribiendo el ticket",
+    "meta": "Escribiendo metadatos",
+    "content": "Copiando contenido",
+    "commit": "Finalizando",
+    "record": "Registrando"
+  },
+  "progress": {
+    "installing": "Instalando",
+    "starting": "Empezando…",
+    "cancel_hint": "Pulsa B para cancelar"
+  },
+  "notify": {
+    "installing": "Instalando {}",
+    "installed": "{} instalado",
+    "cancelled": "{} cancelado"
   },
   "updates": {
-    "intro": "Actualizaciones de la biblioteca más nuevas que las instaladas."
+    "intro": "Actualizaciones de la biblioteca más nuevas que las instaladas.",
+    "empty": "Los juegos instalados no tienen actualizaciones más nuevas en la biblioteca."
   },
   "missing": {
     "intro": "Juegos base de la biblioteca que no están en esta Switch. Ábrelo para instalar.",
     "empty": "Todos los juegos base de la biblioteca ya están instalados."
   },
+  "installed": {
+    "console": "Esta consola",
+    "firmware": "Firmware",
+    "ams": "Atmosphère",
+    "free": "{} libres de {}",
+    "free_only": "{} libres",
+    "other": "Otros",
+    "empty": "No hay nada instalado en esta Switch."
+  },
   "queue": {
     "empty": "Aún no hay trabajos. Envíalos desde la web o instala desde la biblioteca.",
-    "cancel": "¿Cancelar esta instalación?"
+    "cancel": "¿Cancelar esta instalación?",
+    "cancel_now": "Cancelar instalación",
+    "start": "¿Empezar esta instalación ahora?",
+    "start_now": "Empezar ahora",
+    "left": "quedan {}"
   },
   "settings": {
-    "url": "Servidor",
+    "server": "Servidor",
+    "installs": "Instalaciones",
+    "app": "Aplicación",
     "name": "Esta Switch",
     "repair": "Emparejar de nuevo",
     "forget": "Olvidar este servidor",
+    "forget_confirm": "¿Olvidar este servidor y volver a emparejar la próxima vez?",
+    "target": "Almacenamiento predeterminado",
+    "verify": "Verificar hashes NCA",
     "version": "Versión de la app",
     "update": "Buscar actualizaciones",
-    "update_checking": "Buscando la última versión firmada…",
     "update_none": "Ya tienes la última versión firmada.",
     "update_available": "Hay una compilación firmada más nueva en GitHub. ¿Descargar y reemplazar?",
     "update_available_server": "Tu servidor de biblioteca tiene una compilación firmada más reciente. ¿Descargar y reemplazar?",
     "update_done": "Actualizado. Reinicia NSLibrary desde el menú Homebrew.",
-    "target": "Almacenamiento predeterminado",
-    "verify": "Verificar hashes NCA"
+    "update_check_server": "Buscando actualizaciones en el servidor de la biblioteca",
+    "update_check_github": "Buscando actualizaciones en GitHub",
+    "update_downloading": "Descargando NSLibrary {}",
+    "update_downloading_server": "Descargando NSLibrary {} desde la biblioteca",
+    "log": "Archivo de registro"
   }
 }

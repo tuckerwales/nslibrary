@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace nslib {
@@ -21,6 +22,13 @@ struct InstalledSummary {
 };
 
 InstalledSummary summarizeInstalled(const std::vector<InstalledTitle>& titles, const std::string& appId);
+
+/** One summary per base title id, for screens that ask about a whole catalog at once. */
+std::unordered_map<std::string, InstalledSummary> summarizeInstalledByApp(const std::vector<InstalledTitle>& titles);
+
+/** Lookup into that map, ignoring hex case. Null when nothing of the title is on the console. */
+const InstalledSummary* findInstalled(
+    const std::unordered_map<std::string, InstalledSummary>& byApp, const std::string& appId);
 
 struct UpdateCandidate {
     const CatalogApp* app = nullptr;

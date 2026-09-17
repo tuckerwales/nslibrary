@@ -11,59 +11,126 @@
   "connect": {
     "title": "連線",
     "intro": "在區網尋找資料庫，或手動輸入位址。",
+    "usb": "USB 線",
+    "usb_connect": "透過 USB 連線",
+    "usb_hint": "這台電腦正在執行 NSLibrary",
+    "lan": "此網路中",
     "discover": "尋找伺服器",
     "none": "沒有伺服器回應。請改輸入位址。",
+    "by_address": "手動輸入位址",
     "manual": "輸入位址",
+    "address": "位址",
     "hint": "IP、主機名稱或 URL",
-    "usb": "USB 線",
-    "usb_hint": "這台電腦正在執行 NSLibrary"
+    "connecting": "正在連線資料庫…",
+    "change": "更換伺服器",
+    "offline": "無法連線資料庫，正在背景重試。",
+    "failed": "連線失敗"
   },
   "pair": {
     "title": "配對",
     "intro": "在網頁的裝置頁產生 6 位數代碼並輸入。",
+    "server": "伺服器",
+    "code": "配對碼",
     "enter": "輸入配對碼"
   },
   "library": {
-    "install": "要安裝嗎？",
     "nothing": "此標題沒有可安裝內容。",
     "empty": "資料庫是空的。"
   },
   "detail": {
-    "base": "安裝本體",
-    "update": "安裝更新",
-    "dlc": "安裝 DLC",
-    "sd": "SD 卡",
-    "nand": "NAND",
-    "auto": "自動",
+    "base": "本體",
     "install_body": "安裝到哪個儲存空間？",
     "installed": "已安裝",
     "not_installed": "本機沒有",
-    "firmware": "需要的系統版本"
+    "on_console": "本機已有",
+    "firmware": "需要的系統版本",
+    "warn_firmware": "警告：本機系統版本低於所需版本",
+    "warn_battery": "警告：電量低於 15% 且未在充電。"
+  },
+  "type": {
+    "patch": "更新",
+    "addon": "DLC",
+    "applications": "遊戲",
+    "patches": "更新",
+    "addons": "DLC"
+  },
+  "storage": {
+    "sd": "SD 卡",
+    "nand": "主機儲存空間",
+    "auto": "自動"
+  },
+  "job": {
+    "queued": "等待中",
+    "claimed": "已領取",
+    "running": "安裝中",
+    "done": "已安裝",
+    "failed": "失敗",
+    "cancelled": "已取消",
+    "interrupted": "已中斷"
+  },
+  "phase": {
+    "preflight": "正在檢查空間",
+    "ticket": "正在寫入 ticket",
+    "meta": "正在寫入中繼資料",
+    "content": "正在複製內容",
+    "commit": "正在收尾",
+    "record": "正在註冊"
+  },
+  "progress": {
+    "installing": "正在安裝",
+    "starting": "正在開始…",
+    "cancel_hint": "按 B 取消"
+  },
+  "notify": {
+    "installing": "正在安裝 {}",
+    "installed": "已安裝 {}",
+    "cancelled": "已取消 {}"
   },
   "updates": {
-    "intro": "資料庫裡比本機更新的更新檔。"
+    "intro": "資料庫裡比本機更新的更新檔。",
+    "empty": "已安裝的遊戲在資料庫中沒有更新的版本。"
   },
   "missing": {
     "intro": "資料庫中有、但本機尚未安裝的本體。開啟即可安裝。",
     "empty": "資料庫中的本體都已安裝。"
   },
+  "installed": {
+    "console": "本機",
+    "firmware": "系統版本",
+    "ams": "Atmosphère",
+    "free": "剩餘 {} / 共 {}",
+    "free_only": "剩餘 {}",
+    "other": "其他",
+    "empty": "本機沒有安裝任何內容。"
+  },
   "queue": {
     "empty": "還沒有工作。從網頁傳送，或從資料庫安裝。",
-    "cancel": "取消這次安裝？"
+    "cancel": "取消這次安裝？",
+    "cancel_now": "取消安裝",
+    "start": "現在開始這次安裝？",
+    "start_now": "立即開始",
+    "left": "剩餘 {}"
   },
   "settings": {
-    "url": "伺服器",
+    "server": "伺服器",
+    "installs": "安裝",
+    "app": "應用程式",
     "name": "本機",
     "repair": "重新配對",
     "forget": "忘記此伺服器",
+    "forget_confirm": "忘記此伺服器，下次重新配對？",
+    "target": "預設儲存空間",
+    "verify": "驗證 NCA 雜湊",
     "version": "應用程式版本",
     "update": "檢查更新",
-    "update_checking": "正在查詢最新的簽署發行…",
     "update_none": "已是最新的簽署版本。",
     "update_available": "GitHub 上有較新的簽署建置。下載並取代？",
     "update_available_server": "媒體庫伺服器上有較新的已簽署版本。要下載並取代嗎？",
     "update_done": "已更新。請從 Homebrew Menu 重新啟動 NSLibrary。",
-    "target": "預設儲存空間",
-    "verify": "驗證 NCA 雜湊"
+    "update_check_server": "正在檢查資料庫伺服器的更新",
+    "update_check_github": "正在檢查 GitHub 的更新",
+    "update_downloading": "正在下載 NSLibrary {}",
+    "update_downloading_server": "正在從資料庫下載 NSLibrary {}",
+    "log": "記錄檔"
   }
 }
