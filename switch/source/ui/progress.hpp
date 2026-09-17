@@ -11,6 +11,12 @@ void showProgress(const std::string& title, std::function<void()> onCancel = {})
 void updateProgress(const std::string& line, uint64_t done = 0, uint64_t total = 0);
 /** Persistent line under the progress bar (low battery, firmware too old). Cleared by hideProgress. */
 void setProgressWarning(const std::string& text);
+/**
+ * Swaps the progress bar for the outcome of the job and blocks the UI thread until it is dismissed.
+ * A success closes itself after a moment (or on A/B); a failure shows `detail` and waits for A or B.
+ * Call hideProgress afterwards.
+ */
+void showProgressResult(bool ok, const std::string& title, const std::string& detail = {});
 void hideProgress();
 bool progressVisible();
 

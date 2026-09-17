@@ -752,7 +752,6 @@ void Session::runInstall(Job job) {
 #ifdef __SWITCH__
     showProgress("Installing " + job.name);
 #endif
-    uiNotify("Installing " + job.name);
 
     JobComplete done;
     done.ok = false;
@@ -778,22 +777,16 @@ void Session::runInstall(Job job) {
         done.ok = true;
         done.msg = "installed";
         brls::Logger::info("install engine ok {}", job.name);
-        uiNotify("Installed " + job.name);
     } catch (const InstallError& e) {
         brls::Logger::error("install engine: {}", e.what());
         done.result = e.result;
         done.msg = e.what();
-        if (e.result == "cancelled") uiNotify("Cancelled " + job.name);
-        else uiNotify(std::string(e.what()));
     } catch (const std::exception& e) {
         brls::Logger::error("install engine: {}", e.what());
         done.msg = e.what();
         if (cancel_ || std::string(e.what()) == "cancelled") {
             done.result = "cancelled";
             done.msg = "cancelled";
-            uiNotify("Cancelled " + job.name);
-        } else {
-            uiNotify(e.what());
         }
     }
     const bool cancelled = done.result && *done.result == "cancelled";
@@ -812,6 +805,9 @@ void Session::runInstall(Job job) {
     }
     setStatus(done.ok ? "Idle" : (cancelled ? "Install cancelled" : "Install failed"));
 #ifdef __SWITCH__
+    // The progress screen reports the outcome. A cancel needs no report: the user asked for it.
+    if (done.ok) showProgressResult(true, "Installed " + job.name);
+    else if (!cancelled) showProgressResult(false, "Could not install " + job.name, done.msg.value_or(""));
     hideProgress();
 #endif
 }

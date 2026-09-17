@@ -28,6 +28,7 @@ struct ProgressUi {
     uint64_t done = 0;
     uint64_t total = 0;
     bool visible = false;
+    enum class Result { None, Ok, Failed } result = Result::None;
     std::chrono::steady_clock::time_point lastPump{};
     bool pumping = false;
     std::thread::id uiThread{};
@@ -90,9 +91,26 @@ void drawOverlay() {
     nvgFillColor(vg, nvgRGB(255, 255, 255));
     nvgText(vg, cx, cy - 90, g.title.empty() ? "Installing" : g.title.c_str(), nullptr);
 
+    if (g.result == ProgressUi::Result::Failed) {
+        // Install errors can run long, so wrap them instead of drawing one clipped line.
+        const float boxw = 760;
+        nvgFontSize(vg, 20);
+        nvgFillColor(vg, nvgRGB(255, 120, 110));
+        nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+        nvgTextBox(vg, cx - boxw * 0.5f, cy - 44, boxw, g.detail.c_str(), nullptr);
+        nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        nvgFontSize(vg, 18);
+        nvgFillColor(vg, nvgRGB(160, 160, 160));
+        nvgText(vg, cx, cy + 118, "Press A to continue", nullptr);
+        nvgEndFrame(vg);
+        video->endFrame();
+        return;
+    }
+
     nvgFontSize(vg, 20);
     nvgFillColor(vg, nvgRGB(200, 200, 200));
-    nvgText(vg, cx, cy - 44, g.detail.empty() ? "…" : g.detail.c_str(), nullptr);
+    if (g.result == ProgressUi::Result::None || !g.detail.empty())
+        nvgText(vg, cx, cy - 44, g.detail.empty() ? "…" : g.detail.c_str(), nullptr);
 
     const float barw = 640;
     const float barh = 18;
@@ -128,7 +146,7 @@ void drawOverlay() {
 
     nvgFontSize(vg, 18);
     nvgFillColor(vg, nvgRGB(160, 160, 160));
-    nvgText(vg, cx, cy + 84, "Press B to cancel", nullptr);
+    nvgText(vg, cx, cy + 84, g.result == ProgressUi::Result::Ok ? "Press A to continue" : "Press B to cancel", nullptr);
 
     nvgEndFrame(vg);
     video->endFrame();
@@ -182,6 +200,7 @@ void showProgress(const std::string& title, std::function<void()> onCancel) {
     g.visible = true;
     g.onCancel = std::move(onCancel);
     g.warning.clear();
+    g.result = ProgressUi::Result::None;
     g.title = title;
     g.detail = "Starting…";
     g.done = 0;
@@ -207,7 +226,52 @@ bool progressVisible() { return g.visible; }
 
 void setProgressTick(std::function<void()> fn) { g.tick = std::move(fn); }
 
+void showProgressResult(bool ok, const std::string& title, const std::string& detail) {
+    if (!g.visible) return;
+    if (g.uiThread != std::thread::id() && std::this_thread::get_id() != g.uiThread) return;
+    g.result = ok ? ProgressUi::Result::Ok : ProgressUi::Result::Failed;
+    g.onCancel = nullptr;
+    g.warning.clear();
+    g.title = title;
+    g.detail = detail;
+    if (ok) {
+        if (g.total == 0) g.total = 1;
+        g.done = g.total;
+    }
+
+#ifdef __SWITCH__
+    if (!g.padReady) {
+        padInitializeDefault(&g.pad);
+        g.padReady = true;
+    }
+#endif
+    const auto shown = std::chrono::steady_clock::now();
+    // Ignore buttons for a moment so a press meant for the install screen does not skip the result.
+    const auto armed = shown + std::chrono::milliseconds(300);
+    auto* platform = brls::Application::getPlatform();
+    for (;;) {
+        const auto now = std::chrono::steady_clock::now();
+        if (ok && now - shown >= std::chrono::milliseconds(1500)) break;
+        if (platform && !platform->mainLoopIteration()) {
+            brls::Application::quit();
+            break;
+        }
+#ifdef __SWITCH__
+        padUpdate(&g.pad);
+        const u64 down = padGetButtonsDown(&g.pad);
+        if (now >= armed && (down & (HidNpadButton_A | HidNpadButton_B))) break;
+#endif
+        brls::Ticking::updateTickings();
+        drawOverlay();
+        // A failure can stay up for a long time: keep the side channel polling so the server still sees the device.
+        runProgressTick(now);
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+    }
+    g.result = ProgressUi::Result::None;
+}
+
 void hideProgress() {
+    g.result = ProgressUi::Result::None;
     g.visible = false;
     g.onCancel = nullptr;
     g.warning.clear();
