@@ -41,7 +41,13 @@ docker compose up --build
 
 Then open `http://localhost:8465`, create an admin account, and browse the demo library. Mount dumps as `/library/<name>:ro` (for example `/library/games`); they are attached as library roots on start.
 
-Multi-arch image (`linux/amd64` and `linux/arm64`):
+Each `v*` release tag publishes a multi-arch image (`linux/amd64` and `linux/arm64`) to GitHub Container Registry, tagged with the version, `major.minor`, and `latest` (pre-releases like `v1.2.0-rc1` don't move `latest`):
+
+```bash
+docker pull ghcr.io/tuckerwales/nslibrary:latest
+```
+
+To build the multi-arch image yourself:
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 -t nslibrary .
