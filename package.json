@@ -19,7 +19,8 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "test:switch": "bash scripts/build-switch.sh --test",
-    "build:switch": "bash scripts/build-switch.sh"
+    "build:switch": "bash scripts/build-switch.sh",
+    "release:switch": "bash scripts/release-switch.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",

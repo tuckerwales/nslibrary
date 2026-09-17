@@ -24,21 +24,25 @@ The public key is compiled into the app (`switch/source/update/verify.cpp`). A r
 
    Commit the printed public key in `verify.cpp` if you rotate keys (old apps will not accept new signatures until they are updated once).
 
-2. Bump `NSLIB_VERSION` in `switch/CMakeLists.txt`.
-
-3. Tag and push:
+2. Bump, test, build, and sign in one step:
 
    ```bash
-   git tag v0.1.1
-   git push origin v0.1.1
+   scripts/release-switch.sh patch --key-file path/to/seed.hex   # or minor, major, X.Y.Z
    ```
 
-   `.github/workflows/release.yml` builds the `.nro`, signs it, and creates the GitHub Release.
+   The seed can also come from `NSLIB_UPDATE_SK` or `NSLIB_UPDATE_SK_FILE`. This bumps `NSLIB_VERSION` in `switch/CMakeLists.txt`, runs the host tests, builds `nslibrary.nro`, signs it into `dist/`, and checks the signature against the public key in `verify.cpp`. If any step fails, the version bump is undone. `--no-test`, `--clean`, `--out DIR` and `-j N` are available; `--help` lists them.
 
-   Sign locally:
+3. Commit the version bump, then tag and push:
 
    ```bash
-   NSLIB_UPDATE_SK=… node scripts/sign-update.mjs switch/build/nslibrary.nro --out dist --version 0.1.1
+   git tag v0.1.4
+   git push origin v0.1.4
+   ```
+
+   `.github/workflows/release.yml` builds the `.nro`, signs it with the `NSLIB_UPDATE_SK` repository secret, and creates the GitHub Release. Without that secret, publish the signed files from `dist/` yourself:
+
+   ```bash
+   gh release create v0.1.4 dist/nslibrary.nro dist/update.json dist/update.json.sig --verify-tag
    ```
 
 ## On the Switch
