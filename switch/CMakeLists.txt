@@ -44,6 +44,7 @@ set(NSLIB_COMMON_SRC
     source/install/record_merge.cpp
     source/install/placeholder_journal.cpp
     source/installed/compare.cpp
+    source/ui/format.cpp
     source/app/atomic_file.cpp
     source/transport/usb_frame.cpp
     source/transport/resume.cpp
@@ -90,6 +91,7 @@ if (PLATFORM_SWITCH)
         source/install/es.cpp
         source/installed/scanner.cpp
         source/ui/detail.cpp
+        source/ui/widgets.cpp
         source/ui/icon_cache.cpp
         source/ui/connect.cpp
         source/ui/pair.cpp
@@ -188,6 +190,7 @@ else()
         tests/update_test.cpp
         tests/client_fixes_test.cpp
         tests/hardening_test.cpp
+        tests/format_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source

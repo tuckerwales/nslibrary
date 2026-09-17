@@ -107,9 +107,9 @@ void startSession() {
         dialog->open();
     } catch (...) {
         brls::Logger::error("session error unknown");
-        session.setStatus("Connection failed");
+        session.setStatus("app/connect/failed"_i18n);
         refreshVisibleTabs();
-        showError("Connection failed");
+        showError("app/connect/failed"_i18n);
     }
 }
 

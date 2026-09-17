@@ -11,59 +11,128 @@
   "connect": {
     "title": "接続",
     "intro": "LAN上のライブラリを探すか、アドレスを入力してください。",
+    "usb": "USBケーブル",
+    "usb_connect": "USBで接続",
+    "usb_hint": "このパソコンでNSLibraryが動いています",
+    "lan": "このネットワーク",
     "discover": "サーバーを探す",
     "none": "応答がありません。アドレスを入力してください。",
+    "by_address": "アドレスを指定",
     "manual": "アドレスを入力",
+    "address": "アドレス",
     "hint": "IP、ホスト名、またはURL",
-    "usb": "USBケーブル",
-    "usb_hint": "このパソコンでNSLibraryが動いています"
+    "connecting": "ライブラリに接続しています…",
+    "change": "サーバーを変更",
+    "offline": "ライブラリに接続できません。バックグラウンドで再試行します。",
+    "failed": "接続に失敗しました"
   },
   "pair": {
     "title": "ペアリング",
     "intro": "Webのデバイス画面で6桁のコードを確認して入力します。",
+    "server": "サーバー",
+    "code": "ペアリングコード",
     "enter": "ペアリングコードを入力"
   },
   "library": {
-    "install": "インストールしますか？",
     "nothing": "このタイトルにインストールできる内容がありません。",
     "empty": "ライブラリは空です。"
   },
   "detail": {
-    "base": "本体をインストール",
-    "update": "更新データをインストール",
-    "dlc": "DLCをインストール",
-    "sd": "SDカード",
-    "nand": "NAND",
-    "auto": "自動",
+    "base": "本体",
     "install_body": "どのストレージにインストールしますか？",
     "installed": "インストール済",
     "not_installed": "このSwitchにはありません",
-    "firmware": "必要なファームウェア"
+    "on_console": "このSwitchにあります",
+    "firmware": "必要なファームウェア",
+    "warn_firmware": "警告: このSwitchのファームウェアは必要なバージョンより古いです",
+    "warn_battery": "警告: バッテリーが15%未満で、充電していません。"
+  },
+  "type": {
+    "patch": "更新データ",
+    "addon": "DLC",
+    "applications": "ソフト",
+    "patches": "更新データ",
+    "addons": "DLC"
+  },
+  "storage": {
+    "sd": "SDカード",
+    "nand": "本体保存メモリー",
+    "auto": "自動"
+  },
+  "job": {
+    "queued": "待機中",
+    "claimed": "受け取り済",
+    "running": "インストール中",
+    "done": "インストール済",
+    "failed": "失敗",
+    "cancelled": "キャンセル済",
+    "interrupted": "中断"
+  },
+  "phase": {
+    "preflight": "空き容量を確認しています",
+    "ticket": "チケットを書き込んでいます",
+    "meta": "メタデータを書き込んでいます",
+    "content": "コンテンツをコピーしています",
+    "commit": "仕上げています",
+    "record": "登録しています"
+  },
+  "progress": {
+    "installing": "インストール中",
+    "starting": "開始しています…",
+    "cancel_hint": "Bボタンでキャンセル",
+    "continue_hint": "Aボタンで続行",
+    "failed": "{}をインストールできませんでした"
+  },
+  "notify": {
+    "installing": "{} をインストールしています",
+    "installed": "{} をインストールしました",
+    "cancelled": "{} をキャンセルしました"
   },
   "updates": {
-    "intro": "ライブラリ側が新しい更新データです。"
+    "intro": "ライブラリ側が新しい更新データです。",
+    "empty": "インストール済のソフトに、ライブラリ内の新しい更新データはありません。"
   },
   "missing": {
     "intro": "ライブラリにあるが、このSwitchには入っていない本体ソフトです。",
     "empty": "ライブラリの本体ソフトはすべてインストール済みです。"
   },
+  "installed": {
+    "console": "この本体",
+    "firmware": "ファームウェア",
+    "ams": "Atmosphère",
+    "free": "{} / {} 空き",
+    "free_only": "{} 空き",
+    "other": "その他",
+    "empty": "このSwitchには何もインストールされていません。"
+  },
   "queue": {
     "empty": "ジョブはありません。Webから送るか、ライブラリからインストールしてください。",
-    "cancel": "このインストールをキャンセルしますか？"
+    "cancel": "このインストールをキャンセルしますか？",
+    "cancel_now": "インストールをキャンセル",
+    "start": "このインストールを今すぐ開始しますか？",
+    "start_now": "今すぐ開始",
+    "left": "残り {}"
   },
   "settings": {
-    "url": "サーバー",
+    "server": "サーバー",
+    "installs": "インストール",
+    "app": "アプリ",
     "name": "このSwitch",
     "repair": "再ペアリング",
     "forget": "このサーバーを忘れる",
+    "forget_confirm": "このサーバーを忘れて、次回もう一度ペアリングしますか？",
+    "target": "デフォルトの保存先",
+    "verify": "NCAハッシュを検証",
     "version": "アプリのバージョン",
     "update": "更新を確認",
-    "update_checking": "署名付きの最新リリースを確認しています…",
     "update_none": "すでに最新の署名付きリリースです。",
     "update_available": "GitHubに新しい署名付きビルドがあります。ダウンロードして置き換えますか？",
     "update_available_server": "ライブラリサーバーに新しい署名付きビルドがあります。ダウンロードして置き換えますか？",
     "update_done": "更新しました。Homebrew MenuからNSLibraryを再起動してください。",
-    "target": "デフォルトの保存先",
-    "verify": "NCAハッシュを検証"
+    "update_check_server": "ライブラリサーバーの更新を確認しています",
+    "update_check_github": "GitHubの更新を確認しています",
+    "update_downloading": "NSLibrary {} をダウンロードしています",
+    "update_downloading_server": "ライブラリから NSLibrary {} をダウンロードしています",
+    "log": "ログファイル"
   }
 }

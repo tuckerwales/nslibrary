@@ -2,9 +2,12 @@
 
 #include "app/session.hpp"
 #include "ui/detail.hpp"
+#include "ui/format.hpp"
+#include "ui/widgets.hpp"
 
 #include <borealis.hpp>
 #include <unordered_set>
+#include <vector>
 
 using namespace brls::literals;
 
@@ -17,35 +20,34 @@ MissingTab::MissingTab() {
 
 void MissingTab::rebuild() {
     auto* list = dynamic_cast<brls::Box*>(this->getView("list"));
-    auto* status = dynamic_cast<brls::Label*>(this->getView("status"));
-    if (status) status->setText("app/missing/intro"_i18n);
-    if (!list) return;
 
     std::unordered_set<std::string> installed;
     for (const auto& t : Session::instance().installedSnapshot().titles) {
         if (t.type == "application") installed.insert(t.titleId);
     }
-    const auto catalog = Session::instance().catalogSnapshot();
+    std::vector<CatalogApp> missing;
+    for (const auto& app : Session::instance().catalogSnapshot()) {
+        if (!app.base) continue;
+        if (installed.count(app.id)) continue;
+        missing.push_back(app);
+    }
+
+    setHeader(dynamic_cast<brls::Header*>(this->getView("header")), "app/tabs/missing"_i18n, missing.size());
+    setStatusLine(dynamic_cast<brls::Label*>(this->getView("status")),
+        missing.empty() ? "" : "app/missing/intro"_i18n);
+    if (!list) return;
 
     replaceChildren(list, [&](brls::Box* box) {
-        int shown = 0;
-        for (const auto& app : catalog) {
-            if (!app.base) continue;
-            if (installed.count(app.id)) continue;
-            auto* cell = new brls::DetailCell();
-            cell->setText(app.name.empty() ? app.id : app.name);
-            cell->setDetailText(app.id);
-            cell->registerClickAction([app](brls::View*) {
+        if (missing.empty()) {
+            box->addView(makeEmptyState("app/missing/empty"_i18n));
+            return;
+        }
+        for (const auto& app : missing) {
+            const std::string detail = app.base ? formatSize(app.base->size) : app.id;
+            box->addView(makeCell(cleanTitleName(app.name.empty() ? app.id : app.name), detail, [app](brls::View*) {
                 brls::Application::pushActivity(new TitleDetailActivity(app));
                 return true;
-            });
-            box->addView(cell);
-            shown++;
-        }
-        if (shown == 0) {
-            auto* empty = new brls::Label();
-            empty->setText("app/missing/empty"_i18n);
-            box->addView(empty);
+            }));
         }
     });
 }

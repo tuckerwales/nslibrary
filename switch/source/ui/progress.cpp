@@ -1,10 +1,11 @@
 #include "ui/progress.hpp"
 
 #include "app/session.hpp"
+#include "ui/format.hpp"
+#include "ui/widgets.hpp"
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
 #include <thread>
 #include <borealis.hpp>
 #include <borealis/core/font.hpp>
@@ -14,6 +15,8 @@
 #include <switch.h>
 #endif
 
+using namespace brls::literals;
+
 namespace nslib {
 namespace {
 
@@ -21,6 +24,7 @@ struct ProgressUi {
     std::string title;
     std::string detail;
     std::string warning;
+    double bps = 0;
     std::function<void()> onCancel;
     std::function<void()> tick;
     std::chrono::steady_clock::time_point lastTick{};
@@ -64,6 +68,14 @@ void runProgressTick(std::chrono::steady_clock::time_point now) {
     g.ticking = false;
 }
 
+void drawText(NVGcontext* vg, float x, float y, float size, NVGcolor color, int align, const std::string& text) {
+    if (text.empty()) return;
+    nvgFontSize(vg, size);
+    nvgTextAlign(vg, align);
+    nvgFillColor(vg, color);
+    nvgText(vg, x, y, text.c_str(), nullptr);
+}
+
 void drawOverlay() {
     auto* platform = brls::Application::getPlatform();
     if (!platform) return;
@@ -85,11 +97,13 @@ void drawOverlay() {
     const float cx = cw * 0.5f;
     const float cy = ch * 0.5f;
 
+    const NVGcolor white = nvgRGB(255, 255, 255);
+    const NVGcolor grey = nvgRGB(170, 170, 176);
+    const NVGcolor accent = nvgRGB(0, 186, 163);
+    const int center = NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE;
+
     nvgFontFaceId(vg, brls::Application::getFont(brls::FONT_REGULAR));
-    nvgFontSize(vg, 28);
-    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-    nvgFillColor(vg, nvgRGB(255, 255, 255));
-    nvgText(vg, cx, cy - 90, g.title.empty() ? "Installing" : g.title.c_str(), nullptr);
+    drawText(vg, cx, cy - 120, 28, white, center, g.title.empty() ? "app/progress/installing"_i18n : g.title);
 
     if (g.result == ProgressUi::Result::Failed) {
         // Install errors can run long, so wrap them instead of drawing one clipped line.
@@ -97,56 +111,48 @@ void drawOverlay() {
         nvgFontSize(vg, 20);
         nvgFillColor(vg, nvgRGB(255, 120, 110));
         nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-        nvgTextBox(vg, cx - boxw * 0.5f, cy - 44, boxw, g.detail.c_str(), nullptr);
-        nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-        nvgFontSize(vg, 18);
-        nvgFillColor(vg, nvgRGB(160, 160, 160));
-        nvgText(vg, cx, cy + 118, "Press A to continue", nullptr);
+        nvgTextBox(vg, cx - boxw * 0.5f, cy - 90, boxw, g.detail.c_str(), nullptr);
+        drawText(vg, cx, ch - 60, 18, grey, center, "app/progress/continue_hint"_i18n);
         nvgEndFrame(vg);
         video->endFrame();
         return;
     }
 
-    nvgFontSize(vg, 20);
-    nvgFillColor(vg, nvgRGB(200, 200, 200));
-    if (g.result == ProgressUi::Result::None || !g.detail.empty())
-        nvgText(vg, cx, cy - 44, g.detail.empty() ? "…" : g.detail.c_str(), nullptr);
+    drawText(vg, cx, cy - 78, 20, grey, center, g.detail);
 
-    const float barw = 640;
-    const float barh = 18;
+    const float barw = 760;
+    const float barh = 22;
     const float barx = cx - barw * 0.5f;
-    const float bary = cy + 8;
+    const float bary = cy - 30;
     nvgBeginPath(vg);
-    nvgRoundedRect(vg, barx, bary, barw, barh, 4);
-    nvgFillColor(vg, nvgRGB(48, 48, 56));
+    nvgRoundedRect(vg, barx, bary, barw, barh, barh * 0.5f);
+    nvgFillColor(vg, nvgRGB(46, 46, 54));
     nvgFill(vg);
 
     float ratio = 0;
     if (g.total > 0) ratio = std::min(1.f, float(double(g.done) / double(g.total)));
     if (ratio > 0) {
+        // Never narrower than the rounded cap, so 1% still looks like a bar rather than a sliver.
+        const float fill = std::max(barh, barw * ratio);
         nvgBeginPath(vg);
-        nvgRoundedRect(vg, barx, bary, barw * ratio, barh, 4);
-        nvgFillColor(vg, nvgRGB(0, 186, 163));
+        nvgRoundedRect(vg, barx, bary, fill, barh, barh * 0.5f);
+        nvgFillColor(vg, accent);
         nvgFill(vg);
     }
 
-    if (g.total > 0) {
-        char pct[32];
-        std::snprintf(pct, sizeof(pct), "%.0f%%", double(ratio) * 100.0);
-        nvgFontSize(vg, 18);
-        nvgFillColor(vg, nvgRGB(220, 220, 220));
-        nvgText(vg, cx, cy + 48, pct, nullptr);
-    }
+    const float under = bary + barh + 24;
+    const std::string amount = (g.done || g.total) ? formatOfTotal(g.done, g.total) : std::string();
+    drawText(vg, barx, under, 18, grey, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE, amount);
+    drawText(vg, barx + barw, under, 18, white, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE, formatPercent(g.done, g.total));
 
-    if (!g.warning.empty()) {
-        nvgFontSize(vg, 18);
-        nvgFillColor(vg, nvgRGB(255, 196, 0));
-        nvgText(vg, cx, cy + 118, g.warning.c_str(), nullptr);
-    }
+    std::string pace = formatRate(g.bps);
+    const std::string eta = g.total > g.done ? formatEta(double(g.total - g.done), g.bps) : std::string();
+    if (!eta.empty()) pace += (pace.empty() ? "" : "   ") + brls::getStr("app/queue/left", eta);
+    drawText(vg, cx, under + 36, 18, grey, center, pace);
 
-    nvgFontSize(vg, 18);
-    nvgFillColor(vg, nvgRGB(160, 160, 160));
-    nvgText(vg, cx, cy + 84, g.result == ProgressUi::Result::Ok ? "Press A to continue" : "Press B to cancel", nullptr);
+    drawText(vg, cx, under + 78, 18, nvgRGB(255, 196, 0), center, g.warning);
+    drawText(vg, cx, ch - 60, 18, grey, center,
+             g.result == ProgressUi::Result::Ok ? "app/progress/continue_hint"_i18n : "app/progress/cancel_hint"_i18n);
 
     nvgEndFrame(vg);
     video->endFrame();
@@ -167,12 +173,10 @@ void pumpProgressUi(bool force, bool runTick) {
 
     auto p = Session::instance().progressSnapshot();
     if (!g.onCancel && !p.phase.empty()) {
-        char line[160];
-        std::snprintf(line, sizeof(line), "%s  %llu / %llu", p.phase.c_str(),
-            static_cast<unsigned long long>(p.done), static_cast<unsigned long long>(p.total));
-        g.detail = line;
+        g.detail = tr(installPhaseKey(p.phase), p.phase);
         g.done = p.done;
         g.total = p.total;
+        g.bps = p.bps;
     }
 
 #ifdef __SWITCH__
@@ -202,9 +206,10 @@ void showProgress(const std::string& title, std::function<void()> onCancel) {
     g.warning.clear();
     g.result = ProgressUi::Result::None;
     g.title = title;
-    g.detail = "Starting…";
+    g.detail = "app/progress/starting"_i18n;
     g.done = 0;
     g.total = 0;
+    g.bps = 0;
     pumpProgressUi(true);
 }
 
@@ -234,6 +239,7 @@ void showProgressResult(bool ok, const std::string& title, const std::string& de
     g.warning.clear();
     g.title = title;
     g.detail = detail;
+    g.bps = 0;
     if (ok) {
         if (g.total == 0) g.total = 1;
         g.done = g.total;
@@ -279,6 +285,7 @@ void hideProgress() {
     g.detail.clear();
     g.done = 0;
     g.total = 0;
+    g.bps = 0;
 }
 
 } // namespace nslib

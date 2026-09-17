@@ -47,8 +47,10 @@ CI builds the same target in `devkitpro/devkita64` and uploads the artifact.
 2. In the web UI, open **Devices** and generate a pairing code.
 3. On the Switch, launch NSLibrary. **Look for servers**, or type `http://<host>:8465` (or your HTTPS URL).
 4. Enter the 6-digit code.
-5. Browse **Library** (icon grid). Open a title for base / update / DLC, then pick **SD card**, **NAND**, or **Auto**.
-6. Jobs queued from the web (**Send to Switch**) are picked up by the long-poll. Open **Queue** and press A to cancel.
+5. Browse **Library** (icon grid; each tile says whether that game is already on the console). Open a title for its base game, updates, and DLC, then pick **SD card**, **System memory**, or **Automatic**. The storage chosen in Settings is offered first.
+6. Jobs queued from the web (**Send to Switch**) are picked up by the long-poll. Open **Queue** and press A to start a waiting job or cancel a running one.
+
+**Updates** lists library updates newer than what is installed, **Installed** groups this console's games, updates, and DLC (with firmware, Atmosphère, and free space at the top), and **Not installed** lists library base games this Switch does not have.
 
 USB: on the Connect screen choose **USB cable** while NSLibrary is running on the computer (Electron, or Docker on Linux with `/dev/bus/usb`). Windows needs [WinUSB](windows-usb-driver.md).
 

@@ -23,6 +23,7 @@ public:
 private:
     int64_t builtRev_ = -1;
     size_t builtCount_ = 0;
+    size_t builtInstalled_ = 0;
 };
 
 class UpdatesTab : public brls::Box {

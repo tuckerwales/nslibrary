@@ -4,6 +4,7 @@
 #include "app/session.hpp"
 #include "ui/connect.hpp"
 #include "ui/pair.hpp"
+#include "ui/widgets.hpp"
 
 #include <borealis.hpp>
 #include <string>
@@ -13,6 +14,9 @@ using namespace brls::literals;
 namespace nslib {
 
 namespace {
+
+// Self-update lives behind the Switch build: AvailableUpdate and the update client are libnx-only.
+#ifdef __SWITCH__
 
 void offerUpdate(const AvailableUpdate& found) {
     const char* key = found.fromServer ? "app/settings/update_available_server" : "app/settings/update_available";
@@ -72,28 +76,35 @@ void checkForUpdates() {
     }
 }
 
+#endif
+
 } // namespace
 
 SettingsTab::SettingsTab() {
     this->inflateFromXMLRes("xml/tabs/list.xml");
     auto* list = dynamic_cast<brls::Box*>(this->getView("list"));
-    auto* status = dynamic_cast<brls::Label*>(this->getView("status"));
     auto& session = Session::instance();
-    if (status) status->setText(session.settings.useUsb ? std::string("app/connect/usb"_i18n) : session.settings.url);
+    setHeader(dynamic_cast<brls::Header*>(this->getView("header")), "app/tabs/settings"_i18n, 0);
+    setStatusLine(dynamic_cast<brls::Label*>(this->getView("status")), "");
     if (!list) return;
 
-    auto* url = new brls::InputCell();
-    url->init("app/settings/url"_i18n, session.settings.url, [](std::string text) {
-        if (text.empty()) return;
-        brls::sync([text] {
-            auto& s = Session::instance();
-            s.setUrl(text);
-            // Same server keeps its token; a different one drops it and needs pairing.
-            if (s.hasToken()) enterPairedSession();
-            else showScreen(Screen::Pair);
-        });
-    }, "https://…", "", 80);
-    list->addView(url);
+    list->addView(makeHeader("app/settings/server"_i18n));
+    if (session.settings.useUsb) {
+        list->addView(makeInfoCell("app/connect/address"_i18n, "app/connect/usb"_i18n));
+    } else {
+        auto* url = new brls::InputCell();
+        url->init("app/connect/address"_i18n, session.settings.url, [](std::string text) {
+            if (text.empty()) return;
+            brls::sync([text] {
+                auto& s = Session::instance();
+                s.setUrl(text);
+                // Same server keeps its token; a different one drops it and needs pairing.
+                if (s.hasToken()) enterPairedSession();
+                else showScreen(Screen::Pair);
+            });
+        }, "https://…", "", 80);
+        list->addView(url);
+    }
 
     auto* name = new brls::InputCell();
     name->init("app/settings/name"_i18n, session.settings.name, [](std::string text) {
@@ -103,12 +114,31 @@ SettingsTab::SettingsTab() {
     }, "", "", 32);
     list->addView(name);
 
+    list->addView(makeCell("app/settings/repair"_i18n, "", [](brls::View*) {
+        brls::Application::pushActivity(new PairActivity());
+        return true;
+    }));
+
+    list->addView(makeCell("app/settings/forget"_i18n, "", [](brls::View*) {
+        auto* dialog = new brls::Dialog("app/settings/forget_confirm"_i18n);
+        dialog->addButton("app/settings/forget"_i18n, [] {
+            brls::sync([] {
+                Session::instance().forgetDevice();
+                showScreen(Screen::Connect);
+            });
+        });
+        dialog->addButton("hints/back"_i18n, [] {});
+        dialog->open();
+        return true;
+    }));
+
+    list->addView(makeHeader("app/settings/installs"_i18n));
     int targetSel = 0;
     if (session.settings.defaultTarget == "nand") targetSel = 1;
     else if (session.settings.defaultTarget == "auto") targetSel = 2;
     auto* target = new brls::SelectorCell();
     target->init("app/settings/target"_i18n,
-        {"app/detail/sd"_i18n, "app/detail/nand"_i18n, "app/detail/auto"_i18n}, targetSel, [](int i) {
+        {"app/storage/sd"_i18n, "app/storage/nand"_i18n, "app/storage/auto"_i18n}, targetSel, [](int i) {
             static const char* k[] = {"sd", "nand", "auto"};
             Session::instance().settings.defaultTarget = k[i];
             Session::instance().settings.save();
@@ -122,45 +152,15 @@ SettingsTab::SettingsTab() {
     });
     list->addView(hash);
 
-    auto* pair = new brls::DetailCell();
-    pair->setText("app/settings/repair"_i18n);
-    pair->registerClickAction([](brls::View*) {
-        brls::Application::pushActivity(new PairActivity());
-        return true;
-    });
-    list->addView(pair);
-
-    auto* forget = new brls::DetailCell();
-    forget->setText("app/settings/forget"_i18n);
-    forget->registerClickAction([](brls::View*) {
-        brls::sync([] {
-            Session::instance().forgetDevice();
-            showScreen(Screen::Connect);
-        });
-        return true;
-    });
-    list->addView(forget);
-
-    auto* ver = new brls::DetailCell();
-    ver->setText("app/settings/version"_i18n);
-    ver->setDetailText(NSLIB_VERSION);
-    list->addView(ver);
-
-    auto* log = new brls::DetailCell();
-    log->setText("app/settings/log"_i18n);
-    log->setDetailText(fileLogPath());
-    list->addView(log);
-
-    auto* update = new brls::DetailCell();
-    update->setText("app/settings/update"_i18n);
-    update->setDetailText(NSLIB_VERSION);
-    update->registerClickAction([](brls::View*) {
+    list->addView(makeHeader("app/settings/app"_i18n));
+    list->addView(makeInfoCell("app/settings/version"_i18n, NSLIB_VERSION));
+    list->addView(makeCell("app/settings/update"_i18n, "", [](brls::View*) {
 #ifdef __SWITCH__
         brls::sync([] { checkForUpdates(); });
 #endif
         return true;
-    });
-    list->addView(update);
+    }));
+    list->addView(makeInfoCell("app/settings/log"_i18n, fileLogPath()));
 }
 
 brls::View* SettingsTab::create() { return new SettingsTab(); }
