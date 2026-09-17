@@ -20,6 +20,8 @@ import { TitledbService } from "./titledb/service";
 const MISSING_FILE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const STALE_JOB_SWEEP_INTERVAL_MS = 60 * 1000;
+const TITLEDB_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const TITLEDB_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export interface NslibServer {
   app: FastifyInstance;
@@ -72,6 +74,7 @@ export async function createServer(
     catalogRev: () => repo.catalogRev(),
     nroPath: config.nroPath,
     tls: Boolean(config.tlsKey && config.tlsCert),
+    titledbEnabled: () => titledb.enabled(),
   });
   const discovery =
     config.discoveryPort === null
@@ -102,6 +105,16 @@ export async function createServer(
 
   let maintenance: NodeJS.Timeout | null = null;
   let staleJobSweep: NodeJS.Timeout | null = null;
+  let titledbCheck: NodeJS.Timeout | null = null;
+  const refreshTitledb = () =>
+    titledb
+      .refreshIfStale(TITLEDB_MAX_AGE_MS)
+      .then((refreshed) => {
+        if (!refreshed) return;
+        repo.bumpCatalogRev();
+        events.publish({ type: "library.changed", rev: repo.catalogRev() });
+      })
+      .catch((err) => log("Scheduled titledb refresh failed", err));
   let usbHost: { stop(): Promise<void> } | null = null;
   const runMaintenance = () => {
     repo.purgeMissing(MISSING_FILE_RETENTION_MS);
@@ -129,6 +142,9 @@ export async function createServer(
         STALE_JOB_SWEEP_INTERVAL_MS,
       );
       staleJobSweep.unref();
+      void refreshTitledb();
+      titledbCheck = setInterval(() => void refreshTitledb(), TITLEDB_CHECK_INTERVAL_MS);
+      titledbCheck.unref();
       if (discovery) {
         await discovery.start().catch((err) => log("UDP discovery failed to bind", err));
       }
@@ -153,6 +169,7 @@ export async function createServer(
     async close() {
       if (maintenance) clearInterval(maintenance);
       if (staleJobSweep) clearInterval(staleJobSweep);
+      if (titledbCheck) clearInterval(titledbCheck);
       await usbHost?.stop();
       usbHost = null;
       await discovery?.close();

@@ -122,7 +122,7 @@ export class LibraryRepository {
       .where(eq(libraryRoots.id, id))
       .returning()
       .get();
-    if (updated && patch.enabled !== undefined) this.#bumpCatalogRev();
+    if (updated && patch.enabled !== undefined) this.bumpCatalogRev();
     return updated;
   }
 
@@ -138,7 +138,7 @@ export class LibraryRepository {
       const removed = this.removedRootPaths();
       removed.add(deleted.path);
       this.#saveRemovedRootPaths(removed);
-      this.#bumpCatalogRev();
+      this.bumpCatalogRev();
       return true;
     });
   }
@@ -303,7 +303,7 @@ export class LibraryRepository {
         result.changed = true;
       }
 
-      if (result.changed) this.#bumpCatalogRev();
+      if (result.changed) this.bumpCatalogRev();
       return result;
     });
   }
@@ -330,7 +330,7 @@ export class LibraryRepository {
             })
             .where(eq(files.id, row.id))
             .run();
-          this.#bumpCatalogRev();
+          this.bumpCatalogRev();
         }
         return {
           fileId: row.id,
@@ -378,7 +378,7 @@ export class LibraryRepository {
           .returning({ id: files.id })
           .get().id;
       }
-      this.#bumpCatalogRev();
+      this.bumpCatalogRev();
       return { fileId, needsParse: true, changed: true };
     });
   }
@@ -393,7 +393,7 @@ export class LibraryRepository {
       .set({ missingSince: this.#now() })
       .where(and(eq(files.rootId, rootId), isNull(files.missingSince), pathMatch))
       .run();
-    if (result.changes > 0) this.#bumpCatalogRev();
+    if (result.changes > 0) this.bumpCatalogRev();
     return result.changes;
   }
 
@@ -486,7 +486,7 @@ export class LibraryRepository {
         })
         .where(eq(files.id, fileId))
         .run();
-      this.#bumpCatalogRev();
+      this.bumpCatalogRev();
     });
   }
 
@@ -496,7 +496,7 @@ export class LibraryRepository {
       .delete(files)
       .where(and(isNotNull(files.missingSince), lt(files.missingSince, this.#now() - maxAgeMs)))
       .run();
-    if (result.changes > 0) this.#bumpCatalogRev();
+    if (result.changes > 0) this.bumpCatalogRev();
     return result.changes;
   }
 
@@ -512,7 +512,7 @@ export class LibraryRepository {
       })
       .where(isNull(files.missingSince))
       .run();
-    if (result.changes > 0) this.#bumpCatalogRev();
+    if (result.changes > 0) this.bumpCatalogRev();
     return result.changes;
   }
 
@@ -533,7 +533,8 @@ export class LibraryRepository {
     return row ? Number(row.value) : 0;
   }
 
-  #bumpCatalogRev(): void {
+  /** Tells devices the catalog changed, e.g. when titledb data it depends on changes. */
+  bumpCatalogRev(): void {
     this.db
       .insert(settings)
       .values({ key: CATALOG_REV_KEY, value: "1" })

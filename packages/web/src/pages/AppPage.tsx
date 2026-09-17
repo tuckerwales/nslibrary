@@ -222,6 +222,9 @@ export function AppPage() {
                         {content.applicationIdSource === "guess" && (
                           <span className="text-sm text-dlc">Matched by title ID</span>
                         )}
+                        {content.applicationIdSource === "titledb" && (
+                          <span className="text-sm text-muted">Matched by title database</span>
+                        )}
                       </div>
                     )}
                     <ul>

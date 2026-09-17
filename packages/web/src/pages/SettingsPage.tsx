@@ -7,6 +7,7 @@ import {
   usePutSettings,
   useSaveTitledb,
   useServerSettings,
+  useSetTitledbEnabled,
   useTitledb,
 } from "../api";
 import { Button } from "../components/Button";
@@ -154,6 +155,7 @@ function ForwarderSection() {
 function TitledbSection() {
   const titledb = useTitledb();
   const save = useSaveTitledb();
+  const setEnabled = useSetTitledbEnabled();
   const [source, setSource] = useState<string | null>(null);
   const titledbSource = source ?? titledb.data?.source ?? "";
 
@@ -166,8 +168,9 @@ function TitledbSection() {
     <section className="mt-12 max-w-2xl">
       <h2 className="text-xl">Title database</h2>
       <p className="mt-2 text-muted">
-        Optional. A JSON file or URL you supply, used only for names, descriptions, and the latest
-        known version. NSLibrary never downloads games from it.
+        Optional. A JSON file or URL you supply, used only for names, which game DLC belongs to, and
+        the latest known version. A URL is refreshed once a day. NSLibrary never downloads games
+        from it.
       </p>
       {titledb.error ? (
         <LoadError error={titledb.error} />
@@ -182,6 +185,17 @@ function TitledbSection() {
           .
         </p>
       ) : null}
+      {titledb.data && (
+        <div className="mt-4">
+          <Switch
+            label="Use the title database"
+            hint="Off keeps the downloaded data but shows only what your files and keys provide."
+            checked={titledb.data.enabled}
+            disabled={setEnabled.isPending}
+            onChange={(enabled) => setEnabled.mutate(enabled)}
+          />
+        </div>
+      )}
 
       <form onSubmit={onSubmit} className="mt-4">
         <label htmlFor="titledb-source" className="block text-sm font-semibold">

@@ -481,5 +481,61 @@ describe("web API", () => {
         flags: expect.arrayContaining(["update-available"]),
       });
     });
+
+    it("maps DLC to its base game and names it from titledb, and can be turned off", async () => {
+      const session = await setUp();
+      const library = join(dir, "tdb-dlc");
+      const DLC = "0100ABCDEF013001";
+      const REAL_BASE = "0100AAAABBBB0000";
+      await mkdir(library, { recursive: true });
+      await writeFile(join(library, `bonus [${DLC}][v0].nsp`), fakeNsp({ tickets: [DLC] }));
+      const root = (
+        await call("POST", "/roots", { session, body: { path: library } })
+      ).json<LibraryRoot>();
+      await server.scanner.scanRoot(root.id);
+      // Without titledb the base game is guessed from the DLC's title ID.
+      expect((await call("GET", "/apps", { session })).json<AppSummary[]>()).toMatchObject([
+        { applicationId: BASE, flags: expect.arrayContaining(["guessed-dlc-base"]) },
+      ]);
+
+      // Keyed by eShop ID with the title ID in `id`, like blawar's region files.
+      const titledbPath = join(dir, "titles.US.en.json");
+      await writeFile(
+        titledbPath,
+        JSON.stringify({
+          "70010000000001": { id: REAL_BASE, name: "Real Base Game", version: 65536 },
+          "70050000000002": { id: DLC, name: "Bonus Pack", baseId: REAL_BASE },
+          "70010000000003": { id: "not a title id", name: "Ignored" },
+        }),
+      );
+      await call("PUT", "/titledb", { session, body: { source: titledbPath } });
+      const revBefore = server.repo.catalogRev();
+      const refreshed = (await call("POST", "/titledb/refresh", { session })).json<TitledbStatus>();
+      expect(refreshed).toMatchObject({ titleCount: 2, lastError: null, enabled: true });
+      expect(server.repo.catalogRev()).toBeGreaterThan(revBefore);
+
+      const mapped = (await call("GET", "/apps", { session })).json<AppSummary[]>();
+      expect(mapped).toMatchObject([{ applicationId: REAL_BASE, name: "Real Base Game" }]);
+      expect(mapped[0]?.flags).not.toContain("guessed-dlc-base");
+      const detail = (await call("GET", `/apps/${REAL_BASE}`, { session })).json<AppDetail>();
+      expect(detail.contents).toMatchObject([
+        { titleId: DLC, name: "Bonus Pack", applicationIdSource: "titledb" },
+      ]);
+      const catalog = server.devices.getCatalog({});
+      expect(catalog.apps).toMatchObject([
+        {
+          i: REAL_BASE,
+          n: "Real Base Game",
+          d: [[DLC, 0, "Bonus Pack", expect.any(Number), expect.any(Number)]],
+        },
+      ]);
+
+      const off = await call("PUT", "/titledb", { session, body: { enabled: false } });
+      expect(off.json<TitledbStatus>()).toMatchObject({ enabled: false, titleCount: 2 });
+      expect((await call("GET", "/apps", { session })).json<AppSummary[]>()).toMatchObject([
+        { applicationId: BASE, name: "bonus" },
+      ]);
+      expect((await call("GET", `/apps/${REAL_BASE}`, { session })).statusCode).toBe(404);
+    });
   });
 });

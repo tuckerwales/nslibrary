@@ -8,7 +8,7 @@ There are no download sources, no shop scraping, and no title keys handed out. K
 
 - **Library server** — Fastify + SQLite. Walks library folders (read-only), watches for changes, and groups base games, updates, DLC, and homebrew.
 - **Web UI** — React app served by the same process: library, homebrew, problems, devices, folders, and settings.
-- **Metadata** — Container listings and tickets need no keys. Names, icons, firmware requirements, and NCA hashes need `prod.keys` dumped from your console. Optional titledb (a URL or file you supply) fills in names and latest-version numbers only.
+- **Metadata** — Container listings and tickets need no keys. Names, icons, firmware requirements, and NCA hashes need `prod.keys` dumped from your console. Optional titledb (a URL or file you supply, refreshed daily if it's a URL) fills in names, which game DLC belongs to, and latest-version numbers only.
 - **Device API** — A paired Switch browses the catalog and claims install jobs. The console always initiates; “Send to Switch” queues work for it to pick up.
 - **Discovery** — UDP `NSLIB?1` on port 8466. You can always type an IP by hand.
 - **USB** — A Switch plugged into the computer running NSLibrary (Electron, or Docker on Linux with device passthrough) uses the same device API inside `NSLU` frames. Transfers time out so cancel and unplug can interrupt a job.

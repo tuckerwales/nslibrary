@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { applications, contentMetas, files, libraryRoots } from "../db/schema";
 import { pickPreferred } from "../library/prefer";
+import { tdbApp, tdbTitle, titledbJoin } from "../library/titledb-join";
 
 const DEFAULT_LIMIT = 200;
 
@@ -22,27 +23,30 @@ interface CatalogRow {
   appIconKey: string | null;
 }
 
-function loadRows(db: Db): CatalogRow[] {
+function loadRows(db: Db, titledb: boolean): CatalogRow[] {
+  const tdb = titledbJoin(titledb);
   return db
     .select({
       metaId: contentMetas.id,
       titleId: contentMetas.titleId,
       version: contentMetas.version,
       type: contentMetas.type,
-      applicationId: contentMetas.applicationId,
-      displayName: contentMetas.displayName,
+      applicationId: tdb.applicationId,
+      displayName: tdb.displayName,
       requiredSystemVersion: contentMetas.requiredSystemVersion,
       fileId: files.id,
       format: files.format,
       size: files.size,
-      appName: applications.name,
-      appPublisher: applications.publisher,
+      appName: tdb.appName,
+      appPublisher: tdb.appPublisher,
       appIconKey: applications.iconKey,
     })
     .from(contentMetas)
     .innerJoin(files, eq(files.id, contentMetas.fileId))
     .innerJoin(libraryRoots, eq(libraryRoots.id, files.rootId))
-    .leftJoin(applications, eq(applications.applicationId, contentMetas.applicationId))
+    .leftJoin(tdbTitle, tdb.titleOn)
+    .leftJoin(applications, tdb.applicationOn)
+    .leftJoin(tdbApp, tdb.appOn)
     .where(and(isNull(files.missingSince), eq(libraryRoots.enabled, true)))
     .all();
 }
@@ -125,8 +129,8 @@ function toApp(applicationId: string, rows: CatalogRow[], preferCompressed: bool
   };
 }
 
-export function buildCatalogApps(db: Db, preferCompressed: boolean): CatalogApp[] {
-  const byApp = groupBy(loadRows(db), (row) => row.applicationId);
+export function buildCatalogApps(db: Db, preferCompressed: boolean, titledb = false): CatalogApp[] {
+  const byApp = groupBy(loadRows(db, titledb), (row) => row.applicationId);
   return [...byApp]
     .map(([id, rows]) => toApp(id, rows, preferCompressed))
     .sort((a, b) => a.i.localeCompare(b.i));

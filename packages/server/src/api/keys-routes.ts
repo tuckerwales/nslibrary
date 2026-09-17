@@ -46,14 +46,22 @@ export async function registerKeysRoutes(api: FastifyInstance, ctx: AppContext):
 
   api.get("/titledb", async (): Promise<TitledbStatus> => ctx.titledb.status());
 
+  const titledbChanged = () => {
+    ctx.repo.bumpCatalogRev();
+    ctx.events.publish({ type: "library.changed", rev: ctx.repo.catalogRev() });
+  };
+
   api.put("/titledb", async (request): Promise<TitledbStatus> => {
     const body = parseWith(TitledbConfigSchema, request.body);
-    return ctx.titledb.configure(body);
+    const wasEnabled = ctx.titledb.enabled();
+    const status = ctx.titledb.configure(body);
+    if (status.enabled !== wasEnabled) titledbChanged();
+    return status;
   });
 
   api.post("/titledb/refresh", async (): Promise<TitledbStatus> => {
     const status = await ctx.titledb.refresh();
-    ctx.events.publish({ type: "library.changed", rev: ctx.repo.catalogRev() });
+    if (status.lastError === null) titledbChanged();
     return status;
   });
 

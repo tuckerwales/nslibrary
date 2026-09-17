@@ -100,6 +100,8 @@ export interface DeviceApiOptions {
   catalogRev: () => number;
   nroPath?: string | null;
   tls?: boolean;
+  /** Whether the title database is applied to the catalog. */
+  titledbEnabled?: () => boolean;
 }
 
 export interface ServerUpdate {
@@ -128,6 +130,7 @@ export class DeviceApiService {
   readonly #serverName: string;
   readonly #catalogRev: () => number;
   readonly #nroPath: string | null;
+  readonly #titledbEnabled: () => boolean;
   #nroHash: { key: string; sha256: string } | null = null;
   readonly tls: boolean;
   readonly #waiters = new Map<number, number>();
@@ -143,6 +146,7 @@ export class DeviceApiService {
     this.#serverName = options.serverName;
     this.#catalogRev = options.catalogRev;
     this.#nroPath = options.nroPath ?? null;
+    this.#titledbEnabled = options.titledbEnabled ?? (() => false);
     this.tls = options.tls ?? false;
     this.#serverId = this.#loadOrCreateServerId();
     this.#events.subscribe((event) => {
@@ -454,7 +458,7 @@ export class DeviceApiService {
   }
 
   getCatalog(query: CatalogQuery): CatalogResponse {
-    const apps = buildCatalogApps(this.#db, this.preferNsz());
+    const apps = buildCatalogApps(this.#db, this.preferNsz(), this.#titledbEnabled());
     return paginateCatalog(apps, this.#catalogRev(), query);
   }
 

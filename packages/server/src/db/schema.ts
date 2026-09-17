@@ -5,7 +5,8 @@ const PARSE_STATUSES = ["pending", "ok", "unidentified", "error"] as const;
 const METADATA_SOURCES = ["filename", "ticket", "cnmt", "nacp"] as const;
 const VERIFY_STATUSES = ["unverified", "ok", "bad", "partial"] as const;
 const CONTENT_TYPES = ["application", "patch", "addon"] as const;
-const APPLICATION_ID_SOURCES = ["exact", "derived", "guess"] as const;
+// "titledb" is only ever computed when reading (library/titledb-join.ts), never stored.
+const APPLICATION_ID_SOURCES = ["exact", "derived", "guess", "titledb"] as const;
 const ENTRY_KINDS = ["cnmt", "nca", "ncz", "tik", "cert", "other"] as const;
 const TRANSPORTS = ["http", "usb"] as const;
 const JOB_STATUSES = [

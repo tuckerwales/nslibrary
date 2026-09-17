@@ -38,22 +38,33 @@ const AppParamsSchema = z.object({
 const IconParamsSchema = z.object({ key: z.string().regex(/^[0-9a-f]{32}$/) });
 
 export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContext): Promise<void> {
-  api.get("/stats", async () => getStats(ctx.db, ctx.repo.catalogRev(), ctx.keys.hasConsoleKeys()));
+  api.get("/stats", async () =>
+    getStats(ctx.db, ctx.repo.catalogRev(), {
+      keysConfigured: ctx.keys.hasConsoleKeys(),
+      titledb: ctx.titledb.enabled(),
+    }),
+  );
 
   api.get("/apps", async (request) =>
-    listApplications(ctx.db, parseWith(AppListQuerySchema, request.query)),
+    listApplications(ctx.db, {
+      ...parseWith(AppListQuerySchema, request.query),
+      titledb: ctx.titledb.enabled(),
+    }),
   );
 
   api.get("/apps/:applicationId", async (request) => {
     const { applicationId } = parseWith(AppParamsSchema, request.params);
-    const app = getApplication(ctx.db, applicationId, ctx.devices.preferNsz());
+    const app = getApplication(ctx.db, applicationId, {
+      preferCompressed: ctx.devices.preferNsz(),
+      titledb: ctx.titledb.enabled(),
+    });
     if (!app) throw new ApiError("NOT_FOUND", "No files for this title are in the library");
     return app;
   });
 
   api.get("/homebrew", async () => listHomebrew(ctx.db));
 
-  api.get("/problems", async () => getProblems(ctx.db));
+  api.get("/problems", async () => getProblems(ctx.db, ctx.titledb.enabled()));
 
   const FileIdParams = z.object({ id: z.coerce.number().int().positive() });
 

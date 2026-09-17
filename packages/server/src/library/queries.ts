@@ -11,10 +11,11 @@ import {
   type ProblemsReport,
   WEB_API_BASE_PATH,
 } from "@nslib/shared";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { applications, contentMetas, files, homebrew, libraryRoots } from "../db/schema";
 import { preferredFormatRank } from "./prefer";
+import { tdbApp, tdbTitle, titledbJoin } from "./titledb-join";
 
 const fileInfoColumns = {
   id: files.id,
@@ -36,34 +37,43 @@ export function iconUrl(key: string | null): string | null {
   return key ? `${WEB_API_BASE_PATH}/icons/${key}` : null;
 }
 
-function loadContentRows(db: Db, applicationId?: string) {
+interface LoadOptions {
+  applicationId?: string;
+  /** Apply the title database (see titledb-join.ts). */
+  titledb?: boolean;
+}
+
+function loadContentRows(db: Db, options: LoadOptions = {}) {
+  const tdb = titledbJoin(options.titledb ?? false);
   return db
     .select({
       metaId: contentMetas.id,
       titleId: contentMetas.titleId,
       version: contentMetas.version,
       type: contentMetas.type,
-      applicationId: contentMetas.applicationId,
-      applicationIdSource: contentMetas.applicationIdSource,
-      displayName: contentMetas.displayName,
+      applicationId: tdb.applicationId,
+      applicationIdSource: tdb.applicationIdSource,
+      displayName: tdb.displayName,
       keyGeneration: contentMetas.keyGeneration,
       requiredSystemVersion: contentMetas.requiredSystemVersion,
       installSize: contentMetas.installSize,
       file: fileInfoColumns,
-      appName: applications.name,
-      appPublisher: applications.publisher,
+      appName: tdb.appName,
+      appPublisher: tdb.appPublisher,
       appIconKey: applications.iconKey,
-      latestKnownVersion: applications.latestKnownVersion,
+      latestKnownVersion: tdb.latestKnownVersion,
     })
     .from(contentMetas)
     .innerJoin(files, eq(files.id, contentMetas.fileId))
     .innerJoin(libraryRoots, eq(libraryRoots.id, files.rootId))
-    .leftJoin(applications, eq(applications.applicationId, contentMetas.applicationId))
+    .leftJoin(tdbTitle, tdb.titleOn)
+    .leftJoin(applications, tdb.applicationOn)
+    .leftJoin(tdbApp, tdb.appOn)
     .where(
       and(
         isNull(files.missingSince),
         eq(libraryRoots.enabled, true),
-        applicationId ? eq(contentMetas.applicationId, applicationId) : undefined,
+        options.applicationId ? sql`${tdb.applicationId} = ${options.applicationId}` : undefined,
       ),
     )
     .all();
@@ -148,15 +158,16 @@ function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
 export interface ListApplicationsOptions {
   q?: string;
   flag?: AppFlag;
+  titledb?: boolean;
 }
 
-function summarizeAll(db: Db): AppSummary[] {
-  const byApp = groupBy(loadContentRows(db), (row) => row.applicationId);
+function summarizeAll(db: Db, titledb: boolean): AppSummary[] {
+  const byApp = groupBy(loadContentRows(db, { titledb }), (row) => row.applicationId);
   return [...byApp].map(([id, rows]) => summarize(id, rows));
 }
 
 export function listApplications(db: Db, options: ListApplicationsOptions = {}): AppSummary[] {
-  const rows = loadContentRows(db);
+  const rows = loadContentRows(db, { titledb: options.titledb });
   const byApp = groupBy(rows, (row) => row.applicationId);
   const needle = options.q?.trim().toLowerCase();
 
@@ -183,9 +194,10 @@ export function listApplications(db: Db, options: ListApplicationsOptions = {}):
 export function getApplication(
   db: Db,
   applicationId: string,
-  preferCompressed = true,
+  options: { preferCompressed?: boolean; titledb?: boolean } = {},
 ): AppDetail | null {
-  const rows = loadContentRows(db, applicationId);
+  const preferCompressed = options.preferCompressed ?? true;
+  const rows = loadContentRows(db, { applicationId, titledb: options.titledb });
   if (rows.length === 0) return null;
 
   const contents: AppContent[] = [...groupBy(rows, contentKey).values()].map((group) => {
@@ -236,7 +248,7 @@ export function listHomebrew(db: Db): HomebrewItem[] {
     .sort((a, b) => nameCollator.compare(a.name, b.name));
 }
 
-export function getProblems(db: Db): ProblemsReport {
+export function getProblems(db: Db, titledb = false): ProblemsReport {
   const fileRows = db
     .select(fileInfoColumns)
     .from(files)
@@ -247,7 +259,7 @@ export function getProblems(db: Db): ProblemsReport {
 
   const present = fileRows.filter((f) => f.missingSince === null);
   const duplicates: DuplicateGroup[] = [];
-  for (const group of groupBy(loadContentRows(db), contentKey).values()) {
+  for (const group of groupBy(loadContentRows(db, { titledb }), contentKey).values()) {
     const groupFiles = uniqueFiles(group);
     const head = group[0];
     if (groupFiles.length < 2 || !head) continue;
@@ -269,16 +281,21 @@ export function getProblems(db: Db): ProblemsReport {
   };
 }
 
-export function getStats(db: Db, catalogRev: number, keysConfigured = false): LibraryStats {
+export function getStats(
+  db: Db,
+  catalogRev: number,
+  options: { keysConfigured?: boolean; titledb?: boolean } = {},
+): LibraryStats {
+  const titledb = options.titledb ?? false;
   const presentFiles = db
     .select({ size: files.size })
     .from(files)
     .innerJoin(libraryRoots, eq(libraryRoots.id, files.rootId))
     .where(and(isNull(files.missingSince), eq(libraryRoots.enabled, true)))
     .all();
-  const problems = getProblems(db);
+  const problems = getProblems(db, titledb);
   return {
-    applications: summarizeAll(db).length,
+    applications: summarizeAll(db, titledb).length,
     files: presentFiles.length,
     totalSize: presentFiles.reduce((sum, f) => sum + f.size, 0),
     homebrew: listHomebrew(db).length,
@@ -287,7 +304,7 @@ export function getStats(db: Db, catalogRev: number, keysConfigured = false): Li
       problems.unidentified.length +
       problems.missing.length +
       problems.duplicates.length,
-    keysConfigured,
+    keysConfigured: options.keysConfigured ?? false,
     catalogRev,
   };
 }

@@ -29,6 +29,13 @@
       "when": 1789700000000,
       "tag": "0003_m7",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789800000000,
+      "tag": "0004_titledb_at_read",
+      "breakpoints": true
     }
   ]
 }

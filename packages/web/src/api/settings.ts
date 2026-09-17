@@ -49,6 +49,18 @@ export function useSaveTitledb() {
   });
 }
 
+export function useSetTitledbEnabled() {
+  const invalidate = useInvalidateLibrary();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => request<TitledbStatus>("PUT", "/titledb", { enabled }),
+    onSuccess: (status) => {
+      client.setQueryData(queryKeys.titledb, status);
+      return invalidate();
+    },
+  });
+}
+
 export function useForwarderStatus() {
   return useQuery({
     queryKey: queryKeys.forwarder,

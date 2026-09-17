@@ -141,7 +141,8 @@ export interface AuthStatus {
 export type ParseStatus = "pending" | "ok" | "unidentified" | "error";
 export type MetadataSource = "filename" | "ticket" | "cnmt" | "nacp";
 /** How an item's application was determined: read directly, derived from its title ID, or guessed. */
-export type ApplicationIdSource = "exact" | "derived" | "guess";
+/** `titledb`: a guessed DLC base replaced by the base game ID the title database lists. */
+export type ApplicationIdSource = "exact" | "derived" | "guess" | "titledb";
 export type ScanState = "idle" | "walking" | "parsing";
 
 export interface ScanProgress {
