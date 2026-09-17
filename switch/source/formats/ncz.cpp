@@ -15,7 +15,10 @@ namespace {
 constexpr size_t kSectionTableHeader = 0x10;
 constexpr size_t kSectionEntrySize = 0x40;
 constexpr size_t kBlockHeaderSize = 0x18;
-constexpr uint64_t kMaxSections = 64;
+// Patch NCAs are BKTR, and nsz writes one section per AES-CTR subsection, so a large update carries
+// thousands (a 10 GB Witcher 3 update has 8711). The cap only stops a corrupt count from sizing a
+// huge table: 1<<18 entries is 16 MB.
+constexpr uint64_t kMaxSections = 1u << 18;
 constexpr uint8_t kMinBlockExp = 14;
 constexpr uint8_t kMaxBlockExp = 32;
 // 1M blocks covers a 16 GB NCA at the smallest legal block size. Anything larger is a corrupt
@@ -50,11 +53,19 @@ private:
     uint64_t pos_ = 0;
 };
 
+/** `sections` is sorted by offset (parseTable), so both lookups are binary searches. */
 const NczSection* sectionAt(const std::vector<NczSection>& sections, uint64_t offset) {
-    for (const auto& s : sections) {
-        if (offset >= s.offset && offset < s.offset + s.size) return &s;
-    }
-    return nullptr;
+    auto it = std::upper_bound(sections.begin(), sections.end(), offset,
+        [](uint64_t o, const NczSection& s) { return o < s.offset; });
+    if (it == sections.begin()) return nullptr;
+    --it;
+    return offset - it->offset < it->size ? &*it : nullptr;
+}
+
+uint64_t nextSectionStart(const std::vector<NczSection>& sections, uint64_t offset) {
+    auto it = std::upper_bound(sections.begin(), sections.end(), offset,
+        [](uint64_t o, const NczSection& s) { return o < s.offset; });
+    return it == sections.end() ? UINT64_MAX : it->offset;
 }
 
 void applyCrypto(const std::vector<NczSection>& sections, uint64_t offset, uint8_t* data, size_t n) {
@@ -68,10 +79,7 @@ void applyCrypto(const std::vector<NczSection>& sections, uint64_t offset, uint8
                 aesCtrXor(s->cryptoKey, s->cryptoCounter, offset, data + i, take);
             }
         } else {
-            uint64_t next = UINT64_MAX;
-            for (const auto& sec : sections) {
-                if (sec.offset > offset && sec.offset < next) next = sec.offset;
-            }
+            const uint64_t next = nextSectionStart(sections, offset);
             if (next != UINT64_MAX) take = std::min(take, size_t(next - offset));
         }
         offset += take;
@@ -103,6 +111,8 @@ NczHeader parseTable(const uint8_t* tableHdr, const uint8_t* entries, uint64_t t
         }
         h.sections.push_back(s);
     }
+    std::stable_sort(h.sections.begin(), h.sections.end(),
+        [](const NczSection& a, const NczSection& b) { return a.offset < b.offset; });
     h.dataOffset = tableOffset + kSectionTableHeader + count * kSectionEntrySize;
     return h;
 }
@@ -268,7 +278,8 @@ NczHeader parseNczHeader(const Reader& reader) {
         throw FormatError("BAD_MAGIC", "no NCZSECTN table at " + hexOffset(tableOffset));
     }
     const uint64_t count = readU64(fixed.data() + 8);
-    if (count == 0 || count > kMaxSections) {
+    if (count == 0 || count > kMaxSections ||
+        !rangeFits(tableOffset + kSectionTableHeader, count * kSectionEntrySize, reader.size())) {
         throw FormatError("INVALID", "NCZ declares " + std::to_string(count) + " sections");
     }
     auto table = reader.readExact(tableOffset + kSectionTableHeader, size_t(count * kSectionEntrySize));

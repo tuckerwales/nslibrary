@@ -15,7 +15,9 @@ export const NCZ_UNCOMPRESSED_PREFIX_SIZE = 0x4000;
 const SECTION_TABLE_HEADER_SIZE = 0x10;
 const SECTION_ENTRY_SIZE = 0x40;
 const BLOCK_HEADER_SIZE = 0x18;
-const MAX_SECTIONS = 64;
+// Patch NCAs are BKTR, and nsz writes one section per AES-CTR subsection, so a large update
+// carries thousands (a 10 GB Witcher 3 update has 8711). This only stops a corrupt count.
+const MAX_SECTIONS = 1 << 18;
 const MIN_BLOCK_EXPONENT = 14;
 const MAX_BLOCK_EXPONENT = 32;
 

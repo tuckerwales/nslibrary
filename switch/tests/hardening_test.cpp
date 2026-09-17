@@ -3,6 +3,7 @@
 #include "api/json.hpp"
 #include "api/protocol.hpp"
 #include "api/url.hpp"
+#include "formats/crypto.hpp"
 #include "formats/ncz.hpp"
 #include "formats/pfs0.hpp"
 #include "install/pipeline.hpp"
@@ -12,6 +13,8 @@
 #include <cstring>
 #include <string>
 #include <vector>
+
+#include <zstd.h>
 
 using namespace nslib;
 
@@ -132,6 +135,73 @@ TEST(ncz_rejects_an_impossible_block_count) {
     writeU32(block + 0x0c, 0x40000001u);
     writeU64(block + 0x10, 0x40000001ull << 14);
 
+    MemoryReader reader(ncz);
+    bool threw = false;
+    try {
+        parseNczHeader(reader);
+    } catch (const FormatError& e) {
+        threw = true;
+        CHECK_EQ(e.code, std::string("INVALID"));
+    }
+    CHECK(threw);
+}
+
+TEST(ncz_restores_a_patch_with_hundreds_of_sections) {
+    // BKTR patch NCAs split into thousands of AES-CTR sections (8711 in a Witcher 3 update); the
+    // parser once capped them at 64. Entries are written out of order to exercise the sort.
+    const size_t count = 300;
+    std::vector<NczSection> sections;
+    uint64_t offset = kNczPrefixSize;
+    for (size_t i = 0; i < count; i++) {
+        NczSection s{};
+        s.offset = offset;
+        s.size = 0x101 + i;
+        s.cryptoType = uint64_t(i % 3 == 1 ? NczCryptoType::None : NczCryptoType::Ctr);
+        for (int k = 0; k < 16; k++) s.cryptoKey[k] = uint8_t(i * 7 + k);
+        for (int k = 0; k < 8; k++) s.cryptoCounter[k] = uint8_t(i * 13 + k);
+        sections.push_back(s);
+        offset += s.size;
+    }
+    std::vector<uint8_t> plain(static_cast<size_t>(offset));
+    for (size_t i = 0; i < plain.size(); i++) plain[i] = uint8_t((i * 31) ^ (i >> 9));
+    std::vector<uint8_t> nca = plain;
+    for (const auto& s : sections) {
+        if (s.cryptoType == uint64_t(NczCryptoType::Ctr)) {
+            aesCtrXor(s.cryptoKey, s.cryptoCounter, s.offset, nca.data() + s.offset, size_t(s.size));
+        }
+    }
+
+    std::vector<uint8_t> ncz(nca.begin(), nca.begin() + kNczPrefixSize);
+    std::vector<uint8_t> table(0x10 + count * 0x40, 0);
+    std::memcpy(table.data(), "NCZSECTN", 8);
+    writeU64(table.data() + 8, count);
+    for (size_t i = 0; i < count; i++) {
+        const NczSection& s = sections[count - 1 - i];
+        uint8_t* e = table.data() + 0x10 + i * 0x40;
+        writeU64(e, s.offset);
+        writeU64(e + 8, s.size);
+        writeU64(e + 0x10, s.cryptoType);
+        std::memcpy(e + 0x20, s.cryptoKey, 16);
+        std::memcpy(e + 0x30, s.cryptoCounter, 16);
+    }
+    ncz.insert(ncz.end(), table.begin(), table.end());
+    const size_t bodyN = plain.size() - kNczPrefixSize;
+    std::vector<uint8_t> frame(ZSTD_compressBound(bodyN));
+    const size_t z = ZSTD_compress(frame.data(), frame.size(), plain.data() + kNczPrefixSize, bodyN, 3);
+    CHECK(!ZSTD_isError(z));
+    ncz.insert(ncz.end(), frame.begin(), frame.begin() + z);
+
+    MemoryReader reader(ncz);
+    const NczHeader h = parseNczHeader(reader);
+    CHECK_EQ(h.sections.size(), count);
+    CHECK_EQ(nczOutputSize(h), uint64_t(nca.size()));
+    CHECK(decompressNczToBuffer(reader) == nca);
+}
+
+TEST(ncz_rejects_a_section_table_longer_than_the_file) {
+    std::vector<uint8_t> ncz(size_t(kNczPrefixSize) + 0x10 + 0x40, 0);
+    std::memcpy(ncz.data() + kNczPrefixSize, "NCZSECTN", 8);
+    writeU64(ncz.data() + kNczPrefixSize + 8, 1000);
     MemoryReader reader(ncz);
     bool threw = false;
     try {

@@ -46,6 +46,19 @@ describe("NCZ solid", () => {
   });
 });
 
+describe("NCZ with many sections", () => {
+  // BKTR patch NCAs split into thousands of sections; the parser once capped them at 64.
+  const many = buildFixtureNca(
+    "ncz-many",
+    Array.from({ length: 300 }, (_, i) => ({ size: 0x101 + i, encrypted: i % 3 !== 1 })),
+  );
+  const ncz = buildNcz(many, { mode: "solid" });
+
+  it("restores the original encrypted NCA", async () => {
+    expect((await decompressNczToBuffer(new BufferReader(ncz))).equals(many.encrypted)).toBe(true);
+  });
+});
+
 describe("NCZ block", () => {
   const ncz = buildNcz(nca, { mode: "block", blockSizeExponent: 14 });
 
