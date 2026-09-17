@@ -64,7 +64,7 @@ export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContex
 
   api.get("/apps/:applicationId", async (request) => {
     const { applicationId } = parseWith(AppParamsSchema, request.params);
-    const app = getApplication(ctx.db, applicationId);
+    const app = getApplication(ctx.db, applicationId, ctx.devices.preferNsz());
     if (!app) throw new ApiError("NOT_FOUND", "No files for this title are in the library");
     return app;
   });

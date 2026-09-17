@@ -76,6 +76,10 @@ export function usePutSettings() {
   return useMutation({
     mutationFn: (body: Partial<ServerSettings>) =>
       request<ServerSettings>("PUT", "/settings", body),
-    onSuccess: (settings) => client.setQueryData(queryKeys.settings, settings),
+    onSuccess: (settings, body) => {
+      client.setQueryData(queryKeys.settings, settings);
+      // App details show which file "Send to Switch" installs, which follows this setting.
+      if (body.preferNsz !== undefined) void client.invalidateQueries({ queryKey: queryKeys.app });
+    },
   });
 }

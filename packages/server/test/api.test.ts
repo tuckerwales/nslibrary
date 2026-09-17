@@ -275,6 +275,22 @@ describe("web API", () => {
       ]);
       expect((await call("GET", "/apps/0100000000000000", { session })).statusCode).toBe(404);
 
+      // The base game's install target follows the "prefer NSZ" setting.
+      const baseFormat = async () => {
+        const app = (await call("GET", `/apps/${BASE}`, { session })).json<AppDetail>();
+        const metaId = app.contents[0]?.contentMetaId;
+        return (
+          server.sqlite
+            .prepare(
+              "select f.format from content_metas m join files f on f.id = m.file_id where m.id = ?",
+            )
+            .get(metaId) as { format: string }
+        ).format;
+      };
+      expect(await baseFormat()).toBe("nsz");
+      await call("PUT", "/settings", { session, body: { preferNsz: false } });
+      expect(await baseFormat()).toBe("nsp");
+
       const homebrew = (await call("GET", "/homebrew", { session })).json<HomebrewItem[]>();
       expect(homebrew).toMatchObject([
         { name: "Tool", publisher: "Someone", version: "1.0", relPath: "homebrew/tool.nro" },

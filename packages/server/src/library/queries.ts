@@ -89,12 +89,13 @@ function uniqueFiles(rows: ContentRow[]): LibraryFileInfo[] {
   return [...new Map(rows.map((row) => [row.file.id, row.file])).values()];
 }
 
-function pickPreferredRow(group: ContentRow[]): ContentRow {
+/** The row a "Send to Switch" would install: the preferred format, then the lowest file id. */
+function pickPreferredRow(group: ContentRow[], preferCompressed: boolean): ContentRow {
   const first = group[0];
   if (!first) throw new Error("content group is empty");
   return group.reduce((best, row) => {
-    const bestRank = preferredFormatRank(best.file.format, true);
-    const rowRank = preferredFormatRank(row.file.format, true);
+    const bestRank = preferredFormatRank(best.file.format, preferCompressed);
+    const rowRank = preferredFormatRank(row.file.format, preferCompressed);
     if (rowRank < bestRank || (rowRank === bestRank && row.file.id < best.file.id)) return row;
     return best;
   }, first);
@@ -179,12 +180,16 @@ export function listApplications(db: Db, options: ListApplicationsOptions = {}):
     );
 }
 
-export function getApplication(db: Db, applicationId: string): AppDetail | null {
+export function getApplication(
+  db: Db,
+  applicationId: string,
+  preferCompressed = true,
+): AppDetail | null {
   const rows = loadContentRows(db, applicationId);
   if (rows.length === 0) return null;
 
   const contents: AppContent[] = [...groupBy(rows, contentKey).values()].map((group) => {
-    const head = pickPreferredRow(group);
+    const head = pickPreferredRow(group, preferCompressed);
     return {
       contentMetaId: head.metaId,
       titleId: head.titleId,

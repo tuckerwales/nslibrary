@@ -4,4 +4,5 @@ export {
   UsbLink,
   type UsbLinkOptions,
   type UsbRequestHandler,
+  type UsbStreamPayload,
 } from "./session";

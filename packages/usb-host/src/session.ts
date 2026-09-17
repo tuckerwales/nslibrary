@@ -11,11 +11,26 @@ import {
 } from "@nslib/shared";
 import type { ByteChannel } from "./duplex";
 
+/**
+ * A payload produced piece by piece, so large file ranges never sit in memory. `chunks` must yield
+ * exactly `length` bytes: the frame header announces the length before any data is sent, so a
+ * stream that ends early or runs over can't be answered cleanly and closes the link instead.
+ */
+export interface UsbStreamPayload {
+  length: number;
+  chunks: AsyncIterable<Uint8Array>;
+}
+
 export interface UsbHandlerResult {
   status: number;
   headers?: Record<string, string>;
   body?: unknown;
-  payload?: Uint8Array;
+  payload?: Uint8Array | UsbStreamPayload;
+}
+
+function payloadLength(payload: UsbHandlerResult["payload"]): number {
+  if (!payload) return 0;
+  return payload instanceof Uint8Array ? payload.byteLength : payload.length;
 }
 
 export interface UsbRequestHandler {
@@ -94,20 +109,9 @@ export class UsbLink {
           continue;
         }
         const req = headerToObject(jsonBytes) as UsbRequestJson;
+        let result: UsbHandlerResult;
         try {
-          const result = await this.#handler.handle(req, payload, header.requestId);
-          const json: UsbResponseJson = {};
-          if (result.headers && Object.keys(result.headers).length > 0) json.h = result.headers;
-          if (result.body !== undefined) json.b = result.body;
-          const payloadOut = result.payload ?? new Uint8Array(0);
-          await this.#writeFrame({
-            kind: FrameKind.Response,
-            requestId: header.requestId,
-            status: result.status,
-            flags: payloadOut.byteLength > 0 ? FrameFlags.RawStream : 0,
-            json: Object.keys(json).length > 0 ? json : undefined,
-            payload: payloadOut,
-          });
+          result = await this.#handler.handle(req, payload, header.requestId);
         } catch (err) {
           const code =
             err && typeof err === "object" && "code" in err
@@ -124,6 +128,18 @@ export class UsbLink {
             status: Number.isFinite(status) ? status : 500,
             json: { b: { error: { code, msg } } },
           });
+          continue;
+        }
+        const json: UsbResponseJson = {};
+        if (result.headers && Object.keys(result.headers).length > 0) json.h = result.headers;
+        if (result.body !== undefined) json.b = result.body;
+        try {
+          await this.#writeResponse(header.requestId, result, json);
+        } catch (err) {
+          // Part of the response may already be on the wire, so the next frame can't line up.
+          this.#log?.("USB response failed mid-stream; closing the link", err);
+          this.#channel.close();
+          throw err;
         }
       }
     } finally {
@@ -148,6 +164,55 @@ export class UsbLink {
         throw new Error("USB idle timeout");
       }
       throw err;
+    }
+  }
+
+  async #writeResponse(
+    requestId: number,
+    result: UsbHandlerResult,
+    json: UsbResponseJson,
+  ): Promise<void> {
+    const length = payloadLength(result.payload);
+    const options = {
+      kind: FrameKind.Response,
+      requestId,
+      status: result.status,
+      flags: length > 0 ? FrameFlags.RawStream : 0,
+      json: Object.keys(json).length > 0 ? json : undefined,
+    };
+    if (!result.payload || result.payload instanceof Uint8Array) {
+      await this.#writeFrame({ ...options, payload: result.payload });
+      return;
+    }
+    const encodedJson =
+      options.json === undefined
+        ? new Uint8Array(0)
+        : new TextEncoder().encode(JSON.stringify(options.json));
+    const frameHeader = encodeFrameHeader({
+      kind: options.kind,
+      flags: options.flags,
+      requestId,
+      status: options.status,
+      jsonLength: encodedJson.byteLength,
+      payloadLength: length,
+    });
+    await this.#channel.write(frameHeader);
+    if (encodedJson.byteLength) await this.#channel.write(encodedJson);
+    this.#bytesOut += frameHeader.byteLength + encodedJson.byteLength;
+    let sent = 0;
+    for await (const chunk of result.payload.chunks) {
+      if (sent + chunk.byteLength > length) {
+        throw new Error(`USB stream produced more than the ${length} bytes it announced`);
+      }
+      for (let offset = 0; offset < chunk.byteLength; offset += USB_STREAM_CHUNK_SIZE) {
+        const piece = chunk.subarray(offset, offset + USB_STREAM_CHUNK_SIZE);
+        await this.#channel.write(piece);
+        this.#bytesOut += piece.byteLength;
+      }
+      sent += chunk.byteLength;
+    }
+    if (sent !== length) {
+      throw new Error(`USB stream ended after ${sent} of ${length} bytes`);
     }
   }
 

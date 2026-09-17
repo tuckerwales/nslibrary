@@ -12,7 +12,7 @@ import {
   PairRequestSchema,
   type UsbRequestJson,
 } from "@nslib/shared";
-import type { UsbHandlerResult, UsbRequestHandler } from "@nslib/usb-host";
+import type { UsbHandlerResult, UsbRequestHandler, UsbStreamPayload } from "@nslib/usb-host";
 import { ApiError, parseWith } from "../api/errors";
 import type { DeviceRow } from "../db/schema";
 import { etagFor, etagsMatch, parseRangeHeader } from "../device/range";
@@ -38,17 +38,26 @@ function pathParts(path: string): { path: string; query: URLSearchParams } {
   return { path: path.slice(0, q), query: new URLSearchParams(path.slice(q + 1)) };
 }
 
-async function readRange(
-  located: LocatedLibraryFile,
-  start: number,
-  length: number,
-): Promise<Uint8Array> {
-  const source = await openLocatedFile(located);
-  try {
-    return new Uint8Array(await source.read(start, length));
-  } finally {
-    await source.close();
-  }
+const STREAM_CHUNK = 1024 * 1024;
+
+/** Streams a byte range 1 MiB at a time, so a whole-file request doesn't load the file. */
+function rangeStream(located: LocatedLibraryFile, start: number, length: number): UsbStreamPayload {
+  return {
+    length,
+    chunks: (async function* () {
+      const source = await openLocatedFile(located);
+      try {
+        for (let done = 0; done < length; ) {
+          const chunk = await source.read(start + done, Math.min(STREAM_CHUNK, length - done));
+          if (chunk.byteLength === 0) throw new Error("The file got shorter while it was sent");
+          done += chunk.byteLength;
+          yield new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+        }
+      } finally {
+        await source.close();
+      }
+    })(),
+  };
 }
 
 export class DeviceUsbHandler implements UsbRequestHandler {
@@ -255,8 +264,7 @@ export class DeviceUsbHandler implements UsbRequestHandler {
     }
     const range = parsed === "all" ? { start: 0, end: Math.max(0, disk.size - 1) } : parsed;
     const length = disk.size === 0 ? 0 : range.end - range.start + 1;
-    const payload =
-      length === 0 ? new Uint8Array(0) : await readRange(located, range.start, length);
+    const payload = length === 0 ? new Uint8Array(0) : rangeStream(located, range.start, length);
     const headers: Record<string, string> = {
       etag,
       "accept-ranges": "bytes",
