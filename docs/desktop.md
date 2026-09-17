@@ -27,8 +27,10 @@ Node **22 LTS** is the one we test. Node 24 can run the CLI; if something odd sh
 The “pnpm is running through Node.js…” line is from Corepack skipping pnpm’s own native installer. It is noisy but harmless; `corepack enable` then `corepack prepare pnpm@12.4.2 --activate` installs the binary.
 
 - Data lives in the Electron `userData` directory.
-- Closing the window hides it to the tray. **Quit** from the tray menu.
-- **Allow LAN devices** is saved and applied the next time the app starts (binds `0.0.0.0` and UDP discovery).
+- Closing the window hides it to the tray. **Quit** from the tray menu (or the app menu) stops the server cleanly.
+- **Allow LAN devices** binds `0.0.0.0` and turns on UDP discovery. The app offers to restart right away to apply it.
+- The server listens on port 8465. If another program has it, the app uses the next free port and remembers it, so paired Switches keep the same address next time.
+- To let a Switch update itself from this computer, put `nslibrary.nro`, `update.json`, and `update.json.sig` in `update/` inside the data directory.
 - **Pause scanning** stops folder watchers until you turn it off.
 - Folders → **Browse…** uses the native directory picker.
 - If an admin account already exists, the app sets a local session cookie so you skip sign-in on this machine.

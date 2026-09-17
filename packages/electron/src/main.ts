@@ -2,13 +2,32 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, type NslibServer, SESSION_COOKIE } from "@nslib/server";
-import { DEFAULT_SERVER_PORT } from "@nslib/shared";
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, session, Tray } from "electron";
+import { DEFAULT_SERVER_PORT, DISCOVERY_PORT } from "@nslib/shared";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  type MenuItemConstructorOptions,
+  nativeImage,
+  session,
+  Tray,
+} from "electron";
+import { trayIconPng } from "./tray-icon";
 
 const here = dirname(fileURLToPath(import.meta.url));
+/** How many ports after the preferred one to try when it's taken. */
+const PORT_ATTEMPTS = 10;
+/** Tray menus are rebuilt at most this often, since rebuilding closes an open menu on some OSes. */
+const TRAY_MIN_REFRESH_MS = 3000;
+/** Picks up devices going offline, which has no event of its own. */
+const TRAY_POLL_MS = 15_000;
 
 interface DesktopSettings {
   allowLan: boolean;
+  /** The port the server last listened on, reused so paired Switches keep their address. */
+  port: number;
 }
 
 function settingsPath(): string {
@@ -17,10 +36,14 @@ function settingsPath(): string {
 
 function loadDesktopSettings(): DesktopSettings {
   try {
-    const raw = JSON.parse(readFileSync(settingsPath(), "utf8")) as DesktopSettings;
-    return { allowLan: Boolean(raw.allowLan) };
+    const raw = JSON.parse(readFileSync(settingsPath(), "utf8")) as Partial<DesktopSettings>;
+    const port = Number(raw.port);
+    return {
+      allowLan: Boolean(raw.allowLan),
+      port: Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_SERVER_PORT,
+    };
   } catch {
-    return { allowLan: false };
+    return { allowLan: false, port: DEFAULT_SERVER_PORT };
   }
 }
 
@@ -40,11 +63,37 @@ function webDir(): string | null {
   return null;
 }
 
+/** A file in the data directory if it exists, like the server's own defaults. */
+function dataFile(...parts: string[]): string | null {
+  const path = join(app.getPath("userData"), ...parts);
+  return existsSync(path) ? path : null;
+}
+
 let server: NslibServer | undefined;
 let window: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let desktop = loadDesktopSettings();
+let port = desktop.port;
 let quitting = false;
+let closed = false;
+
+function serverUrl(): string {
+  return `http://127.0.0.1:${port}`;
+}
+
+/** Listens on the saved port, or the next free one. Returns the port in use. */
+async function listen(instance: NslibServer, host: string, preferred: number): Promise<number> {
+  for (let attempt = 0; attempt < PORT_ATTEMPTS; attempt++) {
+    const candidate = preferred + attempt;
+    try {
+      await instance.app.listen({ host, port: candidate });
+      return candidate;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EADDRINUSE") throw err;
+    }
+  }
+  throw new Error(`Ports ${preferred}–${preferred + PORT_ATTEMPTS - 1} are all in use`);
+}
 
 async function boot(): Promise<void> {
   const gotLock = app.requestSingleInstanceLock();
@@ -52,14 +101,13 @@ async function boot(): Promise<void> {
     app.quit();
     return;
   }
-  app.on("second-instance", () => showWindow());
+  app.on("second-instance", () => void showWindow());
 
   const host = desktop.allowLan ? "0.0.0.0" : "127.0.0.1";
-  const port = DEFAULT_SERVER_PORT;
   server = await createServer({
     dataDir: app.getPath("userData"),
     host,
-    port,
+    port: desktop.port,
     webDir: webDir(),
     forcePolling: false,
     pollIntervalMs: 2000,
@@ -71,21 +119,44 @@ async function boot(): Promise<void> {
     seedKeysPath: null,
     setupToken: null,
     serverName: "NSLibrary",
-    discoveryPort: desktop.allowLan ? 8466 : null,
+    discoveryPort: desktop.allowLan ? DISCOVERY_PORT : null,
     usb: true,
     libraryScanDir: null,
     tlsKey: null,
     tlsCert: null,
-    nroPath: null,
-    forwarderMainPath: null,
+    nroPath: dataFile("update", "nslibrary.nro"),
+    forwarderMainPath: dataFile("forwarder", "main"),
   });
-  await server.app.listen({ host, port });
+
+  try {
+    port = await listen(server, host, desktop.port);
+  } catch (err) {
+    dialog.showErrorBox(
+      "NSLibrary couldn't start",
+      `${err instanceof Error ? err.message : String(err)}. Close the program using them and try again.`,
+    );
+    await server.close();
+    app.exit(1);
+    return;
+  }
+  if (port !== desktop.port) {
+    const previous = desktop.port;
+    desktop = { ...desktop, port };
+    saveDesktopSettings(desktop);
+    if (desktop.allowLan) {
+      void dialog.showMessageBox({
+        type: "info",
+        message: `NSLibrary is now on port ${port}`,
+        detail: `Port ${previous} was in use by another program. Switches connected over the network need the new address; USB isn't affected.`,
+      });
+    }
+  }
   await server.start();
 
   if (!server.auth.isSetupRequired()) {
     const { token } = server.auth.createSession("electron");
     await session.defaultSession.cookies.set({
-      url: `http://127.0.0.1:${port}`,
+      url: serverUrl(),
       name: SESSION_COOKIE,
       value: token,
       path: "/",
@@ -102,7 +173,7 @@ async function boot(): Promise<void> {
   });
 
   await showWindow();
-  buildTray();
+  buildTray(server);
 }
 
 async function showWindow(): Promise<void> {
@@ -127,30 +198,57 @@ async function showWindow(): Promise<void> {
       window?.hide();
     }
   });
-  await window.loadURL(`http://127.0.0.1:${DEFAULT_SERVER_PORT}`);
+  await window.loadURL(serverUrl());
 }
 
-function buildTray(): void {
-  const image = nativeImage.createEmpty();
-  tray = new Tray(image);
+function trayImage(): Electron.NativeImage {
+  const template = process.platform === "darwin";
+  const image = nativeImage.createFromBuffer(trayIconPng(16, template), { scaleFactor: 1 });
+  image.addRepresentation({ scaleFactor: 2, buffer: trayIconPng(32, template) });
+  if (template) image.setTemplateImage(true);
+  return image;
+}
+
+async function setAllowLan(allowLan: boolean): Promise<void> {
+  desktop = { ...desktop, allowLan };
+  saveDesktopSettings(desktop);
+  const { response } = await dialog.showMessageBox({
+    type: "question",
+    buttons: ["Restart now", "Later"],
+    defaultId: 0,
+    cancelId: 1,
+    message: allowLan ? "Let Switches on your network connect?" : "Only allow this computer?",
+    detail: "NSLibrary needs to restart to apply this. Installs in progress will be interrupted.",
+  });
+  if (response === 0) {
+    app.relaunch();
+    app.quit();
+  }
+}
+
+function buildTray(instance: NslibServer): void {
+  tray = new Tray(trayImage());
   tray.setToolTip("NSLibrary");
-  const refresh = () => {
-    const devices = server?.devices.listDevices() ?? [];
-    const jobs = server?.devices.listJobs() ?? [];
-    const running = jobs.filter((j) => j.status === "claimed" || j.status === "running");
-    const deviceItems = devices.length
+
+  const template = (): MenuItemConstructorOptions[] => {
+    const devices = instance.devices.listDevices();
+    const running = instance.devices
+      .listJobs(undefined, 0)
+      .filter((j) => j.status === "claimed" || j.status === "running");
+    const deviceItems: MenuItemConstructorOptions[] = devices.length
       ? devices.map((d) => ({
           label: `${d.online ? "●" : "○"} ${d.name}${d.transport ? ` (${d.transport})` : ""}`,
           enabled: false,
         }))
       : [{ label: "No Switches paired", enabled: false }];
-    const jobItems = running.length
+    const jobItems: MenuItemConstructorOptions[] = running.length
       ? running.map((j) => {
-          const pct = j.size > 0 ? Math.round((j.bytesDone / j.size) * 100) : 0;
+          // Whole tens, so progress doesn't rebuild an open menu every few seconds.
+          const pct = j.size > 0 ? Math.floor((j.bytesDone / j.size) * 10) * 10 : 0;
           return { label: `${j.name} ${pct}%`, enabled: false };
         })
       : [{ label: "No active installs", enabled: false }];
-    const menu = Menu.buildFromTemplate([
+    return [
       { label: "Open NSLibrary", click: () => void showWindow() },
       { type: "separator" },
       { label: "Devices", enabled: false },
@@ -161,36 +259,64 @@ function buildTray(): void {
       {
         label: "Pause scanning",
         type: "checkbox",
-        checked: server?.scanner.paused ?? false,
-        click: (item) => void server?.scanner.setPaused(item.checked),
+        checked: instance.scanner.paused,
+        click: (item) => void instance.scanner.setPaused(item.checked).then(refresh),
       },
       {
-        label: "Allow LAN devices",
+        label: desktop.allowLan ? "Allow LAN devices" : "Allow LAN devices (restart to apply)",
         type: "checkbox",
         checked: desktop.allowLan,
-        click: (item) => {
-          desktop = { allowLan: item.checked };
-          saveDesktopSettings(desktop);
-        },
+        click: (item) => void setAllowLan(item.checked).then(refresh),
       },
       { type: "separator" },
-      {
-        label: "Quit",
-        click: async () => {
-          quitting = true;
-          await server?.close();
-          app.quit();
-        },
-      },
-    ]);
-    tray?.setContextMenu(menu);
+      { label: "Quit", click: () => app.quit() },
+    ];
   };
+
+  let shown = "";
+  let lastBuilt = 0;
+  let pending: NodeJS.Timeout | null = null;
+  const refresh = () => {
+    if (pending || !tray) return;
+    const wait = Math.max(0, lastBuilt + TRAY_MIN_REFRESH_MS - Date.now());
+    pending = setTimeout(() => {
+      pending = null;
+      if (!tray || tray.isDestroyed()) return;
+      const items = template();
+      // Rebuilding closes an open menu on some platforms, so only do it when something changed.
+      const signature = JSON.stringify(items.map((i) => [i.label, i.checked, i.type]));
+      if (signature === shown) return;
+      shown = signature;
+      lastBuilt = Date.now();
+      tray.setContextMenu(Menu.buildFromTemplate(items));
+    }, wait);
+  };
+
   refresh();
-  setInterval(refresh, 2000).unref();
+  const unsubscribe = instance.events.subscribe((event) => {
+    if (event.type.startsWith("device.") || event.type === "job.updated") refresh();
+  });
+  const poll = setInterval(refresh, TRAY_POLL_MS);
+  poll.unref();
+  app.once("will-quit", () => {
+    unsubscribe();
+    clearInterval(poll);
+    if (pending) clearTimeout(pending);
+  });
   tray.on("click", () => void showWindow());
 }
 
 app.whenReady().then(() => void boot());
 app.on("before-quit", () => {
   quitting = true;
+});
+// Close the server (watchers, USB, database) before the process exits, however quit was chosen.
+app.on("will-quit", (event) => {
+  if (closed || !server) return;
+  event.preventDefault();
+  closed = true;
+  void server
+    .close()
+    .catch(() => undefined)
+    .finally(() => app.quit());
 });
