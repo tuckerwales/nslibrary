@@ -13,6 +13,7 @@ import { EventBus } from "./events";
 import { KeyStore } from "./keys/store";
 import { LibraryRepository } from "./library/repository";
 import { LibraryScanner } from "./library/scanner";
+import { VerifyService } from "./library/verify-service";
 import { applyDemoSeed, attachLibraryMounts } from "./seed/bootstrap";
 import { TitledbService } from "./titledb/service";
 
@@ -29,6 +30,7 @@ export interface NslibServer {
   events: EventBus;
   auth: AuthService;
   devices: DeviceApiService;
+  verify: VerifyService;
   discovery: DiscoveryServer | null;
   /** Starts watchers, the startup scan, USB host, and periodic maintenance. Call after listen(). */
   start(): Promise<void>;
@@ -61,6 +63,7 @@ export async function createServer(
     log,
   });
   const auth = new AuthService(db, now);
+  const verify = new VerifyService(repo, events, now);
   const devices = new DeviceApiService({
     db,
     events,
@@ -90,6 +93,7 @@ export async function createServer(
     keys,
     titledb,
     devices,
+    verify,
     iconDir,
     log,
   });
@@ -114,6 +118,7 @@ export async function createServer(
     events,
     auth,
     devices,
+    verify,
     discovery,
     async start() {
       runMaintenance();
@@ -152,6 +157,7 @@ export async function createServer(
       usbHost = null;
       await discovery?.close();
       devices.close();
+      verify.close();
       await fastify.close();
       await scanner.close();
       sqlite.close();

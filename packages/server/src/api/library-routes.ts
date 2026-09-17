@@ -1,10 +1,9 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { type VerifyMode, VerifyRequestSchema, type VerifyResult } from "@nslib/shared";
+import { VerifyRequestSchema, type VerifyTask } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { locateOnDisk, openLocatedFile } from "../library/library-fs";
 import {
   getApplication,
   getProblems,
@@ -12,7 +11,6 @@ import {
   listApplications,
   listHomebrew,
 } from "../library/queries";
-import { verifyLibraryFile } from "../library/verify";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
 
@@ -39,22 +37,6 @@ const AppParamsSchema = z.object({
 
 const IconParamsSchema = z.object({ key: z.string().regex(/^[0-9a-f]{32}$/) });
 
-async function verifyFile(ctx: AppContext, id: number, mode: VerifyMode): Promise<VerifyResult> {
-  const file = ctx.repo.getFile(id);
-  const root = file && ctx.repo.getRoot(file.rootId);
-  if (!file || !root) throw new ApiError("NOT_FOUND", "That file is no longer in the library");
-  if (file.missingSince !== null)
-    throw new ApiError("FILE_MISSING", "This file is no longer on disk");
-  const located = await locateOnDisk(root.path, file.relPath);
-  if (!located) throw new ApiError("FILE_MISSING", "This file is no longer on disk");
-  const reader = await openLocatedFile(located);
-  try {
-    return await verifyLibraryFile(ctx.repo, file, reader, mode);
-  } finally {
-    await reader.close();
-  }
-}
-
 export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContext): Promise<void> {
   api.get("/stats", async () => getStats(ctx.db, ctx.repo.catalogRev(), ctx.keys.hasConsoleKeys()));
 
@@ -73,19 +55,20 @@ export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContex
 
   api.get("/problems", async () => getProblems(ctx.db));
 
-  // A full verify reads the whole file; a second request for the same file joins the first.
-  const verifying = new Map<string, Promise<VerifyResult>>();
+  const FileIdParams = z.object({ id: z.coerce.number().int().positive() });
 
-  api.post("/files/:id/verify", async (request): Promise<VerifyResult> => {
-    const { id } = parseWith(z.object({ id: z.coerce.number().int().positive() }), request.params);
+  api.get("/verify", async (): Promise<VerifyTask[]> => ctx.verify.list());
+
+  api.post("/files/:id/verify", async (request, reply): Promise<VerifyTask> => {
+    const { id } = parseWith(FileIdParams, request.params);
     const body = parseWith(VerifyRequestSchema, request.body ?? {});
-    const mode = body.mode ?? "full";
-    const key = `${id}:${mode}`;
-    const running = verifying.get(key);
-    if (running) return running;
-    const verify = verifyFile(ctx, id, mode).finally(() => verifying.delete(key));
-    verifying.set(key, verify);
-    return verify;
+    reply.status(202);
+    return ctx.verify.start(id, body.mode ?? "full");
+  });
+
+  api.post("/files/:id/verify/cancel", async (request): Promise<VerifyTask> => {
+    const { id } = parseWith(FileIdParams, request.params);
+    return ctx.verify.cancel(id);
   });
 
   api.get("/icons/:key", async (request, reply) => {

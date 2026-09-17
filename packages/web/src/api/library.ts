@@ -9,7 +9,7 @@ import type {
   ProblemsReport,
   UpdateRootRequest,
   VerifyMode,
-  VerifyResult,
+  VerifyTask,
 } from "@nslib/shared";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
@@ -109,11 +109,35 @@ export function useScanRoot() {
   });
 }
 
-export function useVerifyFile() {
-  const invalidate = useInvalidateLibrary();
+/** Puts a task in the cached list, replacing that file's previous one. */
+export function upsertVerifyTask(tasks: VerifyTask[] | undefined, task: VerifyTask): VerifyTask[] {
+  return [task, ...(tasks ?? []).filter((existing) => existing.fileId !== task.fileId)];
+}
+
+/** The latest background verify for a file, if any. All rows share one request. */
+export function useVerifyTask(fileId: number) {
+  return useQuery({
+    queryKey: queryKeys.verify,
+    queryFn: () => request<VerifyTask[]>("GET", "/verify"),
+    select: (tasks) => tasks.find((task) => task.fileId === fileId) ?? null,
+  });
+}
+
+export function useStartVerify() {
+  const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, mode }: { id: number; mode?: VerifyMode }) =>
-      request<VerifyResult>("POST", `/files/${id}/verify`, { mode: mode ?? "full" }),
-    onSuccess: invalidate,
+      request<VerifyTask>("POST", `/files/${id}/verify`, { mode: mode ?? "full" }),
+    onSuccess: (task) =>
+      client.setQueryData<VerifyTask[]>(queryKeys.verify, (tasks) => upsertVerifyTask(tasks, task)),
+  });
+}
+
+export function useCancelVerify() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => request<VerifyTask>("POST", `/files/${id}/verify/cancel`),
+    onSuccess: (task) =>
+      client.setQueryData<VerifyTask[]>(queryKeys.verify, (tasks) => upsertVerifyTask(tasks, task)),
   });
 }

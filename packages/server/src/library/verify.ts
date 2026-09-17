@@ -17,15 +17,32 @@ function ncaIdFromName(name: string): string | null {
   return match?.[1]?.toLowerCase() ?? null;
 }
 
-async function sha256Of(reader: RandomAccessReader, compressed: boolean): Promise<string> {
+export interface VerifyOptions {
+  /** Aborting stops hashing between chunks and rejects with the signal's reason. */
+  signal?: AbortSignal;
+  /** NCA bytes hashed so far, out of the sum of the file's content record sizes. */
+  onProgress?: (done: number, total: number) => void;
+}
+
+async function sha256Of(
+  reader: RandomAccessReader,
+  compressed: boolean,
+  onChunk: (bytes: number) => void,
+  signal: AbortSignal | undefined,
+): Promise<string> {
   const hash = createHash("sha256");
+  const add = (chunk: Buffer) => {
+    signal?.throwIfAborted();
+    hash.update(chunk);
+    onChunk(chunk.byteLength);
+  };
   if (compressed) {
-    for await (const chunk of restoreNczChunks(reader)) hash.update(chunk);
+    for await (const chunk of restoreNczChunks(reader)) add(chunk);
     return hash.digest("hex");
   }
   for (let offset = 0; offset < reader.size; offset += CHUNK) {
-    const length = Math.min(CHUNK, reader.size - offset);
-    hash.update(await readExact(reader, offset, length));
+    signal?.throwIfAborted();
+    add(await readExact(reader, offset, Math.min(CHUNK, reader.size - offset)));
   }
   return hash.digest("hex");
 }
@@ -35,12 +52,14 @@ export async function verifyLibraryFile(
   file: FileRow,
   reader: RandomAccessReader,
   mode: VerifyMode,
+  options: VerifyOptions = {},
 ): Promise<VerifyResult> {
   const fileId = file.id;
   const records = repo.db
     .select({
       ncaId: contentRecords.ncaId,
       sha256: contentRecords.sha256,
+      size: contentRecords.size,
     })
     .from(contentRecords)
     .innerJoin(contentMetas, eq(contentMetas.id, contentRecords.metaId))
@@ -74,6 +93,9 @@ export async function verifyLibraryFile(
     if (id) byNcaId.set(id, entry);
   }
 
+  const total = records.reduce((sum, record) => sum + record.size, 0);
+  let done = 0;
+  options.onProgress?.(done, total);
   const items: VerifyItem[] = [];
   for (const record of records) {
     const entry = byNcaId.get(record.ncaId);
@@ -90,7 +112,15 @@ export async function verifyLibraryFile(
       continue;
     }
     const slice = new SliceReader(reader, entry.offset, entry.size);
-    const actual = await sha256Of(slice, entry.name.toLowerCase().endsWith(".ncz"));
+    const actual = await sha256Of(
+      slice,
+      entry.name.toLowerCase().endsWith(".ncz"),
+      (bytes) => {
+        done += bytes;
+        options.onProgress?.(done, total);
+      },
+      options.signal,
+    );
     const ok = actual === record.sha256;
     items.push({
       ncaId: record.ncaId,

@@ -112,6 +112,24 @@ export interface VerifyResult {
   items: VerifyItem[];
 }
 
+export type VerifyTaskState = "queued" | "running" | "done" | "failed" | "cancelled";
+
+/** A verify running in the background. Updates arrive as `verify.updated` events. */
+export interface VerifyTask {
+  fileId: number;
+  mode: VerifyMode;
+  state: VerifyTaskState;
+  /** NCA bytes hashed so far, out of the total of the file's content records. */
+  bytesDone: number;
+  bytesTotal: number;
+  /** Set when `state` is `done`. */
+  result: VerifyResult | null;
+  /** Set when `state` is `failed`. */
+  error: string | null;
+  startedAt: number;
+  updatedAt: number;
+}
+
 export interface AuthStatus {
   setupRequired: boolean;
   /** True while setup is required and the server asks for its setup token. */
@@ -339,4 +357,5 @@ export type ServerEvent =
   | { type: "device.paired"; deviceId: number; name: string }
   | { type: "device.online"; deviceId: number }
   | { type: "device.offline"; deviceId: number }
-  | { type: "job.updated"; job: WebJob };
+  | { type: "job.updated"; job: WebJob }
+  | { type: "verify.updated"; task: VerifyTask };

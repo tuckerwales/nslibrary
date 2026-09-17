@@ -7,6 +7,7 @@ import type { EventBus } from "../events";
 import type { KeyStore } from "../keys/store";
 import type { LibraryRepository } from "../library/repository";
 import type { LibraryScanner } from "../library/scanner";
+import type { VerifyService } from "../library/verify-service";
 import type { TitledbService } from "../titledb/service";
 
 export type LogFn = (message: string, err?: unknown) => void;
@@ -22,6 +23,7 @@ export interface AppContext {
   keys: KeyStore;
   titledb: TitledbService;
   devices: DeviceApiService;
+  verify: VerifyService;
   iconDir: string;
   log: LogFn;
 }

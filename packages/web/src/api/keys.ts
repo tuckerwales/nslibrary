@@ -18,6 +18,8 @@ export const queryKeys = {
   device: ["device"],
   deviceDetail: (id: number) => ["device", id],
   jobs: ["jobs"],
+  /** Background verifies; kept current by `verify.updated` events. */
+  verify: ["verify"],
   jobList: (limit: number) => ["jobs", limit],
   pairingCode: ["pairing-code"],
 } as const;

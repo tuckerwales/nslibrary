@@ -17,7 +17,7 @@ import type {
   LibraryStats,
   ProblemsReport,
   TitledbStatus,
-  VerifyResult,
+  VerifyTask,
 } from "@nslib/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SESSION_COOKIE } from "../src/auth/auth-service";
@@ -47,6 +47,16 @@ describe("web API", () => {
       ...(options.body === undefined ? {} : { payload: options.body as object }),
       ...(options.session ? { cookies: { [SESSION_COOKIE]: options.session } } : {}),
     });
+  }
+
+  async function waitForVerify(session: string, fileId: number): Promise<VerifyTask> {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const tasks = (await call("GET", "/verify", { session })).json<VerifyTask[]>();
+      const task = tasks.find((t) => t.fileId === fileId);
+      if (task && task.state !== "queued" && task.state !== "running") return task;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`verify of file ${fileId} did not finish`);
   }
 
   async function setUp(): Promise<string> {
@@ -386,11 +396,57 @@ describe("web API", () => {
 
       const fileId = detail.contents[0]?.files[0]?.id;
       expect(fileId).toBeTypeOf("number");
-      const verified = (
-        await call("POST", `/files/${fileId}/verify`, { session, body: { mode: "full" } })
-      ).json<VerifyResult>();
-      expect(verified.status).toBe("ok");
-      expect(verified.items.every((i) => i.ok)).toBe(true);
+      const updates: VerifyTask[] = [];
+      const unsubscribe = server.events.subscribe((event) => {
+        if (event.type === "verify.updated") updates.push(event.task);
+      });
+      const started = await call("POST", `/files/${fileId}/verify`, {
+        session,
+        body: { mode: "full" },
+      });
+      expect(started.statusCode).toBe(202);
+      expect(["queued", "running"]).toContain(started.json<VerifyTask>().state);
+      const finished = await waitForVerify(session, fileId as number);
+      unsubscribe();
+      expect(finished.state).toBe("done");
+      expect(finished.result?.status).toBe("ok");
+      expect(finished.result?.items.every((i) => i.ok)).toBe(true);
+      expect(finished.bytesDone).toBe(finished.bytesTotal);
+      expect(finished.bytesTotal).toBeGreaterThan(0);
+      expect(updates.map((u) => u.state)).toEqual(
+        expect.arrayContaining(["queued", "running", "done"]),
+      );
+      const file = (await call("GET", `/apps/${BASE}`, { session })).json<AppDetail>().contents[0]
+        ?.files[0];
+      expect(file?.verifyStatus).toBe("ok");
+
+      // Cancelling a finished task leaves it alone; an unknown file is a 404.
+      expect(
+        (await call("POST", `/files/${fileId}/verify/cancel`, { session })).json<VerifyTask>()
+          .state,
+      ).toBe("done");
+      expect((await call("POST", "/files/999999/verify", { session })).statusCode).toBe(404);
+    });
+
+    it("cancels a queued verify", async () => {
+      const session = await setUp();
+      const library = join(dir, "cancel");
+      await mkdir(library, { recursive: true });
+      await writeFile(join(library, `A [${BASE}][v0].nsp`), fakeNsp({ seed: "a" }));
+      await writeFile(join(library, "B [0100ABCDEF014000][v0].nsp"), fakeNsp({ seed: "b" }));
+      const root = (
+        await call("POST", "/roots", { session, body: { path: library } })
+      ).json<LibraryRoot>();
+      await server.scanner.scanRoot(root.id);
+      const [first, second] = server.repo.listRootFiles(root.id);
+      // Only one verify runs at a time, so the second waits in the queue.
+      server.verify.start(first!.id, "full");
+      expect(server.verify.start(second!.id, "full").state).toBe("queued");
+      const cancelled = await call("POST", `/files/${second!.id}/verify/cancel`, { session });
+      expect(cancelled.json<VerifyTask>().state).toBe("cancelled");
+      await waitForVerify(session, first!.id);
+      const tasks = (await call("GET", "/verify", { session })).json<VerifyTask[]>();
+      expect(tasks.find((t) => t.fileId === second!.id)?.state).toBe("cancelled");
     });
 
     it("imports titledb names for titles without NACP", async () => {

@@ -1,4 +1,4 @@
-import type { DeviceSummary, WebJob } from "@nslib/shared";
+import type { DeviceSummary, VerifyTask, WebJob } from "@nslib/shared";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { queryKeys } from "../src/api";
@@ -17,6 +17,35 @@ const isInvalidated = (client: QueryClient, queryKey: readonly unknown[]) =>
   client.getQueryState(queryKey)?.isInvalidated ?? false;
 
 describe("applyServerEvent", () => {
+  it("keeps the latest verify task per file", () => {
+    const client = new QueryClient();
+    const task = (fileId: number, patch: Partial<VerifyTask> = {}): VerifyTask => ({
+      fileId,
+      mode: "full",
+      state: "running",
+      bytesDone: 0,
+      bytesTotal: 100,
+      result: null,
+      error: null,
+      startedAt: 0,
+      updatedAt: 0,
+      ...patch,
+    });
+    // Nothing is cached yet, so there's nothing to patch.
+    applyServerEvent(client, { type: "verify.updated", task: task(1) });
+    expect(client.getQueryData(queryKeys.verify)).toBeUndefined();
+
+    client.setQueryData<VerifyTask[]>(queryKeys.verify, [task(1), task(2)]);
+    applyServerEvent(client, { type: "verify.updated", task: task(2, { bytesDone: 60 }) });
+    applyServerEvent(client, { type: "verify.updated", task: task(3, { state: "queued" }) });
+    const tasks = client.getQueryData<VerifyTask[]>(queryKeys.verify);
+    expect(tasks?.map((t) => [t.fileId, t.bytesDone])).toEqual([
+      [3, 0],
+      [2, 60],
+      [1, 0],
+    ]);
+  });
+
   it("patches job progress into the cache without refetching", () => {
     const client = setUp();
     applyServerEvent(client, { type: "job.updated", job: job({ id: 1, status: "running" }) });

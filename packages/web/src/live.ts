@@ -1,7 +1,7 @@
-import type { JobStatus, LibraryRoot, ServerEvent, WebJob } from "@nslib/shared";
+import type { JobStatus, LibraryRoot, ServerEvent, VerifyTask, WebJob } from "@nslib/shared";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
-import { LIBRARY_QUERY_KEYS, queryKeys } from "./api";
+import { LIBRARY_QUERY_KEYS, queryKeys, upsertVerifyTask } from "./api";
 import { isActiveJobStatus } from "./jobs";
 
 const MAX_RETRY_DELAY_MS = 30_000;
@@ -81,6 +81,14 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       void client.invalidateQueries({ queryKey: queryKeys.devices });
       void client.invalidateQueries({ queryKey: queryKeys.deviceDetail(event.deviceId) });
       break;
+    case "verify.updated":
+      // Only patch a list that's already loaded; otherwise the next fetch has it anyway.
+      if (client.getQueryData(queryKeys.verify)) {
+        client.setQueryData<VerifyTask[]>(queryKeys.verify, (tasks) =>
+          upsertVerifyTask(tasks, event.task),
+        );
+      }
+      break;
     case "job.updated": {
       // Progress arrives every half second; only status changes need anything refetched.
       if (!patchJob(client, event.job)) break;
@@ -114,6 +122,7 @@ export function useLiveUpdates(enabled: boolean) {
           void client.invalidateQueries({ queryKey: queryKeys.devices });
           void client.invalidateQueries({ queryKey: queryKeys.device });
           void client.invalidateQueries({ queryKey: queryKeys.jobs });
+          void client.invalidateQueries({ queryKey: queryKeys.verify });
         }
         attempts = 0;
         setConnectionState("open");

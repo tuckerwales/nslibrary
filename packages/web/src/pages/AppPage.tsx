@@ -1,6 +1,13 @@
-import type { AppContent, AppFlag, LibraryFileInfo } from "@nslib/shared";
+import type { AppContent, AppFlag, LibraryFileInfo, VerifyTask } from "@nslib/shared";
 import { Link, useParams } from "react-router";
-import { ApiRequestError, useApp, useRootPaths, useVerifyFile } from "../api";
+import {
+  ApiRequestError,
+  useApp,
+  useCancelVerify,
+  useRootPaths,
+  useStartVerify,
+  useVerifyTask,
+} from "../api";
 import { Button } from "../components/Button";
 import { ContentStrip } from "../components/ContentStrip";
 import { LoadError, Loading } from "../components/Feedback";
@@ -45,12 +52,27 @@ function contentTitle(content: AppContent): string {
   }
 }
 
+function verifyProgressText(task: VerifyTask): string {
+  if (task.state === "queued") return "Waiting to verify…";
+  if (task.bytesTotal <= 0) return "Verifying…";
+  return `Verifying ${Math.floor((task.bytesDone / task.bytesTotal) * 100)}%`;
+}
+
 function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string | undefined }) {
-  // Each file has its own mutation, so verifying one doesn't block the others.
-  const verify = useVerifyFile();
-  const status = verify.data?.status ?? file.verifyStatus;
+  // Verifies run on the server in the background, so they survive leaving this page.
+  const task = useVerifyTask(file.id).data ?? null;
+  const start = useStartVerify();
+  const cancel = useCancelVerify();
+  const active = task?.state === "queued" || task?.state === "running";
+  const status = file.verifyStatus;
   const label = VERIFY_LABEL[status];
-  const failures = verify.data?.items.filter((item) => !item.ok) ?? [];
+  const failures =
+    task?.state === "done" ? (task.result?.items.filter((item) => !item.ok) ?? []) : [];
+  const errors = [
+    task?.state === "failed" ? task.error : null,
+    start.error?.message,
+    cancel.error?.message,
+  ].filter((message): message is string => Boolean(message));
 
   return (
     <li className="border-t border-line py-2.5 first:border-t-0">
@@ -60,22 +82,43 @@ function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string |
           <span className="sm:text-ink">{FORMAT_LABEL[file.format]}</span>
           <span className="sm:text-right sm:text-ink">{formatBytes(file.size)}</span>
           <span>{file.metadataSource ? SOURCE_LABEL[file.metadataSource] : ""}</span>
-          <span className={label.className} aria-live="polite">
-            {verify.isPending ? "Verifying…" : label.text}
+          <span className={active ? "text-muted" : label.className} aria-live="polite">
+            {active ? verifyProgressText(task) : label.text}
           </span>
           <span className="sm:justify-self-end">
-            <Button
-              variant="ghost"
-              className="h-8 px-2"
-              disabled={verify.isPending}
-              aria-label={`${status === "unverified" ? "Verify" : "Verify again"}: ${file.relPath}`}
-              onClick={() => verify.mutate({ id: file.id })}
-            >
-              {status === "unverified" ? "Verify" : "Verify again"}
-            </Button>
+            {active ? (
+              <Button
+                variant="ghost"
+                className="h-8 px-2"
+                disabled={cancel.isPending}
+                aria-label={`Cancel verify: ${file.relPath}`}
+                onClick={() => cancel.mutate(file.id)}
+              >
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                className="h-8 px-2"
+                disabled={start.isPending}
+                aria-label={`${status === "unverified" ? "Verify" : "Verify again"}: ${file.relPath}`}
+                onClick={() => start.mutate({ id: file.id })}
+              >
+                {status === "unverified" ? "Verify" : "Verify again"}
+              </Button>
+            )}
           </span>
         </span>
       </div>
+      {errors.length > 0 && (
+        <ul className="mt-1 space-y-0.5 text-sm text-danger">
+          {errors.map((message) => (
+            <li key={message} className="[overflow-wrap:anywhere]">
+              {message}
+            </li>
+          ))}
+        </ul>
+      )}
       {failures.length > 0 && (
         <ul className="mt-1 space-y-0.5 text-sm text-danger">
           {failures.map((item, index) => (
