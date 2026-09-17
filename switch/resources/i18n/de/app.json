@@ -106,9 +106,10 @@
     "empty": "Auf dieser Switch ist nichts installiert.",
     "required_version": "Erforderliche Version",
     "reset_version": "Erforderliche Version zurücksetzen",
-    "reset_body": "HOME verlangt ein Update, wenn die erwartete Version neuer ist als die installierte, z. B. nachdem ein Update entfernt wurde. Das Zurücksetzen hebt diese Anforderung auf. Bei zu alter Konsolen-Firmware hilft es nicht.",
-    "reset_done": "Erforderliche Version zurückgesetzt. Starte das Spiel erneut.",
-    "reset_failed": "Erforderliche Version konnte nicht zurückgesetzt werden ({})"
+    "reset_body": "Setzt die Firmware-Version zurück, die das Spiel und sein Update verlangen („Ein Systemupdate ist erforderlich“), sowie die Update-Version, die HOME erwartet (z. B. nachdem ein Update entfernt wurde). Ein Spiel, das für neuere Firmware gebaut wurde, startet eventuell trotzdem nicht.",
+    "reset_done": "Erforderliche Version zurückgesetzt. Starte das Spiel erneut und starte die Konsole neu, falls HOME weiterhin fragt.",
+    "reset_failed": "Erforderliche Version konnte nicht zurückgesetzt werden ({})",
+    "required_firmware": "Benötigt Firmware {} (diese Konsole: {})"
   },
   "queue": {
     "empty": "Noch keine Aufträge. Vom Web senden oder aus der Bibliothek installieren.",

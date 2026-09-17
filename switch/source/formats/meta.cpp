@@ -51,4 +51,35 @@ std::vector<uint8_t> buildInstallContentMeta(
     return out;
 }
 
+namespace {
+
+/** Offset of RequiredSystemVersion in the blob, or 0 when this meta has none. */
+size_t requiredSystemVersionOffset(uint8_t metaType, const std::vector<uint8_t>& blob) {
+    if (metaType != uint8_t(CnmtType::Application) && metaType != uint8_t(CnmtType::Patch)) return 0;
+    if (blob.size() < sizeof(ContentMetaHeader)) return 0;
+    ContentMetaHeader header{};
+    std::memcpy(&header, blob.data(), sizeof(header));
+    // Both extended headers start with an 8-byte title id, then the u32 we want.
+    const size_t offset = sizeof(header) + 8;
+    if (header.extendedHeaderSize < 12 || blob.size() < offset + 4) return 0;
+    return offset;
+}
+
+} // namespace
+
+std::optional<uint32_t> storedRequiredSystemVersion(uint8_t metaType, const std::vector<uint8_t>& blob) {
+    const size_t offset = requiredSystemVersionOffset(metaType, blob);
+    if (!offset) return std::nullopt;
+    uint32_t version = 0;
+    std::memcpy(&version, blob.data() + offset, sizeof(version));
+    return version;
+}
+
+bool clearRequiredSystemVersion(uint8_t metaType, std::vector<uint8_t>& blob) {
+    const auto version = storedRequiredSystemVersion(metaType, blob);
+    if (!version || *version == 0) return false;
+    std::memset(blob.data() + requiredSystemVersionOffset(metaType, blob), 0, sizeof(uint32_t));
+    return true;
+}
+
 } // namespace nslib

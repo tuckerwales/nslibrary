@@ -106,9 +106,10 @@
     "empty": "No hay nada instalado en esta Switch.",
     "required_version": "Versión requerida",
     "reset_version": "Restablecer versión requerida",
-    "reset_body": "HOME pide una actualización cuando la versión que espera es más nueva que la instalada, por ejemplo tras eliminar una actualización. Restablecerla quita ese requisito. No sirve si el firmware de la consola es demasiado antiguo.",
-    "reset_done": "Versión requerida restablecida. Vuelve a iniciar el juego.",
-    "reset_failed": "No se pudo restablecer la versión requerida ({})"
+    "reset_body": "Borra la versión de firmware que piden el juego y su actualización («Se necesita una actualización del sistema») y la versión de actualización que espera HOME (por ejemplo, tras eliminar una actualización). Un juego creado para un firmware más nuevo puede seguir sin iniciarse.",
+    "reset_done": "Versión requerida restablecida. Vuelve a iniciar el juego y reinicia la consola si HOME sigue pidiéndolo.",
+    "reset_failed": "No se pudo restablecer la versión requerida ({})",
+    "required_firmware": "Requiere firmware {} (esta consola: {})"
   },
   "queue": {
     "empty": "Aún no hay trabajos. Envíalos desde la web o instala desde la biblioteca.",

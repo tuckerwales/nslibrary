@@ -2,6 +2,7 @@
 
 #include "formats/cnmt.hpp"
 
+#include <optional>
 #include <vector>
 
 namespace nslib {
@@ -42,5 +43,15 @@ std::vector<uint8_t> buildInstallContentMeta(
     const CnmtInfo& cnmt,
     const uint8_t metaNcaId[16],
     uint64_t metaNcaSize);
+
+/**
+ * RequiredSystemVersion from a blob read back with `ncmContentMetaDatabaseGet`. Only games and
+ * updates carry one; HOME refuses to launch ("A system update is required") when it is newer
+ * than the console firmware.
+ */
+std::optional<uint32_t> storedRequiredSystemVersion(uint8_t metaType, const std::vector<uint8_t>& blob);
+
+/** Zero that field in place. True when the blob changed and needs writing back. */
+bool clearRequiredSystemVersion(uint8_t metaType, std::vector<uint8_t>& blob);
 
 } // namespace nslib

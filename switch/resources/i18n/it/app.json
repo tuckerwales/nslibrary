@@ -106,9 +106,10 @@
     "empty": "Non c’è nulla installato su questa Switch.",
     "required_version": "Versione richiesta",
     "reset_version": "Reimposta versione richiesta",
-    "reset_body": "HOME chiede un aggiornamento quando la versione attesa è più recente di quella installata, ad esempio dopo aver rimosso un aggiornamento. Reimpostarla elimina questo requisito. Non serve se il firmware della console è troppo vecchio.",
-    "reset_done": "Versione richiesta reimpostata. Riavvia il gioco.",
-    "reset_failed": "Impossibile reimpostare la versione richiesta ({})"
+    "reset_body": "Azzera la versione del firmware richiesta dal gioco e dal suo aggiornamento («È necessario un aggiornamento di sistema») e la versione di aggiornamento attesa da HOME (ad esempio dopo aver rimosso un aggiornamento). Un gioco creato per un firmware più recente potrebbe comunque non avviarsi.",
+    "reset_done": "Versione richiesta reimpostata. Riavvia il gioco e riavvia la console se HOME lo chiede ancora.",
+    "reset_failed": "Impossibile reimpostare la versione richiesta ({})",
+    "required_firmware": "Richiede firmware {} (questa console: {})"
   },
   "queue": {
     "empty": "Nessun lavoro. Invia un titolo dal web o installa dalla libreria.",

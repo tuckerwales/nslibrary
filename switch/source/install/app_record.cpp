@@ -2,8 +2,11 @@
 
 #ifdef __SWITCH__
 
+#include "formats/meta.hpp"
 #include "install/record_merge.hpp"
 
+#include <algorithm>
+#include <borealis.hpp>
 #include <cstring>
 #include <vector>
 
@@ -145,20 +148,89 @@ Result appRecordCommit(u64 applicationId, NcmStorageId storage, const NcmContent
     return 0;
 }
 
-Result launchRequiredVersion(u64 applicationId, u32* version) {
-    Result rc = avmInitialize();
+namespace {
+
+bool hasSystemVersion(const ContentStorageRecord& r) {
+    return r.key.type == NcmContentMetaType_Application || r.key.type == NcmContentMetaType_Patch;
+}
+
+Result readStoredMeta(NcmContentMetaDatabase& db, const NcmContentMetaKey& key, std::vector<u8>& out) {
+    u64 size = 0;
+    Result rc = ncmContentMetaDatabaseGetSize(&db, &size, &key);
     if (R_FAILED(rc)) return rc;
-    rc = avmGetLaunchRequiredVersion(applicationId, version);
-    avmExit();
+    out.resize(size_t(size));
+    u64 read = 0;
+    rc = ncmContentMetaDatabaseGet(&db, &key, &read, out.data(), size);
+    if (R_SUCCEEDED(rc)) out.resize(size_t(read));
     return rc;
 }
 
-Result resetLaunchVersion(u64 applicationId) {
-    Result rc = avmInitialize();
+} // namespace
+
+RequiredVersions readRequiredVersions(u64 applicationId) {
+    RequiredVersions out;
+    if (hosversionAtLeast(6, 0, 0) && R_SUCCEEDED(avmInitialize())) {
+        u32 launch = 0;
+        if (R_SUCCEEDED(avmGetLaunchRequiredVersion(applicationId, &launch))) out.launch = launch;
+        avmExit();
+    }
+
+    std::vector<ContentStorageRecord> records;
+    if (R_FAILED(appRecordInit()) || R_FAILED(listRecords(applicationId, records))) return out;
+    for (const auto& r : records) {
+        if (!hasSystemVersion(r)) continue;
+        NcmContentMetaDatabase db;
+        if (R_FAILED(ncmOpenContentMetaDatabase(&db, NcmStorageId(r.storageId)))) continue;
+        std::vector<u8> blob;
+        if (R_SUCCEEDED(readStoredMeta(db, r.key, blob))) {
+            if (const auto v = storedRequiredSystemVersion(r.key.type, blob)) {
+                out.system = std::max(out.system.value_or(0), *v);
+            }
+        }
+        ncmContentMetaDatabaseClose(&db);
+    }
+    return out;
+}
+
+Result resetRequiredVersions(u64 applicationId) {
+    Result rc = appRecordInit();
     if (R_FAILED(rc)) return rc;
-    rc = avmPushLaunchVersion(applicationId, 0);
-    avmExit();
-    return rc;
+    std::vector<ContentStorageRecord> records;
+    rc = listRecords(applicationId, records);
+    if (R_FAILED(rc)) return rc;
+
+    // Keep going past a failure so one bad entry does not leave the rest untouched.
+    Result first = 0;
+    for (const auto& r : records) {
+        if (!hasSystemVersion(r)) continue;
+        NcmContentMetaDatabase db;
+        rc = ncmOpenContentMetaDatabase(&db, NcmStorageId(r.storageId));
+        if (R_FAILED(rc)) {
+            if (R_SUCCEEDED(first)) first = rc;
+            continue;
+        }
+        std::vector<u8> blob;
+        rc = readStoredMeta(db, r.key, blob);
+        if (R_SUCCEEDED(rc) && clearRequiredSystemVersion(r.key.type, blob)) {
+            rc = ncmContentMetaDatabaseSet(&db, &r.key, blob.data(), blob.size());
+            if (R_SUCCEEDED(rc)) rc = ncmContentMetaDatabaseCommit(&db);
+        }
+        ncmContentMetaDatabaseClose(&db);
+        brls::Logger::info("reset required system version {:016X} v{} storage {} rc=0x{:X}", r.key.id,
+            r.key.version, r.storageId, rc);
+        if (R_FAILED(rc) && R_SUCCEEDED(first)) first = rc;
+    }
+
+    if (hosversionAtLeast(6, 0, 0)) {
+        rc = avmInitialize();
+        if (R_SUCCEEDED(rc)) {
+            rc = avmPushLaunchVersion(applicationId, 0);
+            avmExit();
+        }
+        brls::Logger::info("reset launch version {:016X} rc=0x{:X}", applicationId, rc);
+        if (R_FAILED(rc) && R_SUCCEEDED(first)) first = rc;
+    }
+    return first;
 }
 
 } // namespace nslib

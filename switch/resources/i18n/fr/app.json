@@ -106,9 +106,10 @@
     "empty": "Rien n’est installé sur cette Switch.",
     "required_version": "Version requise",
     "reset_version": "Réinitialiser la version requise",
-    "reset_body": "HOME demande une mise à jour quand la version attendue est plus récente que celle installée, par exemple après la suppression d'une mise à jour. La réinitialisation supprime cette exigence. Cela n'aide pas si le firmware de la console est trop ancien.",
-    "reset_done": "Version requise réinitialisée. Relancez le jeu.",
-    "reset_failed": "Impossible de réinitialiser la version requise ({})"
+    "reset_body": "Efface la version de firmware exigée par le jeu et sa mise à jour (« Une mise à jour du système est requise ») ainsi que la version de mise à jour attendue par HOME (par exemple après la suppression d’une mise à jour). Un jeu conçu pour un firmware plus récent peut quand même ne pas démarrer.",
+    "reset_done": "Version requise réinitialisée. Relancez le jeu, et redémarrez la console si HOME le demande encore.",
+    "reset_failed": "Impossible de réinitialiser la version requise ({})",
+    "required_firmware": "Nécessite le firmware {} (cette console : {})"
   },
   "queue": {
     "empty": "Aucune tâche. Envoyez un titre depuis le web, ou installez depuis la bibliothèque.",

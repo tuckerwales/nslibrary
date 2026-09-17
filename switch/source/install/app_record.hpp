@@ -5,6 +5,7 @@
 #endif
 
 #include <cstdint>
+#include <optional>
 
 namespace nslib {
 
@@ -16,14 +17,21 @@ void appRecordExit();
 /** Merge this meta into the ns application record and push it. For patches, also avmPushLaunchVersion. */
 Result appRecordCommit(u64 applicationId, NcmStorageId storage, const NcmContentMetaKey& key);
 
-/** The version HOME wants installed before it will launch the game. avm needs 6.0.0+. */
-Result launchRequiredVersion(u64 applicationId, u32* version);
+struct RequiredVersions {
+    /** Version avm wants installed before HOME launches the game (6.0.0+). */
+    std::optional<u32> launch;
+    /** Highest RequiredSystemVersion stored for the game and its update, in raw CNMT form. */
+    std::optional<u32> system;
+};
+
+RequiredVersions readRequiredVersions(u64 applicationId);
 
 /**
- * Drop that requirement back to 0, like DBI's "Reset required version". Fixes HOME asking for an
- * update when the update was removed or the pushed version is higher than what is installed.
+ * DBI's "Reset required version": zero RequiredSystemVersion in the content meta database for the
+ * game and its update ("A system update is required"), and push a launch version of 0 to avm
+ * (HOME asking for an update that was removed). A game built for newer firmware may still not boot.
  */
-Result resetLaunchVersion(u64 applicationId);
+Result resetRequiredVersions(u64 applicationId);
 
 #endif
 

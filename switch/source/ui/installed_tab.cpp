@@ -1,5 +1,6 @@
 #include "ui/main_activity.hpp"
 
+#include "app/services.hpp"
 #include "app/session.hpp"
 #include "install/app_record.hpp"
 #include "installed/compare.hpp"
@@ -54,7 +55,7 @@ std::string titleName(const std::unordered_map<std::string, std::string>& names,
 }
 
 /** Offer DBI's "Reset required version" for the game `applicationId` (upper hex, 16 digits). */
-void confirmResetLaunchVersion(const std::string& name, const std::string& applicationId) {
+void confirmResetRequiredVersion(const std::string& name, const std::string& applicationId) {
     uint64_t id = 0;
     try {
         id = std::stoull(applicationId, nullptr, 16);
@@ -63,9 +64,14 @@ void confirmResetLaunchVersion(const std::string& name, const std::string& appli
     }
     std::string body = name + "\n" + applicationId;
 #ifdef __SWITCH__
-    u32 required = 0;
-    if (R_SUCCEEDED(launchRequiredVersion(id, &required))) {
-        body += "\n" + "app/installed/required_version"_i18n + " " + formatVersion(required);
+    // Show what the console holds, so it is clear which check is in the way before resetting.
+    const auto required = readRequiredVersions(id);
+    if (required.system && *required.system) {
+        body += "\n" + brls::getStr("app/installed/required_firmware", formatFirmware(*required.system),
+                           firmwareVersion());
+    }
+    if (required.launch) {
+        body += "\n" + "app/installed/required_version"_i18n + " " + formatVersion(*required.launch);
     }
 #endif
     body += "\n\n" + "app/installed/reset_body"_i18n;
@@ -74,8 +80,7 @@ void confirmResetLaunchVersion(const std::string& name, const std::string& appli
     dialog->addButton("app/installed/reset_version"_i18n, [id]() {
         brls::sync([id] {
 #ifdef __SWITCH__
-            const Result rc = resetLaunchVersion(id);
-            brls::Logger::info("resetLaunchVersion {:016X} rc=0x{:X}", id, rc);
+            const Result rc = resetRequiredVersions(id);
             if (R_FAILED(rc)) {
                 char code[16];
                 std::snprintf(code, sizeof(code), "0x%X", rc);
@@ -109,7 +114,7 @@ void addSection(brls::Box* box, const std::string& title, const std::vector<Inst
         }
         // Games and their updates share one launch requirement, so either row can reset it.
         box->addView(makeCell(name, detail, [name, applicationId](brls::View*) {
-            confirmResetLaunchVersion(name, applicationId);
+            confirmResetRequiredVersion(name, applicationId);
             return true;
         }));
     }

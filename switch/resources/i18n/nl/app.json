@@ -106,9 +106,10 @@
     "empty": "Er is niets geïnstalleerd op deze Switch.",
     "required_version": "Vereiste versie",
     "reset_version": "Vereiste versie resetten",
-    "reset_body": "HOME vraagt om een update als de verwachte versie nieuwer is dan de geïnstalleerde, bijvoorbeeld nadat een update is verwijderd. Resetten haalt die eis weg. Het helpt niet als de firmware van de console te oud is.",
-    "reset_done": "Vereiste versie gereset. Start het spel opnieuw.",
-    "reset_failed": "Kon de vereiste versie niet resetten ({})"
+    "reset_body": "Wist de firmwareversie die de game en de update vereisen (“Er is een systeemupdate vereist”) en de updateversie die HOME verwacht (bijvoorbeeld nadat een update is verwijderd). Een game die voor nieuwere firmware is gemaakt, start mogelijk nog steeds niet.",
+    "reset_done": "Vereiste versie gereset. Start het spel opnieuw en herstart de console als HOME er nog om vraagt.",
+    "reset_failed": "Kon de vereiste versie niet resetten ({})",
+    "required_firmware": "Vereist firmware {} (deze console: {})"
   },
   "queue": {
     "empty": "Nog geen taken. Stuur een titel via het web, of installeer vanuit de bibliotheek.",

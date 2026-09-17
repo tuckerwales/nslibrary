@@ -41,3 +41,31 @@ TEST(install_content_meta_includes_meta_nca) {
     size = uint64_t(last.sizeLow) | (uint64_t(last.sizeHigh) << 32);
     CHECK_EQ(size, p.entries[0].size);
 }
+
+TEST(required_system_version_is_cleared_from_stored_meta) {
+    const auto nsp = slurpBytes(fixturePath("pfs0.bin"));
+    const Partition p = parsePfs0(MemoryReader(nsp));
+    auto cnmtBytes = MemoryReader(nsp).readExact(p.entries[0].offset, size_t(p.entries[0].size));
+    const CnmtInfo cnmt = parseCnmt(cnmtBytes);
+    CHECK(cnmt.requiredSystemVersion != 0);
+
+    const uint8_t metaId[16] = {};
+    auto blob = buildInstallContentMeta(cnmt, metaId, p.entries[0].size);
+    const auto before = blob;
+    CHECK_EQ(storedRequiredSystemVersion(cnmt.rawType, blob).value_or(0), cnmt.requiredSystemVersion);
+
+    CHECK(clearRequiredSystemVersion(cnmt.rawType, blob));
+    CHECK_EQ(storedRequiredSystemVersion(cnmt.rawType, blob).value_or(1), 0u);
+    CHECK_EQ(blob.size(), before.size());
+    // Only those four bytes move; the patch id and content records stay as they were.
+    size_t changed = 0;
+    for (size_t i = 0; i < blob.size(); i++) changed += blob[i] != before[i];
+    CHECK(changed > 0 && changed <= 4);
+    CHECK(!clearRequiredSystemVersion(cnmt.rawType, blob));
+
+    // DLC has no firmware field at that offset, so it is left alone.
+    auto addon = before;
+    CHECK(!storedRequiredSystemVersion(uint8_t(CnmtType::AddOnContent), addon));
+    CHECK(!clearRequiredSystemVersion(uint8_t(CnmtType::AddOnContent), addon));
+    CHECK(addon == before);
+}
