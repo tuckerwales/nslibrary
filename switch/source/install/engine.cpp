@@ -549,12 +549,18 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
         }
 
         const CnmtInfo cnmt = parseCnmt(cnmtBytes);
-        if (!firmwareWarned && cnmt.hasRequiredSystemVersion &&
-            firmwareTooNew(cnmt.requiredSystemVersion, currentFirmwarePacked())) {
+        const bool firmwareTooOld = cnmt.hasRequiredSystemVersion &&
+            firmwareTooNew(cnmt.requiredSystemVersion, currentFirmwarePacked());
+        if (firmwareTooOld && !firmwareWarned) {
             firmwareWarned = true;
             const uint32_t v = cnmt.requiredSystemVersion;
-            warn("Needs firmware " + std::to_string((v >> 26) & 0x3f) + "." + std::to_string((v >> 20) & 0x3f) + "." +
-                std::to_string((v >> 16) & 0xf) + " or newer to launch.");
+            const std::string needed = std::to_string((v >> 26) & 0x3f) + "." + std::to_string((v >> 20) & 0x3f) +
+                "." + std::to_string((v >> 16) & 0xf);
+            if (opt_.clearFirmwareRequirement) {
+                warn("Needs firmware " + needed + ". Clearing the requirement so HOME will launch it.");
+            } else {
+                warn("Needs firmware " + needed + " or newer to launch.");
+            }
         }
 
         uint64_t remaining = 0;
@@ -607,7 +613,10 @@ void InstallEngine::install(const Job& job, ProgressFn progress) {
         }
 
         clock.emit("commit", cnmt.titleId, 0, 1);
-        const auto blob = buildInstallContentMeta(cnmt, metaId.c, metaSize);
+        auto blob = buildInstallContentMeta(cnmt, metaId.c, metaSize);
+        if (firmwareTooOld && opt_.clearFirmwareRequirement && clearRequiredSystemVersion(cnmt.rawType, blob)) {
+            brls::Logger::info("cleared required system version for {}", cnmt.titleId);
+        }
         NcmContentMetaDatabase db{};
         check(ncmOpenContentMetaDatabase(&db, ncmId(storage)), "ncmOpenContentMetaDatabase");
         NcmContentMetaKey key{};

@@ -66,6 +66,8 @@ If an install fails, the title being installed is rolled back (placeholders, reg
 
 Low battery and a firmware requirement newer than the console are shown in the install dialog and on the progress screen.
 
+When a game or update needs newer firmware than the console has, the installer registers it with that requirement cleared, so HOME launches it without saying "A system update is required". The progress screen says when this happens. Turn it off with Settings → **Clear firmware requirement** to keep the requirement and only see the warning. A game built for newer firmware can still fail to start.
+
 **HOME menu:** Settings in the web UI can download an NSP forwarder (needs `prod.keys`). Install that NSP and keep `nslibrary.nro` at `sdmc:/switch/nslibrary/nslibrary.nro`.
 
 **Self-update:** Settings → **Check for updates** first asks your library server for a newer signed build (no internet access needed), then checks the latest GitHub Release. Either way the app checks an Ed25519 signature on `update.json`, then the `.nro` SHA-256. See [updates.md](updates.md).

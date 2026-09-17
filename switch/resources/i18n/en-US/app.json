@@ -44,8 +44,9 @@
     "not_installed": "Not on this Switch",
     "on_console": "On this Switch",
     "firmware": "Requires firmware",
-    "warn_firmware": "Warning: this console is older than the required firmware",
-    "warn_battery": "Warning: the battery is below 15% and not charging."
+    "warn_battery": "Warning: the battery is below 15% and not charging.",
+    "clear_firmware": "Needs firmware {}, newer than this console. The requirement will be cleared so HOME launches it; a game built for newer firmware may still not start.",
+    "warn_firmware_version": "Warning: this console is older than the required firmware {}"
   },
   "type": {
     "patch": "Update",
@@ -139,6 +140,7 @@
     "update_check_github": "Checking GitHub for updates",
     "update_downloading": "Downloading NSLibrary {}",
     "update_downloading_server": "Downloading NSLibrary {} from the library",
-    "log": "Log file"
+    "log": "Log file",
+    "clear_firmware": "Clear firmware requirement"
   }
 }

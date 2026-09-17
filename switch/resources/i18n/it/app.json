@@ -44,8 +44,9 @@
     "not_installed": "Non su questa Switch",
     "on_console": "Su questa Switch",
     "firmware": "Firmware richiesto",
-    "warn_firmware": "Attenzione: questa console è più vecchia del firmware richiesto",
-    "warn_battery": "Attenzione: la batteria è sotto il 15% e non è in carica."
+    "warn_battery": "Attenzione: la batteria è sotto il 15% e non è in carica.",
+    "clear_firmware": "Richiede il firmware {}, più recente di questa console. Il requisito verrà rimosso così HOME lo avvia; un gioco creato per un firmware più recente potrebbe comunque non avviarsi.",
+    "warn_firmware_version": "Attenzione: questa console è più vecchia del firmware richiesto {}"
   },
   "type": {
     "patch": "Aggiornamento",
@@ -139,6 +140,7 @@
     "update_check_github": "Ricerca di aggiornamenti su GitHub",
     "update_downloading": "Download di NSLibrary {}",
     "update_downloading_server": "Download di NSLibrary {} dalla libreria",
-    "log": "File di log"
+    "log": "File di log",
+    "clear_firmware": "Rimuovi requisito firmware"
   }
 }

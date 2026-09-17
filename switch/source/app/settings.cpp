@@ -49,6 +49,9 @@ void Settings::load() {
             defaultTarget = v["defaultTarget"].asString();
         }
         if (v["verifyHash"].isBool()) verifyHash = v["verifyHash"].asBool();
+        if (v.has("clearFirmwareRequirement") && v["clearFirmwareRequirement"].isBool()) {
+            clearFirmwareRequirement = v["clearFirmwareRequirement"].asBool();
+        }
         if (v["useUsb"].isBool()) useUsb = v["useUsb"].asBool();
     } catch (...) {
     }
@@ -66,6 +69,7 @@ void Settings::save() const {
     o.set("name", Json::string(name));
     o.set("defaultTarget", Json::string(defaultTarget));
     o.set("verifyHash", Json::boolean(verifyHash));
+    o.set("clearFirmwareRequirement", Json::boolean(clearFirmwareRequirement));
     o.set("useUsb", Json::boolean(useUsb));
     try {
         writeFileAtomic(kPath, o.dump());

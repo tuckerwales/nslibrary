@@ -44,8 +44,9 @@
     "not_installed": "このSwitchにはありません",
     "on_console": "このSwitchにあります",
     "firmware": "必要なファームウェア",
-    "warn_firmware": "警告: このSwitchのファームウェアは必要なバージョンより古いです",
-    "warn_battery": "警告: バッテリーが15%未満で、充電していません。"
+    "warn_battery": "警告: バッテリーが15%未満で、充電していません。",
+    "clear_firmware": "ファームウェア {} が必要で、この本体より新しいバージョンです。HOMEから起動できるよう要件を解除します。より新しいファームウェア向けのゲームは起動しない場合があります。",
+    "warn_firmware_version": "警告: この本体は必要なファームウェア {} より古いです"
   },
   "type": {
     "patch": "更新データ",
@@ -139,6 +140,7 @@
     "update_check_github": "GitHubの更新を確認しています",
     "update_downloading": "NSLibrary {} をダウンロードしています",
     "update_downloading_server": "ライブラリから NSLibrary {} をダウンロードしています",
-    "log": "ログファイル"
+    "log": "ログファイル",
+    "clear_firmware": "ファームウェア要件を解除"
   }
 }

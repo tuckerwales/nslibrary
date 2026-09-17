@@ -44,8 +44,9 @@
     "not_installed": "Niet op deze Switch",
     "on_console": "Op deze Switch",
     "firmware": "Vereiste firmware",
-    "warn_firmware": "Let op: deze console is ouder dan de vereiste firmware",
-    "warn_battery": "Let op: de accu is onder 15% en laadt niet op."
+    "warn_battery": "Let op: de accu is onder 15% en laadt niet op.",
+    "clear_firmware": "Vereist firmware {}, nieuwer dan deze console. De vereiste wordt gewist zodat HOME het start; een game voor nieuwere firmware start mogelijk nog steeds niet.",
+    "warn_firmware_version": "Waarschuwing: deze console is ouder dan de vereiste firmware {}"
   },
   "type": {
     "patch": "Update",
@@ -139,6 +140,7 @@
     "update_check_github": "GitHub op updates controleren",
     "update_downloading": "NSLibrary {} downloaden",
     "update_downloading_server": "NSLibrary {} downloaden van de bibliotheek",
-    "log": "Logbestand"
+    "log": "Logbestand",
+    "clear_firmware": "Firmwarevereiste wissen"
   }
 }

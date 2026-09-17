@@ -44,8 +44,9 @@
     "not_installed": "本機沒有",
     "on_console": "本機已有",
     "firmware": "需要的系統版本",
-    "warn_firmware": "警告：本機系統版本低於所需版本",
-    "warn_battery": "警告：電量低於 15% 且未在充電。"
+    "warn_battery": "警告：電量低於 15% 且未在充電。",
+    "clear_firmware": "需要韌體 {}，比本主機更新。將清除該要求以便 HOME 啟動；為較新韌體建置的遊戲仍可能無法啟動。",
+    "warn_firmware_version": "警告：本主機早於所需韌體 {}"
   },
   "type": {
     "patch": "更新",
@@ -139,6 +140,7 @@
     "update_check_github": "正在檢查 GitHub 的更新",
     "update_downloading": "正在下載 NSLibrary {}",
     "update_downloading_server": "正在從資料庫下載 NSLibrary {}",
-    "log": "記錄檔"
+    "log": "記錄檔",
+    "clear_firmware": "清除韌體要求"
   }
 }

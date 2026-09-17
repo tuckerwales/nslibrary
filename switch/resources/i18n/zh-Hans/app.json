@@ -44,8 +44,9 @@
     "not_installed": "本机没有",
     "on_console": "本机已有",
     "firmware": "需要的系统版本",
-    "warn_firmware": "警告：本机系统版本低于所需版本",
-    "warn_battery": "警告：电量低于 15% 且未在充电。"
+    "warn_battery": "警告：电量低于 15% 且未在充电。",
+    "clear_firmware": "需要固件 {}，比本主机更新。将清除该要求以便 HOME 启动；为更新固件构建的游戏仍可能无法启动。",
+    "warn_firmware_version": "警告：本主机早于所需固件 {}"
   },
   "type": {
     "patch": "更新",
@@ -139,6 +140,7 @@
     "update_check_github": "正在检查 GitHub 的更新",
     "update_downloading": "正在下载 NSLibrary {}",
     "update_downloading_server": "正在从资料库下载 NSLibrary {}",
-    "log": "日志文件"
+    "log": "日志文件",
+    "clear_firmware": "清除固件要求"
   }
 }

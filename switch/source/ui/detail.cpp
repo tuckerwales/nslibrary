@@ -73,7 +73,9 @@ void confirmInstall(int64_t contentMetaId, const std::string& name, uint64_t siz
     std::string body = "app/detail/install_body"_i18n + std::string("\n") + cleanTitleName(name);
     if (size) body += "\n" + formatSize(size);
     if (requiredSystemVersion && firmwareTooNew(*requiredSystemVersion, currentFirmwarePacked())) {
-        body += "\n\n" + "app/detail/warn_firmware"_i18n + " " + formatFirmware(*requiredSystemVersion);
+        const bool clearing = Session::instance().settings.clearFirmwareRequirement;
+        body += "\n\n" + brls::getStr(clearing ? "app/detail/clear_firmware" : "app/detail/warn_firmware_version",
+                               formatFirmware(*requiredSystemVersion));
     }
     if (batteryShouldWarn(batteryPercent(), batteryCharging())) {
         body += "\n\n" + "app/detail/warn_battery"_i18n;

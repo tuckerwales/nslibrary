@@ -44,8 +44,9 @@
     "not_installed": "이 Switch에 없음",
     "on_console": "이 Switch에 있음",
     "firmware": "필요한 펌웨어",
-    "warn_firmware": "경고: 이 본체의 펌웨어가 필요한 버전보다 낮습니다",
-    "warn_battery": "경고: 배터리가 15% 미만이며 충전 중이 아닙니다."
+    "warn_battery": "경고: 배터리가 15% 미만이며 충전 중이 아닙니다.",
+    "clear_firmware": "이 본체보다 새로운 펌웨어 {}이(가) 필요합니다. HOME에서 실행되도록 요구 사항을 해제합니다. 더 새로운 펌웨어용 게임은 여전히 실행되지 않을 수 있습니다.",
+    "warn_firmware_version": "경고: 이 본체는 필요한 펌웨어 {}보다 오래되었습니다"
   },
   "type": {
     "patch": "업데이트",
@@ -139,6 +140,7 @@
     "update_check_github": "GitHub에서 업데이트 확인 중",
     "update_downloading": "NSLibrary {} 다운로드 중",
     "update_downloading_server": "라이브러리에서 NSLibrary {} 다운로드 중",
-    "log": "로그 파일"
+    "log": "로그 파일",
+    "clear_firmware": "펌웨어 요구 사항 해제"
   }
 }

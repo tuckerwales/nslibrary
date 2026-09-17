@@ -771,6 +771,7 @@ void Session::runInstall(Job job) {
         brls::Logger::info("install engine {}", job.name);
         InstallOptions opt;
         opt.verifyHash = settings.verifyHash;
+        opt.clearFirmwareRequirement = settings.clearFirmwareRequirement;
 #ifdef __SWITCH__
         opt.warn = [](const std::string& text) { setProgressWarning(text); };
 #endif

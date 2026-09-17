@@ -13,6 +13,8 @@ struct Settings {
     std::string name = "Switch";
     std::string defaultTarget = "sd";
     bool verifyHash = true;
+    /** Zero RequiredSystemVersion on install when the console firmware is older, as DBI's reset does. */
+    bool clearFirmwareRequirement = true;
     bool useUsb = false;
 
     void load();

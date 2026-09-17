@@ -152,6 +152,13 @@ SettingsTab::SettingsTab() {
     });
     list->addView(hash);
 
+    auto* firmware = new brls::BooleanCell();
+    firmware->init("app/settings/clear_firmware"_i18n, session.settings.clearFirmwareRequirement, [](bool on) {
+        Session::instance().settings.clearFirmwareRequirement = on;
+        Session::instance().settings.save();
+    });
+    list->addView(firmware);
+
     list->addView(makeHeader("app/settings/app"_i18n));
     list->addView(makeInfoCell("app/settings/version"_i18n, NSLIB_VERSION));
     list->addView(makeCell("app/settings/update"_i18n, "", [](brls::View*) {

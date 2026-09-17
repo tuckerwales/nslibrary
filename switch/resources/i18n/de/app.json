@@ -44,8 +44,9 @@
     "not_installed": "Nicht auf dieser Switch",
     "on_console": "Auf dieser Switch",
     "firmware": "Benötigte Firmware",
-    "warn_firmware": "Achtung: Diese Konsole ist älter als die benötigte Firmware",
-    "warn_battery": "Achtung: Der Akku ist unter 15 % und lädt nicht."
+    "warn_battery": "Achtung: Der Akku ist unter 15 % und lädt nicht.",
+    "clear_firmware": "Benötigt Firmware {}, neuer als diese Konsole. Die Anforderung wird entfernt, damit HOME das Spiel startet; ein für neuere Firmware gebautes Spiel startet eventuell trotzdem nicht.",
+    "warn_firmware_version": "Warnung: Diese Konsole ist älter als die benötigte Firmware {}"
   },
   "type": {
     "patch": "Update",
@@ -139,6 +140,7 @@
     "update_check_github": "GitHub wird auf Updates geprüft",
     "update_downloading": "NSLibrary {} wird heruntergeladen",
     "update_downloading_server": "NSLibrary {} wird von der Bibliothek geladen",
-    "log": "Protokolldatei"
+    "log": "Protokolldatei",
+    "clear_firmware": "Firmware-Anforderung entfernen"
   }
 }

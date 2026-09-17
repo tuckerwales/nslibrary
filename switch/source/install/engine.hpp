@@ -19,6 +19,8 @@ public:
 
 struct InstallOptions {
     bool verifyHash = true;
+    /** When the console firmware is older than a title needs, register it with no firmware requirement. */
+    bool clearFirmwareRequirement = true;
     /** Non-fatal problems worth showing while the install keeps going (low battery, newer firmware needed). */
     std::function<void(const std::string&)> warn;
 };
