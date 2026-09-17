@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { type BetterSQLite3Database, drizzle } from "drizzle-orm/better-sqlite3";
@@ -6,7 +8,14 @@ import * as schema from "./schema";
 
 export type Db = BetterSQLite3Database<typeof schema>;
 
-export const MIGRATIONS_DIR = fileURLToPath(new URL("../../drizzle", import.meta.url));
+/** Relative to `src/db/` when running from source, and to `dist/` in the built image. */
+function migrationsDir(): string {
+  const source = fileURLToPath(new URL("../../drizzle", import.meta.url));
+  const bundled = fileURLToPath(new URL("../drizzle", import.meta.url));
+  return existsSync(join(bundled, "meta", "_journal.json")) ? bundled : source;
+}
+
+export const MIGRATIONS_DIR = migrationsDir();
 
 export interface OpenDatabase {
   db: Db;

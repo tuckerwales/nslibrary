@@ -263,9 +263,6 @@ importers:
       p-queue:
         specifier: ^9.3.3
         version: 9.3.3
-      tsx:
-        specifier: ^4.23.13
-        version: 4.23.13
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -279,6 +276,12 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
 
   packages/shared:
     dependencies:

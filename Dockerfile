@@ -20,10 +20,13 @@ RUN pnpm --filter @nslib/web build \
   && mkdir -p packages/server/public \
   && cp -r packages/web/dist/. packages/server/public/
 RUN pnpm --filter @nslib/server seed -- /demo/library /demo/prod.keys
+# Bundled with esbuild, so the image runs plain JavaScript instead of transpiling on every start.
+RUN pnpm --filter @nslib/server build
 RUN pnpm --filter @nslib/server deploy --prod /out \
-  && mkdir -p /out/public /out/drizzle \
+  && mkdir -p /out/public /out/drizzle /out/dist \
   && cp -r packages/server/public/. /out/public/ \
-  && cp -r packages/server/drizzle/. /out/drizzle/
+  && cp -r packages/server/drizzle/. /out/drizzle/ \
+  && cp packages/server/dist/main.js /out/dist/main.js
 
 FROM node:22-bookworm-slim
 RUN apt-get update \
@@ -55,4 +58,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.NSLIB_PORT||process.env.PORT||8465)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["./node_modules/.bin/tsx", "src/main.ts"]
+CMD ["node", "dist/main.js"]

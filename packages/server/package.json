@@ -6,9 +6,16 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "//files": "What `pnpm deploy` copies into the Docker image: the bundle and its data, not sources or tests.",
+  "files": [
+    "dist",
+    "drizzle",
+    "public"
+  ],
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/main.js --external:better-sqlite3 --external:usb --external:fsevents --banner:js=\"import{createRequire as __nslibCreateRequire}from'node:module';const require=__nslibCreateRequire(import.meta.url);\"",
     "seed": "tsx src/seed/cli.ts",
     "db:generate": "drizzle-kit generate"
   },
@@ -25,12 +32,13 @@
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.4",
     "p-queue": "^9.3.3",
-    "tsx": "^4.23.13",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "tsx": "^4.23.13",
     "@types/better-sqlite3": "^9.6.0",
     "@types/ws": "^8.18.1",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.28.2"
   }
 }
