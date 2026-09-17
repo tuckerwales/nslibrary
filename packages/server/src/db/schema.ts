@@ -51,7 +51,6 @@ export const files = sqliteTable(
     parseError: text("parse_error"),
     parserVersion: integer("parser_version").notNull().default(0),
     metadataSource: text("metadata_source", { enum: METADATA_SOURCES }),
-    sha256: text("sha256"),
     verifyStatus: text("verify_status", { enum: VERIFY_STATUSES }).notNull().default("unverified"),
     verifiedAt: integer("verified_at"),
     firstSeenAt: integer("first_seen_at").notNull(),

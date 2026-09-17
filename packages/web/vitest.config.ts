@@ -6,5 +6,7 @@ export default defineProject({
   test: {
     environment: "jsdom",
     setupFiles: ["./test/setup.ts"],
+    // One jsdom per worker instead of one per file; each file still gets a fresh module registry.
+    pool: "vmThreads",
   },
 });

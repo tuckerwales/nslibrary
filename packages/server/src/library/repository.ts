@@ -516,14 +516,10 @@ export class LibraryRepository {
     return result.changes;
   }
 
-  setFileVerify(
-    fileId: number,
-    verifyStatus: FileRow["verifyStatus"],
-    sha256: string | null = null,
-  ): void {
+  setFileVerify(fileId: number, verifyStatus: FileRow["verifyStatus"]): void {
     this.db
       .update(files)
-      .set({ verifyStatus, verifiedAt: this.#now(), ...(sha256 ? { sha256 } : {}) })
+      .set({ verifyStatus, verifiedAt: this.#now() })
       .where(eq(files.id, fileId))
       .run();
   }

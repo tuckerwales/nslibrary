@@ -36,6 +36,13 @@
       "when": 1789800000000,
       "tag": "0004_titledb_at_read",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789810000000,
+      "tag": "0005_drop_file_sha256",
+      "breakpoints": true
     }
   ]
 }
