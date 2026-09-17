@@ -91,7 +91,7 @@ export class DeviceUsbHandler implements UsbRequestHandler {
       this.#token = token;
 
       if (method === "GET" && path === "/hello") {
-        return { status: 200, body: this.devices.hello() };
+        return { status: 200, body: this.devices.hello(this.#device.id) };
       }
       if (method === "GET" && path === "/update") {
         const nroPath = this.devices.nroPath();

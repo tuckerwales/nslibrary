@@ -53,6 +53,8 @@ export interface RootStats {
 }
 
 const CATALOG_REV_KEY = "catalog_rev";
+/** Folders removed in the UI, so start-up doesn't attach them again from `/library` or the demo. */
+const REMOVED_ROOT_PATHS_KEY = "removed_root_paths";
 
 function baseName(relPath: string): string {
   return relPath.slice(relPath.lastIndexOf("/") + 1);
@@ -93,16 +95,20 @@ export class LibraryRepository {
   }
 
   createRoot(input: { path: string; label?: string | null; usePolling?: boolean }): RootRow {
-    return this.db
-      .insert(libraryRoots)
-      .values({
-        path: input.path,
-        label: input.label || null,
-        usePolling: input.usePolling ?? false,
-        createdAt: this.#now(),
-      })
-      .returning()
-      .get();
+    return this.db.transaction(() => {
+      const removed = this.removedRootPaths();
+      if (removed.delete(input.path)) this.#saveRemovedRootPaths(removed);
+      return this.db
+        .insert(libraryRoots)
+        .values({
+          path: input.path,
+          label: input.label || null,
+          usePolling: input.usePolling ?? false,
+          createdAt: this.#now(),
+        })
+        .returning()
+        .get();
+    });
   }
 
   updateRoot(
@@ -120,12 +126,48 @@ export class LibraryRepository {
     return updated;
   }
 
+  /** Deletes a root and remembers its path so start-up won't attach it again. */
   deleteRoot(id: number): boolean {
     return this.db.transaction(() => {
-      const deleted = this.db.delete(libraryRoots).where(eq(libraryRoots.id, id)).run();
-      if (deleted.changes > 0) this.#bumpCatalogRev();
-      return deleted.changes > 0;
+      const deleted = this.db
+        .delete(libraryRoots)
+        .where(eq(libraryRoots.id, id))
+        .returning({ path: libraryRoots.path })
+        .get();
+      if (!deleted) return false;
+      const removed = this.removedRootPaths();
+      removed.add(deleted.path);
+      this.#saveRemovedRootPaths(removed);
+      this.#bumpCatalogRev();
+      return true;
     });
+  }
+
+  /** Paths of folders removed in the UI and not added back since. */
+  removedRootPaths(): Set<string> {
+    const row = this.db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, REMOVED_ROOT_PATHS_KEY))
+      .get();
+    if (!row) return new Set();
+    try {
+      const value: unknown = JSON.parse(row.value);
+      return new Set(
+        Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [],
+      );
+    } catch {
+      return new Set();
+    }
+  }
+
+  #saveRemovedRootPaths(paths: Set<string>): void {
+    const value = JSON.stringify([...paths].sort());
+    this.db
+      .insert(settings)
+      .values({ key: REMOVED_ROOT_PATHS_KEY, value })
+      .onConflictDoUpdate({ target: settings.key, set: { value } })
+      .run();
   }
 
   setRootScanResult(id: number, lastScanError: string | null): void {

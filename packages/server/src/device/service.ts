@@ -54,6 +54,16 @@ const PAIR_MAX_ATTEMPTS = 5;
 const ONLINE_AFTER_MS = 60_000;
 const PROGRESS_MIN_INTERVAL_MS = 1000;
 const JOB_EVENT_MIN_INTERVAL_MS = 500;
+/**
+ * A claimed or running job with no progress for this long is marked interrupted. The Switch
+ * reports every 2 s during an install (30 s at most while backing off), so this only catches a
+ * console that crashed, was switched off, or lost the network.
+ */
+export const STALE_JOB_MS = 5 * 60 * 1000;
+/** A console starting a new session isn't running anything that has been silent this long. */
+const NEW_SESSION_STALE_JOB_MS = 60 * 1000;
+/** Statuses a device may still report progress or completion for. */
+const REPORTABLE_JOB_STATUSES: readonly JobRow["status"][] = ["claimed", "running", "interrupted"];
 
 function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -390,7 +400,12 @@ export class DeviceApiService {
     }
   }
 
-  hello(): HelloResponse {
+  /**
+   * `deviceId` marks the start of a console session: jobs it left claimed or running and hasn't
+   * reported on for a while are interrupted, so the resync offers them again.
+   */
+  hello(deviceId?: number): HelloResponse {
+    if (deviceId !== undefined) this.interruptStaleJobs(NEW_SESSION_STALE_JOB_MS, deviceId);
     const caps: string[] = [...DEVICE_CAPABILITIES];
     const update = this.serverUpdate();
     if (update) caps.push("update");
@@ -555,12 +570,14 @@ export class DeviceApiService {
 
   progress(deviceId: number, jobId: number, body: JobProgressRequest): void {
     const row = this.#jobForDevice(deviceId, jobId);
-    if (row.status !== "claimed" && row.status !== "running") {
+    if (!REPORTABLE_JOB_STATUSES.includes(row.status)) {
       throw new ApiError("JOB_INVALID_STATE", "Progress can only be reported for an active job");
     }
     const now = this.#now();
     const last = this.#lastProgressAt.get(jobId) ?? 0;
-    if (now - last < PROGRESS_MIN_INTERVAL_MS && row.phase === body.phase) return;
+    // An interrupted job that reports again is still installing (a slow network, not a crash).
+    const revived = row.status === "interrupted";
+    if (!revived && now - last < PROGRESS_MIN_INTERVAL_MS && row.phase === body.phase) return;
     this.#lastProgressAt.set(jobId, now);
     const updated = this.#db
       .update(installJobs)
@@ -571,16 +588,18 @@ export class DeviceApiService {
         bytesDone: body.done,
         bps: Math.round(body.bps),
         updatedAt: now,
+        ...(revived ? { error: null, completedAt: null } : {}),
       })
       .where(eq(installJobs.id, jobId))
       .returning()
       .get();
-    this.#publishJob(this.toWebJob(updated), true);
+    this.#publishJob(this.toWebJob(updated), !revived);
   }
 
   complete(deviceId: number, jobId: number, body: JobCompleteRequest): WebJob {
     const row = this.#jobForDevice(deviceId, jobId);
-    if (row.status !== "claimed" && row.status !== "running") {
+    // Interrupted jobs are accepted too: the install may have finished while the server gave up.
+    if (!REPORTABLE_JOB_STATUSES.includes(row.status)) {
       throw new ApiError("JOB_INVALID_STATE", "That job is not running");
     }
     const now = this.#now();
@@ -596,9 +615,34 @@ export class DeviceApiService {
       .where(eq(installJobs.id, jobId))
       .returning()
       .get();
+    this.#lastProgressAt.delete(jobId);
+    this.#lastJobEventAt.delete(jobId);
     const job = this.toWebJob(updated);
     this.#publishJob(job);
     return job;
+  }
+
+  /**
+   * Marks claimed or running jobs interrupted when their last update is older than `maxIdleMs`,
+   * for one device or all of them. Returns how many changed.
+   */
+  interruptStaleJobs(maxIdleMs: number, deviceId?: number): number {
+    const cutoff = this.#now() - maxIdleMs;
+    const stale = this.#db
+      .select({ id: installJobs.id })
+      .from(installJobs)
+      .where(
+        and(
+          inArray(installJobs.status, ["claimed", "running"]),
+          lt(installJobs.updatedAt, cutoff),
+          deviceId === undefined ? undefined : eq(installJobs.deviceId, deviceId),
+        ),
+      )
+      .all();
+    for (const { id } of stale) {
+      this.#interruptJob(id, "The Switch stopped reporting progress");
+    }
+    return stale.length;
   }
 
   resumeJob(jobId: number): WebJob {
@@ -956,15 +1000,17 @@ export class DeviceApiService {
         ),
       )
       .all();
-    for (const row of active) {
-      const updated = this.#db
-        .update(installJobs)
-        .set({ status: "interrupted", error: message, updatedAt: now, completedAt: now })
-        .where(eq(installJobs.id, row.id))
-        .returning()
-        .get();
-      this.#publishJob(this.toWebJob(updated));
-    }
+    for (const row of active) this.#interruptJob(row.id, message, now);
+  }
+
+  #interruptJob(jobId: number, message: string, now = this.#now()): void {
+    const updated = this.#db
+      .update(installJobs)
+      .set({ status: "interrupted", error: message, updatedAt: now, completedAt: now })
+      .where(eq(installJobs.id, jobId))
+      .returning()
+      .get();
+    this.#publishJob(this.toWebJob(updated));
   }
 
   #publishJob(job: WebJob, throttle = false): void {

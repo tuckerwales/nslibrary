@@ -20,3 +20,6 @@ switch/build-host/
 *.nsz
 *.xci
 *.xcz
+
+# Logs
+*.log

@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { VerifyRequestSchema, type VerifyResult } from "@nslib/shared";
+import { type VerifyMode, VerifyRequestSchema, type VerifyResult } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { locateOnDisk, openLocatedFile } from "../library/library-fs";
@@ -39,10 +39,24 @@ const AppParamsSchema = z.object({
 
 const IconParamsSchema = z.object({ key: z.string().regex(/^[0-9a-f]{32}$/) });
 
+async function verifyFile(ctx: AppContext, id: number, mode: VerifyMode): Promise<VerifyResult> {
+  const file = ctx.repo.getFile(id);
+  const root = file && ctx.repo.getRoot(file.rootId);
+  if (!file || !root) throw new ApiError("NOT_FOUND", "That file is no longer in the library");
+  if (file.missingSince !== null)
+    throw new ApiError("FILE_MISSING", "This file is no longer on disk");
+  const located = await locateOnDisk(root.path, file.relPath);
+  if (!located) throw new ApiError("FILE_MISSING", "This file is no longer on disk");
+  const reader = await openLocatedFile(located);
+  try {
+    return await verifyLibraryFile(ctx.repo, file, reader, mode);
+  } finally {
+    await reader.close();
+  }
+}
+
 export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContext): Promise<void> {
-  api.get("/stats", async () =>
-    getStats(ctx.db, ctx.repo.catalogRev(), ctx.keys.status().configured),
-  );
+  api.get("/stats", async () => getStats(ctx.db, ctx.repo.catalogRev(), ctx.keys.hasConsoleKeys()));
 
   api.get("/apps", async (request) =>
     listApplications(ctx.db, parseWith(AppListQuerySchema, request.query)),
@@ -59,22 +73,19 @@ export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContex
 
   api.get("/problems", async () => getProblems(ctx.db));
 
+  // A full verify reads the whole file; a second request for the same file joins the first.
+  const verifying = new Map<string, Promise<VerifyResult>>();
+
   api.post("/files/:id/verify", async (request): Promise<VerifyResult> => {
     const { id } = parseWith(z.object({ id: z.coerce.number().int().positive() }), request.params);
     const body = parseWith(VerifyRequestSchema, request.body ?? {});
-    const file = ctx.repo.getFile(id);
-    const root = file && ctx.repo.getRoot(file.rootId);
-    if (!file || !root) throw new ApiError("NOT_FOUND", "That file is no longer in the library");
-    if (file.missingSince !== null)
-      throw new ApiError("FILE_MISSING", "This file is no longer on disk");
-    const located = await locateOnDisk(root.path, file.relPath);
-    if (!located) throw new ApiError("FILE_MISSING", "This file is no longer on disk");
-    const reader = await openLocatedFile(located);
-    try {
-      return await verifyLibraryFile(ctx.repo, file, reader, body.mode ?? "full");
-    } finally {
-      await reader.close();
-    }
+    const mode = body.mode ?? "full";
+    const key = `${id}:${mode}`;
+    const running = verifying.get(key);
+    if (running) return running;
+    const verify = verifyFile(ctx, id, mode).finally(() => verifying.delete(key));
+    verifying.set(key, verify);
+    return verify;
   });
 
   api.get("/icons/:key", async (request, reply) => {

@@ -52,7 +52,7 @@ export async function registerDeviceRoutes(api: FastifyInstance, ctx: AppContext
   await api.register(async (secured) => {
     secured.addHook("onRequest", requireDevice(ctx));
 
-    secured.get("/hello", async () => ctx.devices.hello());
+    secured.get("/hello", async (request) => ctx.devices.hello(request.device?.id));
 
     secured.get("/update", async (_request, reply) => {
       const nroPath = ctx.devices.nroPath();

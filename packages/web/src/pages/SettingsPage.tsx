@@ -47,9 +47,11 @@ function KeysSection() {
         <LoadError error={keys.error} />
       ) : keys.data ? (
         <p className="mt-2 text-muted">
-          {keys.data.headerKey
-            ? `Loaded ${keys.data.names.length} keys, including header_key.`
-            : "No prod.keys yet. Dump them with Lockpick_RCM and upload the file."}
+          {keys.data.demo
+            ? "Using the synthetic demo keys, which only read the demo library. Upload your console's prod.keys to read your own dumps."
+            : keys.data.headerKey
+              ? `Loaded ${keys.data.names.length} keys, including header_key.`
+              : "No prod.keys yet. Dump them with Lockpick_RCM and upload the file."}
         </p>
       ) : null}
 

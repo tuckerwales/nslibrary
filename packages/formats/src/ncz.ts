@@ -6,7 +6,8 @@
  *
  * Layout reference: nicoboss/nsz docs/formats.md.
  */
-import { zstdDecompressSync } from "node:zlib";
+import { Readable } from "node:stream";
+import { createZstdDecompress, zstdDecompressSync } from "node:zlib";
 import { FormatError, hex, readMagic, readU64 } from "./binary";
 import { aesCtrAt } from "./crypto";
 import { type RandomAccessReader, readExact } from "./reader";
@@ -140,62 +141,110 @@ export async function parseNczHeader(reader: RandomAccessReader): Promise<NczHea
   };
 }
 
-/** Re-encrypts CTR/BKTR sections in place, for bytes at or after `from`. */
-export function applySectionCrypto(
-  nca: Buffer,
+/**
+ * Re-encrypts the CTR/BKTR parts of `chunk`, which holds the NCA bytes starting at
+ * `absoluteOffset`. Chunks must arrive in order; the returned cursor skips sections that ended
+ * before this chunk, so thousands of sections don't make every chunk rescan the table.
+ */
+function encryptChunk(
+  chunk: Buffer,
+  absoluteOffset: number,
   sections: readonly NczSection[],
-  from = NCZ_UNCOMPRESSED_PREFIX_SIZE,
-): void {
-  for (const section of sections) {
+  cursor: number,
+): number {
+  const chunkEnd = absoluteOffset + chunk.length;
+  let next = cursor;
+  while (next < sections.length) {
+    const section = sections[next];
+    if (!section || section.offset + section.size > absoluteOffset) break;
+    next++;
+  }
+  for (let i = next; i < sections.length; i++) {
+    const section = sections[i];
+    if (!section || section.offset >= chunkEnd) break;
     if (section.cryptoType !== NczCryptoType.Ctr && section.cryptoType !== NczCryptoType.Bktr)
       continue;
-    const start = Math.max(section.offset, from);
-    const stop = Math.min(section.offset + section.size, nca.length);
+    const start = Math.max(section.offset, absoluteOffset, NCZ_UNCOMPRESSED_PREFIX_SIZE);
+    const stop = Math.min(section.offset + section.size, chunkEnd);
     if (stop <= start) continue;
-    aesCtrAt(section.cryptoKey, section.cryptoCounter, start, nca.subarray(start, stop)).copy(
-      nca,
-      start,
-    );
+    const view = chunk.subarray(start - absoluteOffset, stop - absoluteOffset);
+    aesCtrAt(section.cryptoKey, section.cryptoCounter, start, view).copy(view);
+  }
+  return next;
+}
+
+const READ_CHUNK = 1024 * 1024;
+
+async function* solidBody(reader: RandomAccessReader, dataOffset: number): AsyncGenerator<Buffer> {
+  const decompress = createZstdDecompress();
+  const input = Readable.from(
+    (async function* () {
+      for (let offset = dataOffset; offset < reader.size; offset += READ_CHUNK) {
+        yield await readExact(reader, offset, Math.min(READ_CHUNK, reader.size - offset));
+      }
+    })(),
+  );
+  input.on("error", (err) => decompress.destroy(err));
+  input.pipe(decompress);
+  try {
+    for await (const chunk of decompress) yield chunk as Buffer;
+  } finally {
+    input.destroy();
+    decompress.destroy();
+  }
+}
+
+async function* blockBody(
+  reader: RandomAccessReader,
+  header: NczHeader & { block: NczBlockInfo },
+): AsyncGenerator<Buffer> {
+  const { blockSize, decompressedSize, compressedBlockSizes } = header.block;
+  let position = header.dataOffset;
+  let remaining = decompressedSize;
+  for (const [index, storedSize] of compressedBlockSizes.entries()) {
+    const expected = Math.min(blockSize, remaining);
+    const stored = await readExact(reader, position, storedSize);
+    position += storedSize;
+    // nsz stores a block raw whenever compression does not make it smaller.
+    const block = storedSize < expected ? zstdDecompressSync(stored) : stored;
+    if (storedSize > expected || block.length !== expected) {
+      throw new FormatError(
+        "INVALID",
+        `NCZ block ${index} decompressed to ${block.length} bytes, expected ${expected}`,
+      );
+    }
+    remaining -= expected;
+    yield block;
   }
 }
 
 /**
- * Restores the original NCA fully in memory. Intended for tests and small files; the server
- * verifier and the Switch installer use streaming equivalents.
+ * Restores the original NCA as a sequence of chunks, holding about one block (or 1 MiB of solid
+ * stream) in memory at a time. Use this for anything that may be large.
  */
-export async function decompressNczToBuffer(reader: RandomAccessReader): Promise<Buffer> {
+export async function* restoreNczChunks(reader: RandomAccessReader): AsyncGenerator<Buffer> {
   const header = await parseNczHeader(reader);
-  const prefix = await readExact(reader, 0, NCZ_UNCOMPRESSED_PREFIX_SIZE);
+  const sections = [...header.sections].sort((a, b) => a.offset - b.offset);
+  yield await readExact(reader, 0, NCZ_UNCOMPRESSED_PREFIX_SIZE);
 
-  let body: Buffer;
-  if (header.block) {
-    const { blockSize, decompressedSize, compressedBlockSizes } = header.block;
-    const blocks: Buffer[] = [];
-    let position = header.dataOffset;
-    let remaining = decompressedSize;
-    for (const [index, storedSize] of compressedBlockSizes.entries()) {
-      const expected = Math.min(blockSize, remaining);
-      const stored = await readExact(reader, position, storedSize);
-      position += storedSize;
-      // nsz stores a block raw whenever compression does not make it smaller.
-      const block = storedSize < expected ? zstdDecompressSync(stored) : stored;
-      if (storedSize > expected || block.length !== expected) {
-        throw new FormatError(
-          "INVALID",
-          `NCZ block ${index} decompressed to ${block.length} bytes, expected ${expected}`,
-        );
-      }
-      blocks.push(block);
-      remaining -= expected;
-    }
-    body = Buffer.concat(blocks);
-  } else {
-    body = zstdDecompressSync(
-      await readExact(reader, header.dataOffset, reader.size - header.dataOffset),
-    );
+  const body = header.block
+    ? blockBody(reader, header as NczHeader & { block: NczBlockInfo })
+    : solidBody(reader, header.dataOffset);
+  let offset = NCZ_UNCOMPRESSED_PREFIX_SIZE;
+  let cursor = 0;
+  for await (const chunk of body) {
+    // Raw blocks can be views of the reader's buffer, and stream chunks can share the decoder's
+    // memory, so copy before encrypting in place.
+    const owned = Buffer.from(chunk);
+    cursor = encryptChunk(owned, offset, sections, cursor);
+    offset += owned.length;
+    yield owned;
   }
+}
 
-  const nca = Buffer.concat([prefix, body]);
-  applySectionCrypto(nca, header.sections);
-  return nca;
+/** Restores the original NCA fully in memory. Only for small NCAs; see `restoreNczChunks`. */
+export async function decompressNczToBuffer(reader: RandomAccessReader): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of restoreNczChunks(reader)) chunks.push(chunk);
+  return Buffer.concat(chunks);
 }

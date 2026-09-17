@@ -86,6 +86,8 @@ export interface KeyStatus {
   headerKey: boolean;
   keyAreaKeyGenerations: number[];
   titlekekGenerations: number[];
+  /** True when the loaded keys are the synthetic demo set, not keys from a console. */
+  demo: boolean;
 }
 
 export interface TitledbStatus {

@@ -403,6 +403,79 @@ describe("device API", () => {
     ).toBe("claimed");
   });
 
+  it("interrupts installs the Switch stopped reporting on, and accepts a late report", async () => {
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+    const [job] = (
+      await web("POST", "/jobs", {
+        session,
+        body: { deviceId, items: [contentMetaId], target: "sd" },
+      })
+    ).json<WebJob[]>();
+    const progress = () =>
+      device("POST", `/jobs/${job!.id}/progress`, {
+        token,
+        body: { phase: "content", done: 10, total: 100, bps: 1 },
+      });
+    const status = async () =>
+      (await web("GET", `/jobs?deviceId=${deviceId}`, { session })).json<WebJob[]>()[0];
+
+    expect((await device("POST", `/jobs/${job!.id}/claim`, { token })).statusCode).toBe(200);
+    expect((await progress()).statusCode).toBe(204);
+
+    now += 4 * 60 * 1000;
+    expect(server.devices.interruptStaleJobs(5 * 60 * 1000)).toBe(0);
+    now += 2 * 60 * 1000;
+    expect(server.devices.interruptStaleJobs(5 * 60 * 1000)).toBe(1);
+    expect(await status()).toMatchObject({ status: "interrupted" });
+
+    // A console that was only slow keeps going.
+    expect((await progress()).statusCode).toBe(204);
+    expect(await status()).toMatchObject({ status: "running", error: null });
+
+    now += 6 * 60 * 1000;
+    server.devices.interruptStaleJobs(5 * 60 * 1000);
+    expect(
+      (await device("POST", `/jobs/${job!.id}/complete`, { token, body: { ok: true } })).statusCode,
+    ).toBe(204);
+    expect(await status()).toMatchObject({ status: "done" });
+  });
+
+  it("interrupts a silent install when the Switch starts a new session, and offers it again", async () => {
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+    const [job] = (
+      await web("POST", "/jobs", {
+        session,
+        body: { deviceId, items: [contentMetaId], target: "sd" },
+      })
+    ).json<WebJob[]>();
+    expect((await device("POST", `/jobs/${job!.id}/claim`, { token })).statusCode).toBe(200);
+
+    now += 10 * 1000;
+    await device("GET", "/hello", { token });
+    expect(
+      (await web("GET", `/jobs?deviceId=${deviceId}`, { session })).json<WebJob[]>()[0]?.status,
+    ).toBe("claimed");
+
+    now += 2 * 60 * 1000;
+    await device("GET", "/hello", { token });
+    expect(
+      (await web("GET", `/jobs?deviceId=${deviceId}`, { session })).json<WebJob[]>()[0]?.status,
+    ).toBe("interrupted");
+
+    const events = (await device("GET", "/events?wait=0", { token })).json<{
+      ev: { t: string; job?: Job }[];
+    }>();
+    expect(events.ev).toContainEqual({
+      t: "job.queued",
+      job: expect.objectContaining({ id: job!.id, status: "queued" }),
+    });
+    expect((await device("POST", `/jobs/${job!.id}/claim`, { token })).statusCode).toBe(200);
+  });
+
   it("serves Range across split 00/01 parts", async () => {
     const session = await setUp();
     const { token } = (await pair(session)).json();

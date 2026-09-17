@@ -1,15 +1,10 @@
 /**
  * Integrity check against CNMT content records. Quick mode confirms each NCA is present;
- * full mode hashes the NCA (decompressed first if it is an NCZ).
+ * full mode hashes the NCA (decompressed as it streams if it is an NCZ), so memory use stays small
+ * however large the content is.
  */
 import { createHash } from "node:crypto";
-import {
-  BufferReader,
-  decompressNczToBuffer,
-  type RandomAccessReader,
-  readExact,
-  SliceReader,
-} from "@nslib/formats";
+import { type RandomAccessReader, readExact, restoreNczChunks, SliceReader } from "@nslib/formats";
 import type { VerifyItem, VerifyMode, VerifyResult, VerifyStatus } from "@nslib/shared";
 import { eq } from "drizzle-orm";
 import { containerEntries, contentMetas, contentRecords, type FileRow } from "../db/schema";
@@ -22,8 +17,12 @@ function ncaIdFromName(name: string): string | null {
   return match?.[1]?.toLowerCase() ?? null;
 }
 
-async function sha256Of(reader: RandomAccessReader): Promise<string> {
+async function sha256Of(reader: RandomAccessReader, compressed: boolean): Promise<string> {
   const hash = createHash("sha256");
+  if (compressed) {
+    for await (const chunk of restoreNczChunks(reader)) hash.update(chunk);
+    return hash.digest("hex");
+  }
   for (let offset = 0; offset < reader.size; offset += CHUNK) {
     const length = Math.min(CHUNK, reader.size - offset);
     hash.update(await readExact(reader, offset, length));
@@ -91,10 +90,7 @@ export async function verifyLibraryFile(
       continue;
     }
     const slice = new SliceReader(reader, entry.offset, entry.size);
-    const source = entry.name.toLowerCase().endsWith(".ncz")
-      ? new BufferReader(await decompressNczToBuffer(slice))
-      : slice;
-    const actual = await sha256Of(source);
+    const actual = await sha256Of(slice, entry.name.toLowerCase().endsWith(".ncz"));
     const ok = actual === record.sha256;
     items.push({
       ncaId: record.ncaId,

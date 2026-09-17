@@ -6,6 +6,7 @@ import {
   FormatError,
   parseNczHeader,
   parsePfs0,
+  restoreNczChunks,
   SliceReader,
 } from "../src/index";
 
@@ -106,6 +107,35 @@ describe("NCZ block", () => {
     const firstSize = corrupt.readUInt32LE(sizeTableOffset);
     corrupt.writeUInt32LE(firstSize + 1, sizeTableOffset);
     await expect(decompressNczToBuffer(new BufferReader(corrupt))).rejects.toThrow();
+  });
+});
+
+describe("NCZ streaming restore", () => {
+  async function collect(ncz: Buffer) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of restoreNczChunks(new BufferReader(ncz))) chunks.push(chunk);
+    return chunks;
+  }
+
+  for (const options of [
+    { mode: "solid" as const },
+    { mode: "block" as const, blockSizeExponent: 14 },
+  ]) {
+    it(`restores ${options.mode} NCZ in several chunks without touching the source`, async () => {
+      const ncz = buildNcz(nca, options);
+      const original = Buffer.from(ncz);
+      const chunks = await collect(ncz);
+      expect(chunks.length).toBeGreaterThan(2);
+      expect(Buffer.concat(chunks).equals(nca.encrypted)).toBe(true);
+      expect(ncz.equals(original)).toBe(true);
+    });
+  }
+
+  it("fails on a corrupt solid stream", async () => {
+    const ncz = buildNcz(nca, { mode: "solid" });
+    const dataOffset = 0x4000 + 0x10 + nca.sections.length * 0x40;
+    ncz.fill(0xff, dataOffset + 4, dataOffset + 64);
+    await expect(collect(ncz)).rejects.toThrow();
   });
 });
 

@@ -8,7 +8,7 @@ import { AuthService, LoginRateLimiter } from "./auth/auth-service";
 import type { ServerConfig } from "./config";
 import { type Db, openDatabase } from "./db/client";
 import { DiscoveryServer, discoveryReply } from "./device/discovery";
-import { DeviceApiService } from "./device/service";
+import { DeviceApiService, STALE_JOB_MS } from "./device/service";
 import { EventBus } from "./events";
 import { KeyStore } from "./keys/store";
 import { LibraryRepository } from "./library/repository";
@@ -18,6 +18,7 @@ import { TitledbService } from "./titledb/service";
 
 const MISSING_FILE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const STALE_JOB_SWEEP_INTERVAL_MS = 60 * 1000;
 
 export interface NslibServer {
   app: FastifyInstance;
@@ -49,7 +50,7 @@ export async function createServer(
   const repo = new LibraryRepository(db, now);
   const events = new EventBus();
   const keys = new KeyStore(config.dataDir);
-  await keys.load();
+  await keys.load({ allowDemo: config.seed });
   const titledb = new TitledbService(db, now);
   const scanner = new LibraryScanner(repo, events, {
     iconDir,
@@ -96,6 +97,7 @@ export async function createServer(
   const iconCacheDir = iconDir;
 
   let maintenance: NodeJS.Timeout | null = null;
+  let staleJobSweep: NodeJS.Timeout | null = null;
   let usbHost: { stop(): Promise<void> } | null = null;
   const runMaintenance = () => {
     repo.purgeMissing(MISSING_FILE_RETENTION_MS);
@@ -117,6 +119,11 @@ export async function createServer(
       runMaintenance();
       maintenance = setInterval(runMaintenance, MAINTENANCE_INTERVAL_MS);
       maintenance.unref();
+      staleJobSweep = setInterval(
+        () => devices.interruptStaleJobs(STALE_JOB_MS),
+        STALE_JOB_SWEEP_INTERVAL_MS,
+      );
+      staleJobSweep.unref();
       if (discovery) {
         await discovery.start().catch((err) => log("UDP discovery failed to bind", err));
       }
@@ -140,6 +147,7 @@ export async function createServer(
     },
     async close() {
       if (maintenance) clearInterval(maintenance);
+      if (staleJobSweep) clearInterval(staleJobSweep);
       await usbHost?.stop();
       usbHost = null;
       await discovery?.close();

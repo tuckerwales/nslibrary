@@ -26,7 +26,7 @@ The web UI is not a static site. Coolify (or any host) must run the **Node serve
 
 6. Enable the HTTP proxy / domain as usual. WebSockets (`/api/v1/ws`) use the same host; Coolify’s Traefik proxies them.
 
-7. After the first deploy, open the URL and create the admin account. A **Demo library** folder is attached automatically (`/library/demo`) so you can browse the UI without real dumps. Add `/library/games` when you mount your own files. Set `NSLIB_SEED=false` to skip the demo.
+7. After the first deploy, open the URL and create the admin account. A **Demo library** folder is attached automatically (`/library/demo`) so you can browse the UI without real dumps. Add `/library/games` when you mount your own files. Its synthetic keys are kept in `/data/keys/demo.keys`, apart from your real `prod.keys`: Settings says when they are in use, and uploading your console's keys replaces them. Folders you remove in the UI stay removed after a restart. Set `NSLIB_SEED=false` to skip the demo.
 
 Do not use Nixpacks/static for this app. The image is `node:22-bookworm-slim` and uses the N-API `better-sqlite3` binary for the container architecture.
 
