@@ -11,6 +11,20 @@ namespace nslib {
 class MainActivity : public brls::Activity {
 public:
     CONTENT_FROM_XML_RES("activity/main.xml");
+
+    /**
+     * While another activity covers this one, Borealis keeps a raw pointer to the view that had focus
+     * here and gives focus back to it on B. Rebuilding a tab would free that view, so refreshVisibleTabs
+     * only marks a covered activity stale and the rebuild waits until it is back on top.
+     */
+    void onPause() override { covered_ = true; }
+    void onResume() override;
+    bool covered() const { return covered_; }
+    void markStale() { stale_ = true; }
+
+private:
+    bool covered_ = false;
+    bool stale_ = false;
 };
 
 class LibraryTab : public brls::Box {

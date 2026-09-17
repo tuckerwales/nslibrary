@@ -174,9 +174,22 @@ void enterPairedSession() {
     });
 }
 
+void MainActivity::onResume() {
+    covered_ = false;
+    if (!stale_) return;
+    stale_ = false;
+    // Borealis gives focus back to the saved view right after this returns; rebuild once it has.
+    brls::sync([] { refreshVisibleTabs(); });
+}
+
 void refreshVisibleTabs() {
     for (auto* activity : brls::Application::getActivitiesStack()) {
-        if (!dynamic_cast<MainActivity*>(activity)) continue;
+        auto* main = dynamic_cast<MainActivity*>(activity);
+        if (!main) continue;
+        if (main->covered()) {
+            main->markStale();
+            continue;
+        }
         if (rebuildIn<LibraryTab>(activity, "library")) continue;
         if (rebuildIn<QueueTab>(activity, "queue")) continue;
         if (rebuildIn<UpdatesTab>(activity, "updates")) continue;
