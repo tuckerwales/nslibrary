@@ -1,0 +1,64 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+    groups:
+      # One PR per ecosystem keeps the lockfile churn reviewable.
+      dev-tooling:
+        patterns:
+          - "@biomejs/*"
+          - vitest
+          - "@vitest/*"
+          - typescript
+          - esbuild
+          - tsx
+          - "@types/*"
+        update-types: [minor, patch]
+      react:
+        patterns:
+          - react
+          - react-dom
+          - react-router
+          - "@tanstack/react-query"
+          - "@vitejs/*"
+          - vite
+        update-types: [minor, patch]
+      server:
+        patterns:
+          - fastify
+          - "@fastify/*"
+          - drizzle-orm
+          - drizzle-kit
+          - zod
+          - chokidar
+          - p-queue
+        update-types: [minor, patch]
+    ignore:
+      # Native modules are pinned deliberately: better-sqlite3 v13 ships prebuilt N-API binaries and
+      # implicit node-gyp rebuilds fail on machines without it (see pnpm-workspace.yaml).
+      - dependency-name: better-sqlite3
+        update-types: [version-update:semver-major]
+      - dependency-name: usb
+        update-types: [version-update:semver-major]
+      - dependency-name: electron
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

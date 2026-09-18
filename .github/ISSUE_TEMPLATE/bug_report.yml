@@ -1,0 +1,102 @@
+name: Bug report
+description: Something is broken or behaves differently than documented
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you post: **redact anything identifying content you hold**, and never paste
+        `prod.keys`, title keys, or any fragment of real key material — including in logs and
+        screenshots. Issues asking where to obtain games, keys, or firmware are closed and locked.
+
+        Found a security vulnerability? Use [private reporting](https://github.com/tuckerwales/nslibrary/security/advisories/new)
+        instead, not this form.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Add a library folder with …
+        2. Send the title to the Switch
+        3. The install stops at …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Where does it happen
+      multiple: true
+      options:
+        - Server / API
+        - Web UI
+        - Switch app (.nro)
+        - Desktop app (Electron)
+        - Docker image
+        - Scanner / metadata
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport
+      options:
+        - LAN (HTTP)
+        - LAN (HTTPS)
+        - USB
+        - Not applicable
+    validations:
+      required: true
+
+  - type: dropdown
+    id: keys
+    attributes:
+      label: Are prod.keys loaded?
+      description: Most metadata differences come down to this.
+      options:
+        - "Yes"
+        - "No — filename mode"
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: formats
+    attributes:
+      label: Formats involved
+      placeholder: NSZ, or XCI + NSP, or homebrew NRO
+    validations:
+      required: false
+
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions
+      description: Server version or commit, Switch app version (Settings), and how you run it.
+      placeholder: |
+        Server: ghcr.io/tuckerwales/nslibrary:0.2.0 (Docker, Coolify)
+        Switch app: 0.1.10
+        Host OS: Debian 12 / arm64
+        Atmosphère + firmware: 1.7.1 / 18.1.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Server log around the failure. Redact paths that identify content.
+      render: text
+    validations:
+      required: false

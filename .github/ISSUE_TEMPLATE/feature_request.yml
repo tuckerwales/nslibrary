@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest something NSLibrary should do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        NSLibrary manages dumps you already have. It does not, and will not, scrape shops, index
+        title sources, resolve titles to downloads, or hand out keys. Requests along those lines are
+        out of scope permanently and will be closed — see [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve
+      description: Describe the situation you are in, not the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      multiple: true
+      options:
+        - Server / API
+        - Web UI
+        - Switch app (.nro)
+        - Desktop app (Electron)
+        - Docker / deployment
+        - Metadata / titledb
+        - Device API or USB protocol
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: This does not involve obtaining, indexing, or distributing games, keys, or firmware.
+          required: true
