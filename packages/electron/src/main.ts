@@ -117,6 +117,8 @@ async function boot(): Promise<void> {
     seed: false,
     seedLibraryDir: null,
     seedKeysPath: null,
+    // No setup token: the desktop app binds loopback unless the user opts into LAN, and whoever is
+    // at this machine is the owner. The headless server (loadConfig) generates one instead.
     setupToken: null,
     serverName: "NSLibrary",
     discoveryPort: desktop.allowLan ? DISCOVERY_PORT : null,

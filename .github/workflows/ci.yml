@@ -48,6 +48,9 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    env:
+      # First-run setup needs a token; pinning one here lets the smoke test create the admin.
+      NSLIB_SETUP_TOKEN: ci-smoke-setup-token
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

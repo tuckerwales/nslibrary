@@ -40,7 +40,13 @@ async function json(method, path, { cookie, body, token } = {}) {
 
 await waitForHealth();
 const setup = await json("POST", "/api/v1/auth/setup", {
-  body: { username: "smoke", password: "correct horse" },
+  // The container generates a token when NSLIB_SETUP_TOKEN is unset, and we cannot read its log
+  // from here, so CI passes the same value to both sides.
+  body: {
+    username: "smoke",
+    password: "correct horse",
+    setupToken: process.env.NSLIB_SETUP_TOKEN || undefined,
+  },
 });
 const cookie = setup.cookie?.split(";")[0];
 if (!cookie) throw new Error("setup did not set a session cookie");
