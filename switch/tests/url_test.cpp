@@ -7,7 +7,7 @@ TEST(url_normalize_ip_and_https) {
     CHECK_EQ(normalizeServerUrl("192.168.1.10"), std::string("http://192.168.1.10:8465"));
     CHECK_EQ(normalizeServerUrl("http://192.168.1.10"), std::string("http://192.168.1.10:8465"));
     CHECK_EQ(normalizeServerUrl("http://192.168.1.10:8465/"), std::string("http://192.168.1.10:8465"));
-    CHECK_EQ(normalizeServerUrl("https://nslibrary.tucker.wales"), std::string("https://nslibrary.tucker.wales"));
+    CHECK_EQ(normalizeServerUrl("https://nslibrary.example.com"), std::string("https://nslibrary.example.com"));
     CHECK_EQ(normalizeServerUrl("  nas.local:9000  "), std::string("http://nas.local:9000"));
 }
 
