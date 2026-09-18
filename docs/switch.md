@@ -70,7 +70,7 @@ When a game or update needs newer firmware than the console has, the installer r
 
 **HOME menu:** Settings in the web UI can download an NSP forwarder (needs `prod.keys`). Install that NSP and keep `nslibrary.nro` at `sdmc:/switch/nslibrary/nslibrary.nro`.
 
-**Self-update:** Settings → **Check for updates** first asks your library server for a newer signed build (no internet access needed), then checks the latest GitHub Release. Either way the app checks an Ed25519 signature on `update.json`, then the `.nro` SHA-256. See [updates.md](updates.md).
+**Self-update:** Settings → **Check for updates** looks for the same signed release in whichever place is nearest — your library server first (no internet access needed), then the latest GitHub Release. Either way the app checks an Ed25519 signature on `update.json`, then the `.nro` SHA-256, and the dialog tells you which copy it found. See [updates.md](updates.md).
 
 The UI follows the console language (English, Japanese, Chinese, German, French, Spanish, Italian, Portuguese, Russian, Korean, Dutch).
 

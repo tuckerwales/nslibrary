@@ -12,12 +12,12 @@ The web UI is not a static site. Coolify (or any host) must run the **Node serve
    | Name | Value |
    |---|---|
    | `NSLIB_TRUST_PROXY` | `true` |
-   | `NSLIB_SETUP_TOKEN` | A long random value (e.g. `openssl rand -hex 16`). Setup asks for it, so nobody else can create the admin account before you do |
+   | `NSLIB_SETUP_TOKEN` | A long random value (e.g. `openssl rand -hex 16`). Setup asks for it, so nobody else can create the admin account before you do. Leave it unset and the server generates one per boot and prints it to the log — set it explicitly on a platform where reading logs is awkward |
    | `NSLIB_POLLING` | `true` if your games live on NFS/SMB |
    | `PUID` / `PGID` | UID/GID that should own `/data` (default `1000`) |
    | `NSLIB_SEED` | `true` (default in the image) attaches a synthetic demo library on first boot |
    | `NSLIB_TLS_KEY` / `NSLIB_TLS_CERT` | Optional PEM paths for HTTPS on the Node port (usually leave unset behind Traefik) |
-   | `NSLIB_NRO_PATH` | Optional `nslibrary.nro` the Switch can update itself from (**Settings → Check for updates**). Put the release's `update.json` and `update.json.sig` next to it |
+   | `NSLIB_NRO_PATH` | Optional. A signed release mirrored on the server so consoles without internet can update (**Settings → Check for updates**). Put the release's `update.json` and `update.json.sig` next to it, and refresh them when you update — nothing does it for you |
 
    Coolify’s `PORT` is honoured if set; otherwise the app listens on 8465. Prefer the reverse proxy for TLS; in-process HTTPS is for a direct LAN bind.
 
