@@ -37,8 +37,14 @@ COPY --from=build /out /app
 COPY --from=build /demo/library /library/demo
 COPY --from=build /demo/prod.keys /app/demo.keys
 COPY docker/entrypoint.sh /entrypoint.sh
+COPY LICENSE NOTICE THIRD-PARTY.md /app/
 RUN chmod +x /entrypoint.sh \
   && chmod 644 /app/demo.keys
+
+LABEL org.opencontainers.image.title="NSLibrary" \
+      org.opencontainers.image.description="Self-hosted library for your own Nintendo Switch dumps" \
+      org.opencontainers.image.source="https://github.com/tuckerwales/nslibrary" \
+      org.opencontainers.image.licenses="Apache-2.0"
 
 ENV NODE_ENV=production \
     NSLIB_DATA_DIR=/data \

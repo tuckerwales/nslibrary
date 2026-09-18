@@ -1,3 +1,4 @@
+/* TweetNaCl 20140427, public domain. https://tweetnacl.cr.yp.to/ */
 #ifndef TWEETNACL_H
 #define TWEETNACL_H
 #define crypto_auth_PRIMITIVE "hmacsha512256"

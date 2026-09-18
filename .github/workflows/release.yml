@@ -53,6 +53,11 @@ jobs:
           fi
           VERSION="${GITHUB_REF_NAME#v}"
           node scripts/sign-update.mjs dist/nslibrary.nro --out dist --version "$VERSION"
+      - name: Collect licence notices
+        # The .nro links borealis (Apache-2.0) and vendors TweetNaCl, so attribution travels with
+        # every binary we publish.
+        run: cp LICENSE NOTICE THIRD-PARTY.md dist/
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -61,6 +66,9 @@ jobs:
             dist/nslibrary.nro \
             dist/update.json \
             dist/update.json.sig \
+            dist/LICENSE \
+            dist/NOTICE \
+            dist/THIRD-PARTY.md \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
 
