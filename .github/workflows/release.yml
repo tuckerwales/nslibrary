@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     container: devkitpro/devkita64:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: Install Switch portlibs
@@ -25,7 +25,7 @@ jobs:
             switch-curl switch-mbedtls switch-zstd switch-glm switch-libpng switch-zlib
       - run: cmake -B switch/build -S switch -DPLATFORM_SWITCH=ON
       - run: cmake --build switch/build --target nslibrary.nro -j"$(nproc)"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: nslibrary.nro
           path: switch/build/nslibrary.nro
@@ -34,11 +34,11 @@ jobs:
     needs: switch
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: nslibrary.nro
           path: dist
@@ -75,16 +75,16 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -92,7 +92,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
       - name: Build and push linux/amd64 and linux/arm64
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64

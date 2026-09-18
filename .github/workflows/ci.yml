@@ -9,8 +9,8 @@ jobs:
   node:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: corepack enable
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     container: devkitpro/devkita64:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: Install Switch portlibs
@@ -41,7 +41,7 @@ jobs:
             switch-curl switch-mbedtls switch-zstd switch-glm switch-libpng switch-zlib
       - run: cmake -B switch/build -S switch -DPLATFORM_SWITCH=ON
       - run: cmake --build switch/build --target nslibrary.nro -j"$(nproc)"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: nslibrary.nro
           path: switch/build/nslibrary.nro
@@ -52,8 +52,8 @@ jobs:
       # First-run setup needs a token; pinning one here lets the smoke test create the admin.
       NSLIB_SETUP_TOKEN: ci-smoke-setup-token
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Build and start
