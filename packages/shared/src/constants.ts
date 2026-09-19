@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0";
 export const DEFAULT_SERVER_PORT = 8465;
 export const DISCOVERY_PORT = 8466;
 /** Homebrew title ID used when packing the HOME-menu NSP forwarder. */

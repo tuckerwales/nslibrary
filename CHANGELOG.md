@@ -11,6 +11,8 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-19
+
 ### Added
 - mDNS advertising (`_nslibrary._tcp`), so the server appears in Bonjour and Avahi browsers
   alongside the existing UDP `NSLIB?1` discovery.
@@ -110,6 +112,7 @@ released the `.nro` only.
 Initial Switch client: signed GitHub self-update, USB timeouts, install resume, split files, HTTPS,
 Switch compare views, and install history.
 
-[Unreleased]: https://github.com/tuckerwales/nslibrary/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/tuckerwales/nslibrary/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tuckerwales/nslibrary/releases/tag/v0.2.0
 [0.1.4]: https://github.com/tuckerwales/nslibrary/compare/v0.1.1...v0.1.4
 [0.1.1]: https://github.com/tuckerwales/nslibrary/releases/tag/v0.1.1
