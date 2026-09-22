@@ -146,6 +146,9 @@ export class AuthService {
   }
 }
 
+/** Addresses tracked before old ones are swept, so many one-off failures can't grow memory. */
+const PRUNE_AT_KEYS = 1000;
+
 /** In-memory limiter for failed sign-ins per client address. */
 export class LoginRateLimiter {
   readonly #failures = new Map<string, number[]>();
@@ -172,10 +175,20 @@ export class LoginRateLimiter {
   }
 
   recordFailure(key: string): void {
+    if (this.#failures.size >= PRUNE_AT_KEYS) this.prune();
     this.#failures.set(key, [...this.#recent(key), this.#now()]);
   }
 
   reset(key: string): void {
     this.#failures.delete(key);
+  }
+
+  /** Forgets addresses with no recent failures, which would otherwise stay until checked again. */
+  prune(): void {
+    for (const key of [...this.#failures.keys()]) this.#recent(key);
+  }
+
+  get size(): number {
+    return this.#failures.size;
   }
 }

@@ -11,6 +11,7 @@ import {
   listApplications,
   listHomebrew,
 } from "../library/queries";
+import { SESSION_COOKIE } from "../auth/auth-service";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
 
@@ -34,6 +35,11 @@ const AppParamsSchema = z.object({
     .regex(/^[0-9A-Fa-f]{16}$/, "Expected a 16-digit title ID")
     .transform((id) => id.toUpperCase()),
 });
+
+/** How often an open event socket re-checks its session. */
+export const WS_SESSION_CHECK_MS = 30_000;
+/** Close code for a socket whose session ended (4000-4999 is for applications). */
+const WS_SESSION_ENDED = 4001;
 
 const IconParamsSchema = z.object({ key: z.string().regex(/^[0-9a-f]{32}$/) });
 
@@ -95,8 +101,18 @@ export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContex
     return reply.send(createReadStream(path));
   });
 
-  api.get("/ws", { websocket: true }, (socket) => {
+  api.get("/ws", { websocket: true }, (socket, request) => {
+    const token = request.cookies[SESSION_COOKIE];
     const unsubscribe = ctx.events.subscribe((event) => socket.send(JSON.stringify(event)));
-    socket.on("close", unsubscribe);
+    // The session is checked once when the socket opens; sign-out, a password change, or expiry
+    // closes it here, and the page then finds it is signed out.
+    const recheck = setInterval(() => {
+      if (!ctx.auth.resolveSession(token)) socket.close(WS_SESSION_ENDED, "Signed out");
+    }, WS_SESSION_CHECK_MS);
+    recheck.unref();
+    socket.on("close", () => {
+      clearInterval(recheck);
+      unsubscribe();
+    });
   });
 }

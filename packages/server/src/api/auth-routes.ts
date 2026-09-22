@@ -25,6 +25,13 @@ function setupTokenMatches(expected: string, given: string | undefined): boolean
   return given !== undefined && timingSafeEqual(digest(expected), digest(given.trim()));
 }
 
+/** The socket's own address, not a forwarded one: X-Forwarded-For is trivial to fake. */
+function isLoopback(address: string | undefined): boolean {
+  if (!address) return false;
+  const v4 = address.startsWith("::ffff:") ? address.slice(7) : address;
+  return v4 === "::1" || v4.startsWith("127.");
+}
+
 function signedOut(ctx: AppContext): AuthStatus {
   const setupRequired = ctx.auth.isSetupRequired();
   return {
@@ -73,6 +80,15 @@ export async function registerAuthRoutes(api: FastifyInstance, ctx: AppContext):
   api.post("/auth/setup", async (request, reply) => {
     const body = parseWith(SetupRequestSchema, request.body);
     const { setupToken } = ctx.config;
+    // Without a token (the desktop app) only someone at this machine may create the account, even
+    // when LAN access is on.
+    if (
+      setupToken === null &&
+      ctx.auth.isSetupRequired() &&
+      !isLoopback(request.socket.remoteAddress)
+    ) {
+      throw new ApiError("FORBIDDEN", "Create the admin account on the computer running NSLibrary");
+    }
     if (setupToken !== null && ctx.auth.isSetupRequired()) {
       if (ctx.loginLimiter.isLimited(request.ip)) {
         throw new ApiError("RATE_LIMITED", "Too many wrong setup tokens. Try again in 15 minutes.");

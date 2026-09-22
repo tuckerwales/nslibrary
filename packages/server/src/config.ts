@@ -33,7 +33,7 @@ export interface ServerConfig {
   /**
    * When set, first-run setup must supply this token, so a server reachable from the internet
    * can't be claimed by whoever opens it first. `loadConfig` always sets one; embedders that own
-   * the machine anyway (Electron) pass null to skip the check.
+   * the machine anyway (Electron) pass null, and setup is then only accepted from loopback.
    */
   setupToken: string | null;
   /** True when `setupToken` was generated because NSLIB_SETUP_TOKEN was unset. Logged on first run. */
