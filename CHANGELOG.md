@@ -11,6 +11,17 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+### Added
+- **Settings → Account** changes the admin password and signs out every other session.
+- `reset-password` sets a new admin password from a shell on the server
+  (`node dist/main.js reset-password` in Docker) for when it's forgotten.
+
+### Fixed
+- An interrupted install can be dismissed from History. Before, it could only be resumed, and the
+  Switch was offered it again on every reconnect.
+- Install progress in the web UI no longer lags a step behind when updates arrive in quick
+  succession.
+
 ## [0.2.0] - 2026-09-19
 
 ### Added

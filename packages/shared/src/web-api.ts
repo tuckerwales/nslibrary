@@ -21,6 +21,11 @@ export const LoginRequestSchema = z.object({
   password: z.string().min(1, "Enter your password").max(256),
 });
 
+export const ChangePasswordRequestSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password").max(256),
+  newPassword: z.string().min(8, "Use at least 8 characters").max(256),
+});
+
 export const CreateRootRequestSchema = z.object({
   path: z.string().trim().min(1, "Enter a folder path").max(4096),
   label: z.string().trim().max(128).optional(),
@@ -72,6 +77,7 @@ export const ServerSettingsSchema = z.object({
 
 export type SetupRequest = z.infer<typeof SetupRequestSchema>;
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+export type ChangePasswordRequest = z.infer<typeof ChangePasswordRequestSchema>;
 export type CreateRootRequest = z.infer<typeof CreateRootRequestSchema>;
 export type UpdateRootRequest = z.infer<typeof UpdateRootRequestSchema>;
 export type PutKeysRequest = z.infer<typeof PutKeysRequestSchema>;

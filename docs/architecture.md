@@ -95,7 +95,7 @@ orphan update or DLC, firmware newer than a device, not present on a given devic
 
 ### Web API (`/api/v1`, cookie session)
 
-Auth (setup, login, logout), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&device…`
+Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&device…`
 and `GET /apps/:id` grouping base, updates, DLC, files and per-device state), file verification,
 keys (`PUT /keys`, `GET /keys/status`), titledb config and refresh, devices (pairing code, list,
 rename, revoke), and jobs (create, reorder, cancel, list).
@@ -103,7 +103,9 @@ rename, revoke), and jobs (create, reorder, cancel, list).
 `/ws` pushes `scan.progress`, `library.changed`, `device.online`/`offline`, and `job.updated`.
 
 Sessions are a 32-byte random token; only its SHA-256 is stored. Cookies are `HttpOnly`,
-`SameSite=Strict`, and `Secure` over HTTPS. Passwords are scrypt (N=2¹⁵, r=8, p=1) with a constant
+`SameSite=Strict`, and `Secure` over HTTPS. Changing the password signs out every other session;
+`reset-password` (a subcommand of the server entrypoint, so it ships in the Docker image) sets one
+from a shell on the server and signs out all of them. Passwords are scrypt (N=2¹⁵, r=8, p=1) with a constant
 time comparison, and a dummy hash is compared when no admin exists so failed sign-ins take the same
 time either way. Failed sign-ins are rate limited per client address.
 

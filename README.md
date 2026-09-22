@@ -143,6 +143,22 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 
 The server never writes into library folders. Missing files are marked, then purged after 30 days.
 
+## Forgotten password
+
+**Settings → Account** changes the admin password and signs out every other browser. If you can't
+sign in at all, set a new one from a shell on the server; it works while the server is running and
+signs out every session:
+
+```bash
+# Docker
+docker compose exec -u node nslibrary node dist/main.js reset-password
+# From a checkout (uses NSLIB_DATA_DIR, default ./data)
+pnpm --filter @nslib/server reset-password
+```
+
+It prompts twice on a terminal, or reads the first line of stdin when piped
+(`echo "$NEW_PASSWORD" | …`), so it can be scripted without the password appearing in `ps`.
+
 ## Keys
 
 Upload `prod.keys` in **Settings** (or `PUT /api/v1/keys`). Stored at `<dataDir>/keys/prod.keys` with mode `0600`. The API reports which **names** are present; key material is never returned, logged, or sent to a device.

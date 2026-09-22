@@ -1,5 +1,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { type AuthStatus, LoginRequestSchema, SetupRequestSchema } from "@nslib/shared";
+import {
+  type AuthStatus,
+  ChangePasswordRequestSchema,
+  LoginRequestSchema,
+  SetupRequestSchema,
+} from "@nslib/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { SESSION_COOKIE } from "../auth/auth-service";
 import type { AppContext } from "./context";
@@ -98,6 +103,24 @@ export async function registerAuthRoutes(api: FastifyInstance, ctx: AppContext):
     ctx.loginLimiter.reset(request.ip);
     return startSession(ctx, request, reply, body.username);
   });
+
+  api.post(
+    "/auth/password",
+    { onRequest: requireSession(ctx) },
+    async (request, reply): Promise<void> => {
+      const body = parseWith(ChangePasswordRequestSchema, request.body);
+      if (ctx.loginLimiter.isLimited(request.ip)) {
+        throw new ApiError("RATE_LIMITED", "Too many wrong passwords. Try again in 15 minutes.");
+      }
+      const token = request.cookies[SESSION_COOKIE] ?? "";
+      if (!(await ctx.auth.changePassword(body.currentPassword, body.newPassword, token))) {
+        ctx.loginLimiter.recordFailure(request.ip);
+        throw new ApiError("FORBIDDEN", "Your current password is wrong");
+      }
+      ctx.loginLimiter.reset(request.ip);
+      return reply.status(204).send();
+    },
+  );
 
   api.post("/auth/logout", async (request, reply): Promise<AuthStatus> => {
     ctx.auth.deleteSession(request.cookies[SESSION_COOKIE]);

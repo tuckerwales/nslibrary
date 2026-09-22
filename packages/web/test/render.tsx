@@ -6,7 +6,7 @@ import { vi } from "vitest";
 
 /** Answers API requests from a map of path (without /api/v1) to JSON body. */
 export function stubApi(routes: Record<string, unknown>) {
-  const fetch = vi.fn(async (input: RequestInfo | URL) => {
+  const fetch = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = new URL(String(input), "http://localhost");
     const path = url.pathname.replace(/^\/api\/v1/, "");
     if (!(path in routes)) {

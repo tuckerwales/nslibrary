@@ -17,6 +17,7 @@
     "start": "tsx src/main.ts",
     "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/main.js --external:better-sqlite3 --external:usb --external:fsevents --banner:js=\"import{createRequire as __nslibCreateRequire}from'node:module';const require=__nslibCreateRequire(import.meta.url);\"",
     "seed": "tsx src/seed/cli.ts",
+    "reset-password": "tsx src/main.ts reset-password",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

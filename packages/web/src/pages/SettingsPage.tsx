@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
 import {
+  useChangePassword,
   useDownloadForwarder,
   useForwarderStatus,
   useKeysStatus,
@@ -12,7 +13,7 @@ import {
 } from "../api";
 import { Button } from "../components/Button";
 import { ErrorText, LoadError } from "../components/Feedback";
-import { inputClass, Switch } from "../components/Field";
+import { Field, inputClass, Switch } from "../components/Field";
 import { PageHeader } from "../components/PageHeader";
 import { RelativeTime } from "../components/RelativeTime";
 
@@ -225,6 +226,90 @@ function TitledbSection() {
   );
 }
 
+function AccountSection() {
+  const change = useChangePassword();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [mismatch, setMismatch] = useState(false);
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (newPassword !== confirm) {
+      setMismatch(true);
+      return;
+    }
+    change.mutate(
+      { currentPassword, newPassword },
+      {
+        onSuccess: () => {
+          setCurrentPassword("");
+          setNewPassword("");
+          setConfirm("");
+        },
+      },
+    );
+  };
+  const edited = () => {
+    setMismatch(false);
+    change.reset();
+  };
+
+  return (
+    <section className="mt-12 max-w-2xl">
+      <h2 className="text-xl">Account</h2>
+      <p className="mt-2 text-muted">
+        Changing the password signs out every other browser. Forgot it? Run{" "}
+        <code>reset-password</code> on the server (see the README).
+      </p>
+      <form className="mt-4 max-w-sm space-y-4" onSubmit={submit}>
+        <Field
+          label="Current password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={currentPassword}
+          onChange={(e) => {
+            setCurrentPassword(e.target.value);
+            edited();
+          }}
+        />
+        <Field
+          label="New password"
+          type="password"
+          autoComplete="new-password"
+          hint="At least 8 characters."
+          minLength={8}
+          required
+          value={newPassword}
+          onChange={(e) => {
+            setNewPassword(e.target.value);
+            edited();
+          }}
+        />
+        <Field
+          label="Repeat new password"
+          type="password"
+          autoComplete="new-password"
+          required
+          value={confirm}
+          onChange={(e) => {
+            setConfirm(e.target.value);
+            edited();
+          }}
+        />
+        <ErrorText>{mismatch ? "The passwords don't match." : change.error?.message}</ErrorText>
+        <div aria-live="polite">
+          {change.isSuccess && <p className="text-sm text-muted">Password changed.</p>}
+        </div>
+        <Button type="submit" disabled={change.isPending}>
+          {change.isPending ? "Changing…" : "Change password"}
+        </Button>
+      </form>
+    </section>
+  );
+}
+
 export function SettingsPage() {
   return (
     <>
@@ -238,6 +323,7 @@ export function SettingsPage() {
       <InstallsSection />
       <ForwarderSection />
       <TitledbSection />
+      <AccountSection />
     </>
   );
 }

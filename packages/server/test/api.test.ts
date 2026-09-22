@@ -152,6 +152,53 @@ describe("web API", () => {
       expect((await call("GET", "/roots", { session: newSession })).statusCode).toBe(200);
     });
 
+    it("changes the password and signs out other sessions", async () => {
+      const session = await setUp();
+      const login = (password: string) =>
+        call("POST", "/auth/login", { body: { username: "admin", password } });
+      const other = (await login("correct horse")).cookies.find(
+        (c) => c.name === SESSION_COOKIE,
+      )?.value;
+      const change = (body: object, as = session) =>
+        call("POST", "/auth/password", { session: as, body });
+
+      expect(
+        (
+          await call("POST", "/auth/password", {
+            body: { currentPassword: "correct horse", newPassword: "battery staple" },
+          })
+        ).statusCode,
+      ).toBe(401);
+      expect(
+        (await change({ currentPassword: "correct horse", newPassword: "short" })).statusCode,
+      ).toBe(400);
+      const wrong = await change({ currentPassword: "nope", newPassword: "battery staple" });
+      expect(wrong.statusCode).toBe(403);
+      expect(wrong.json().error.code).toBe("FORBIDDEN");
+
+      expect(
+        (await change({ currentPassword: "correct horse", newPassword: "battery staple" }))
+          .statusCode,
+      ).toBe(204);
+      expect((await call("GET", "/stats", { session })).statusCode).toBe(200);
+      expect((await call("GET", "/stats", { session: other })).statusCode).toBe(401);
+      expect((await login("correct horse")).statusCode).toBe(401);
+      expect((await login("battery staple")).statusCode).toBe(200);
+    });
+
+    it("resets the password from the server and signs everyone out", async () => {
+      const session = await setUp();
+      expect(await server.auth.resetPassword("battery staple")).toBe("admin");
+      expect((await call("GET", "/stats", { session })).statusCode).toBe(401);
+      expect(
+        (
+          await call("POST", "/auth/login", {
+            body: { username: "admin", password: "battery staple" },
+          })
+        ).statusCode,
+      ).toBe(200);
+    });
+
     it("limits repeated failed sign-ins", async () => {
       await setUp();
       for (let i = 0; i < 10; i++) {
