@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { VerifyRequestSchema, type VerifyTask } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { SESSION_COOKIE } from "../auth/auth-service";
 import {
   getApplication,
   getProblems,
@@ -11,7 +12,6 @@ import {
   listApplications,
   listHomebrew,
 } from "../library/queries";
-import { SESSION_COOKIE } from "../auth/auth-service";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
 
