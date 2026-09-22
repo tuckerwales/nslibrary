@@ -473,6 +473,61 @@ describe("device API", () => {
     ).toBe("claimed");
   });
 
+  it("publishes the newest progress when job events are throttled", async () => {
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+    const [job] = (
+      await web("POST", "/jobs", {
+        session,
+        body: { deviceId, items: [contentMetaId], target: "sd" },
+      })
+    ).json<WebJob[]>();
+    expect((await device("POST", `/jobs/${job!.id}/claim`, { token })).statusCode).toBe(200);
+
+    const published: WebJob[] = [];
+    const unsubscribe = server.events.subscribe((event) => {
+      if (event.type === "job.updated") published.push(event.job);
+    });
+    const report = (phase: string, done: number) =>
+      device("POST", `/jobs/${job!.id}/progress`, {
+        token,
+        body: { phase, done, total: 100, bps: 1 },
+      });
+    now += 100;
+    await report("ticket", 10);
+    now += 100;
+    await report("content", 20);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    unsubscribe();
+
+    expect(published.at(-1)).toMatchObject({ phase: "content", bytesDone: 20 });
+  });
+
+  it("dismisses an interrupted job so a resync stops offering it", async () => {
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId } = await addGame(session);
+    const [job] = (
+      await web("POST", "/jobs", {
+        session,
+        body: { deviceId, items: [contentMetaId], target: "sd" },
+      })
+    ).json<WebJob[]>();
+    expect((await device("POST", `/jobs/${job!.id}/claim`, { token })).statusCode).toBe(200);
+    server.devices.interruptActiveJobs(deviceId, "USB unplug mid-NCA");
+
+    const resync = async () =>
+      (await device("GET", "/events?wait=0", { token })).json<{ ev: { t: string }[] }>().ev;
+    expect((await resync()).some((e) => e.t === "job.queued")).toBe(true);
+
+    const cancelled = await web("POST", `/jobs/${job!.id}/cancel`, { session });
+    expect(cancelled.statusCode).toBe(200);
+    expect(cancelled.json<WebJob>().status).toBe("cancelled");
+    expect((await resync()).some((e) => e.t === "job.queued")).toBe(false);
+    expect((await web("POST", `/jobs/${job!.id}/cancel`, { session })).statusCode).toBe(409);
+  });
+
   it("interrupts installs the Switch stopped reporting on, and accepts a late report", async () => {
     const session = await setUp();
     const { token, deviceId } = (await pair(session)).json();
