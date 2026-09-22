@@ -15,6 +15,9 @@ released the `.nro` only.
 - **Settings → Account** changes the admin password and signs out every other session.
 - `reset-password` sets a new admin password from a shell on the server
   (`node dist/main.js reset-password` in Docker) for when it's forgotten.
+- Every library folder is rescanned every 6 hours (`NSLIB_RESCAN_INTERVAL_MIN`, `0` to turn it
+  off), so changes a watcher missed on a network mount still show up. The architecture notes already
+  described this, but nothing did it.
 
 ### Fixed
 - An interrupted install can be dismissed from History. Before, it could only be resumed, and the

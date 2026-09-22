@@ -129,6 +129,7 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 | `NSLIB_WEB_DIR` | `packages/server/public` or `packages/web/dist` | Built UI; unset serves API only |
 | `NSLIB_TRUST_PROXY` | off | Set `true` behind Coolify / Traefik |
 | `NSLIB_POLLING` | off | Poll library folders (NFS/SMB) instead of inotify |
+| `NSLIB_RESCAN_INTERVAL_MIN` | `360` | Rescan every folder this often, catching changes a watcher missed. `0` turns it off |
 | `NSLIB_DISCOVERY` | on | `0` / `false` disables UDP discovery and mDNS advertising |
 | `NSLIB_DISCOVERY_PORT` | `8466` | UDP port for `NSLIB?1` |
 | `NSLIB_SETUP_TOKEN` | generated | Creating the admin account asks for this value. Unset, the server generates one per boot and logs it, so a server reachable before you've signed up can't be claimed by whoever opens it first |

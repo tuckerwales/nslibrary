@@ -17,6 +17,11 @@ export interface ServerConfig {
   forcePolling: boolean;
   pollIntervalMs: number;
   stabilityThresholdMs: number;
+  /**
+   * Every enabled folder is rescanned this often, catching changes a watcher missed (network
+   * mounts, a share that was offline). Null or 0 turns it off. Defaults to 6 hours.
+   */
+  rescanIntervalMs?: number | null;
   logLevel: string | false;
   trustProxy: boolean;
   /** Overrides the default logger for background work (scans, watchers). */
@@ -53,6 +58,8 @@ export interface ServerConfig {
   forwarderMainPath: string | null;
 }
 
+export const DEFAULT_RESCAN_INTERVAL_MIN = 6 * 60;
+
 const WEB_DIR_CANDIDATES = [
   fileURLToPath(new URL("../public", import.meta.url)),
   fileURLToPath(new URL("../../web/dist", import.meta.url)),
@@ -68,6 +75,12 @@ function positiveInt(name: string, value: string | undefined, fallback: number):
   if (!Number.isInteger(n) || n <= 0)
     throw new Error(`${name} must be a positive integer, got ${JSON.stringify(value)}`);
   return n;
+}
+
+/** `NSLIB_RESCAN_INTERVAL_MIN`: minutes between full rescans, `0` for none. */
+function rescanIntervalMs(value: string | undefined): number | null {
+  if (value === "0") return null;
+  return positiveInt("NSLIB_RESCAN_INTERVAL_MIN", value, DEFAULT_RESCAN_INTERVAL_MIN) * 60_000;
 }
 
 function discoveryPort(env: NodeJS.ProcessEnv): number | null {
@@ -105,6 +118,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     forcePolling: flag(env.NSLIB_POLLING),
     pollIntervalMs: positiveInt("NSLIB_POLL_INTERVAL_MS", env.NSLIB_POLL_INTERVAL_MS, 2000),
     stabilityThresholdMs: positiveInt("NSLIB_STABILITY_MS", env.NSLIB_STABILITY_MS, 5000),
+    rescanIntervalMs: rescanIntervalMs(env.NSLIB_RESCAN_INTERVAL_MIN),
     logLevel: env.NSLIB_LOG_LEVEL ?? "info",
     trustProxy: flag(env.NSLIB_TRUST_PROXY),
     seed: flag(env.NSLIB_SEED),
