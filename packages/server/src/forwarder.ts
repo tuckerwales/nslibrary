@@ -23,6 +23,8 @@ export interface PackForwarderInput {
 
 function defaultIcon(): Buffer | null {
   const candidates = [
+    // Copied beside the bundle (Docker, desktop app); the checkout path covers running from source.
+    fileURLToPath(new URL("./assets/icon.jpg", import.meta.url)),
     fileURLToPath(new URL("../../../switch/resources/img/icon.jpg", import.meta.url)),
     fileURLToPath(new URL("../../../packages/web/public/favicon.svg", import.meta.url)),
   ];

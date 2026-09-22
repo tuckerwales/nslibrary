@@ -26,6 +26,32 @@ jobs:
           cmake --build switch/build-host --target nslib-switch-tests -j"$(nproc)"
           switch/build-host/nslib-switch-tests
 
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Package the Linux app
+        run: pnpm --filter @nslib/desktop package:dir
+      - name: Start the packaged app
+        run: |
+          profile="$(mktemp -d)"
+          xvfb-run -a packages/electron/dist/linux-unpacked/nslibrary --no-sandbox \
+            --user-data-dir="$profile" > desktop.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8465/api/health && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8465/api/v1/auth/status
+          curl -sf http://127.0.0.1:8465/ | grep -q "<title>NSLibrary"
+      - name: Log on failure
+        if: failure()
+        run: cat desktop.log
+
   switch:
     runs-on: ubuntu-latest
     container: devkitpro/devkita64:latest

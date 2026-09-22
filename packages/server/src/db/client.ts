@@ -8,11 +8,17 @@ import * as schema from "./schema";
 
 export type Db = BetterSQLite3Database<typeof schema>;
 
-/** Relative to `src/db/` when running from source, and to `dist/` in the built image. */
+/**
+ * Relative to `src/db/` when running from source, to `dist/` in the Docker image, and beside the
+ * bundle in the desktop app.
+ */
 function migrationsDir(): string {
+  const candidates = [
+    fileURLToPath(new URL("../drizzle", import.meta.url)),
+    fileURLToPath(new URL("./drizzle", import.meta.url)),
+  ];
   const source = fileURLToPath(new URL("../../drizzle", import.meta.url));
-  const bundled = fileURLToPath(new URL("../drizzle", import.meta.url));
-  return existsSync(join(bundled, "meta", "_journal.json")) ? bundled : source;
+  return candidates.find((dir) => existsSync(join(dir, "meta", "_journal.json"))) ?? source;
 }
 
 export const MIGRATIONS_DIR = migrationsDir();

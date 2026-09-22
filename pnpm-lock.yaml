@@ -200,22 +200,31 @@ importers:
 
   packages/electron:
     dependencies:
+      better-sqlite3:
+        specifier: ^13.0.3
+        version: 13.0.3
+      usb:
+        specifier: ^2.16.0
+        version: 2.18.0
+    devDependencies:
       '@nslib/server':
         specifier: workspace:*
         version: link:../server
       '@nslib/shared':
         specifier: workspace:*
         version: link:../shared
-      tsx:
-        specifier: ^4.23.13
-        version: 4.23.13
-    devDependencies:
       electron:
         specifier: ^35.1.5
         version: 35.7.5(supports-color@7.2.0)
       electron-builder:
         specifier: ^26.0.12
         version: 26.15.3(electron-builder-squirrel-windows@26.15.3)(supports-color@7.2.0)
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
 
   packages/fixtures: {}
 
@@ -4026,8 +4035,7 @@ snapshots:
     dependencies:
       '@types/node': 22.20.2
 
-  '@types/w3c-web-usb@1.0.14':
-    optional: true
+  '@types/w3c-web-usb@1.0.14': {}
 
   '@types/ws@8.18.1':
     dependencies:
@@ -5214,8 +5222,7 @@ snapshots:
     dependencies:
       semver: 7.8.5
 
-  node-gyp-build@4.8.4:
-    optional: true
+  node-gyp-build@4.8.4: {}
 
   node-gyp@12.4.0:
     dependencies:
@@ -5716,7 +5723,6 @@ snapshots:
       '@types/w3c-web-usb': 1.0.14
       node-addon-api: 8.9.2
       node-gyp-build: 4.8.4
-    optional: true
 
   utf8-byte-length@1.0.5: {}
 

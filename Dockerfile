@@ -26,7 +26,9 @@ RUN pnpm --filter @nslib/server deploy --prod /out \
   && mkdir -p /out/public /out/drizzle /out/dist \
   && cp -r packages/server/public/. /out/public/ \
   && cp -r packages/server/drizzle/. /out/drizzle/ \
-  && cp packages/server/dist/main.js /out/dist/main.js
+  && cp packages/server/dist/main.js /out/dist/main.js \
+  && mkdir -p /out/dist/assets \
+  && cp switch/resources/img/icon.jpg /out/dist/assets/icon.jpg
 
 FROM node:22-bookworm-slim
 RUN apt-get update \

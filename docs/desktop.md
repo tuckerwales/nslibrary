@@ -37,4 +37,15 @@ The “pnpm is running through Node.js…” line is from Corepack skipping pnpm
 
 USB: Connect the Switch with a cable and choose **USB cable** on the Connect screen. Windows needs [WinUSB via Zadig](windows-usb-driver.md). Linux: install `packages/electron/udev/99-nslibrary.rules`.
 
-Packaging (NSIS, dmg, AppImage/deb) is `electron-builder` in `packages/electron`. The deb should ship the udev rule. Native addons (`better-sqlite3`, `usb`) are rebuilt for Electron at pack time.
+## Packaging
+
+```bash
+pnpm --filter @nslib/desktop package:dir  # unpacked app in packages/electron/dist/<platform>-unpacked
+pnpm --filter @nslib/desktop dist         # installers: NSIS on Windows, dmg on macOS, AppImage and deb on Linux
+```
+
+Both build the web UI, then `scripts/bundle.mjs` bundles the main process into `packages/electron/build/`
+with the preload script, migrations, web UI, and forwarder icon, and `electron-builder` packages that.
+`pnpm --filter @nslib/desktop start:bundle` runs the bundle without packaging. Build installers on
+the platform they're for. The native modules (`better-sqlite3`, `usb`) are N-API with prebuilt
+binaries, so there is nothing to compile. The Linux packages include the udev rule under `udev/`.

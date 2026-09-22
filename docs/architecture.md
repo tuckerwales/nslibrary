@@ -240,9 +240,12 @@ dialog through a preload IPC bridge with `contextIsolation`. The tray shows conn
 active job progress, and closing the window hides to it. Because whoever is at the machine is the
 owner, the desktop app skips the setup token and signs in automatically once an admin exists.
 
-Packaging is not finished: `electron-builder` currently packages `src/main.ts` as-is, which needs
-`tsx` at runtime, so the main process has to be bundled before NSIS/dmg/AppImage builds work.
-Releases publish the `.nro` and the Docker image only.
+Packaging bundles the main process with esbuild (`scripts/bundle.mjs`) into `build/`, next to the
+preload script, migrations, and the built web UI, so the packaged app runs plain JavaScript. Only
+`better-sqlite3` and `usb` come from `node_modules`; both are N-API modules with prebuilt binaries,
+so nothing is compiled for Electron. CI packages the Linux app and starts it as a smoke test.
+Releases publish the `.nro` and the Docker image only; desktop installers aren't signed or published
+yet.
 
 ## Docker
 

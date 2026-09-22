@@ -7,6 +7,8 @@ data
 coverage
 *.tsbuildinfo
 switch
+# The forwarder NSP's icon is the one file the image needs from the Switch app.
+!switch/resources/img/icon.jpg
 docs
 CHANGELOG.md
 CONTRIBUTING.md

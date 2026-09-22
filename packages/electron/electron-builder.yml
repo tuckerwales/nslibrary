@@ -2,12 +2,16 @@ appId: wales.tucker.nslibrary
 productName: NSLibrary
 directories:
   output: dist
+# scripts/bundle.mjs stages everything the main process needs in build/; node_modules only has to
+# provide the native modules (better-sqlite3, usb), which are rebuilt for Electron.
 files:
-  - src/**/*
+  - build/**/*
   - package.json
 extraMetadata:
-  main: src/main.ts
+  main: build/main.js
 linux:
+  # The default comes from the scoped package name (@nslib/desktop).
+  executableName: nslibrary
   target:
     - AppImage
     - deb
@@ -19,4 +23,6 @@ win:
   target: nsis
 mac:
   target: dmg
-npmRebuild: true
+# better-sqlite3 and usb are N-API modules with prebuilt binaries, which load in Electron as they
+# are. Rebuilding would compile usb from source, needing a C toolchain and libudev headers.
+npmRebuild: false
