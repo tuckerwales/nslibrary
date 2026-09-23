@@ -26,7 +26,7 @@ You need [devkitPro](https://devkitpro.org/) with `DEVKITPRO` set, plus:
 
 ```text
 switch-dev switch-cmake switch-pkg-config switch-freetype switch-glfw
-switch-mesa switch-libdrm_nouveau switch-curl switch-mbedtls switch-zstd
+switch-mesa switch-libdrm_nouveau switch-curl switch-mbedtls switch-libzstd
 ```
 
 ```bash

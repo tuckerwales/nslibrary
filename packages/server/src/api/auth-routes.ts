@@ -1,5 +1,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { type AuthStatus, LoginRequestSchema, SetupRequestSchema } from "@nslib/shared";
+import {
+  type AuthStatus,
+  ChangePasswordRequestSchema,
+  LoginRequestSchema,
+  SetupRequestSchema,
+} from "@nslib/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { SESSION_COOKIE } from "../auth/auth-service";
 import type { AppContext } from "./context";
@@ -18,6 +23,13 @@ function cookieOptions(request: FastifyRequest, expiresAt: number) {
 function setupTokenMatches(expected: string, given: string | undefined): boolean {
   const digest = (value: string) => createHash("sha256").update(value).digest();
   return given !== undefined && timingSafeEqual(digest(expected), digest(given.trim()));
+}
+
+/** The socket's own address, not a forwarded one: X-Forwarded-For is trivial to fake. */
+function isLoopback(address: string | undefined): boolean {
+  if (!address) return false;
+  const v4 = address.startsWith("::ffff:") ? address.slice(7) : address;
+  return v4 === "::1" || v4.startsWith("127.");
 }
 
 function signedOut(ctx: AppContext): AuthStatus {
@@ -68,6 +80,15 @@ export async function registerAuthRoutes(api: FastifyInstance, ctx: AppContext):
   api.post("/auth/setup", async (request, reply) => {
     const body = parseWith(SetupRequestSchema, request.body);
     const { setupToken } = ctx.config;
+    // Without a token (the desktop app) only someone at this machine may create the account, even
+    // when LAN access is on.
+    if (
+      setupToken === null &&
+      ctx.auth.isSetupRequired() &&
+      !isLoopback(request.socket.remoteAddress)
+    ) {
+      throw new ApiError("FORBIDDEN", "Create the admin account on the computer running NSLibrary");
+    }
     if (setupToken !== null && ctx.auth.isSetupRequired()) {
       if (ctx.loginLimiter.isLimited(request.ip)) {
         throw new ApiError("RATE_LIMITED", "Too many wrong setup tokens. Try again in 15 minutes.");
@@ -98,6 +119,24 @@ export async function registerAuthRoutes(api: FastifyInstance, ctx: AppContext):
     ctx.loginLimiter.reset(request.ip);
     return startSession(ctx, request, reply, body.username);
   });
+
+  api.post(
+    "/auth/password",
+    { onRequest: requireSession(ctx) },
+    async (request, reply): Promise<void> => {
+      const body = parseWith(ChangePasswordRequestSchema, request.body);
+      if (ctx.loginLimiter.isLimited(request.ip)) {
+        throw new ApiError("RATE_LIMITED", "Too many wrong passwords. Try again in 15 minutes.");
+      }
+      const token = request.cookies[SESSION_COOKIE] ?? "";
+      if (!(await ctx.auth.changePassword(body.currentPassword, body.newPassword, token))) {
+        ctx.loginLimiter.recordFailure(request.ip);
+        throw new ApiError("FORBIDDEN", "Your current password is wrong");
+      }
+      ctx.loginLimiter.reset(request.ip);
+      return reply.status(204).send();
+    },
+  );
 
   api.post("/auth/logout", async (request, reply): Promise<AuthStatus> => {
     ctx.auth.deleteSession(request.cookies[SESSION_COOKIE]);

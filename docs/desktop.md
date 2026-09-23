@@ -37,4 +37,34 @@ The “pnpm is running through Node.js…” line is from Corepack skipping pnpm
 
 USB: Connect the Switch with a cable and choose **USB cable** on the Connect screen. Windows needs [WinUSB via Zadig](windows-usb-driver.md). Linux: install `packages/electron/udev/99-nslibrary.rules`.
 
-Packaging (NSIS, dmg, AppImage/deb) is `electron-builder` in `packages/electron`. The deb should ship the udev rule. Native addons (`better-sqlite3`, `usb`) are rebuilt for Electron at pack time.
+## Packaging
+
+```bash
+pnpm --filter @nslib/desktop package:dir  # unpacked app in packages/electron/dist/<platform>-unpacked
+pnpm --filter @nslib/desktop dist         # installers: NSIS on Windows, dmg on macOS, AppImage and deb on Linux
+```
+
+Both build the web UI, then `scripts/bundle.mjs` bundles the main process into `packages/electron/build/`
+with the preload script, migrations, web UI, and forwarder icon, and `electron-builder` packages that.
+`pnpm --filter @nslib/desktop start:bundle` runs the bundle without packaging. Build installers on
+the platform they're for. The native modules (`better-sqlite3`, `usb`) are N-API with prebuilt
+binaries, so there is nothing to compile. The Linux packages include the udev rule under `udev/`.
+
+CI builds all of them on every pull request (downloadable from the run's artifacts for a week), and
+each `v*` tag attaches them to the GitHub release, versioned from the tag:
+
+| Platform | File |
+|---|---|
+| Windows | `NSLibrary-<version>-win-x64.exe` (NSIS installer) |
+| macOS | `NSLibrary-<version>-mac-arm64.dmg` (Apple silicon), `NSLibrary-<version>-mac-x64.dmg` (Intel) |
+| Linux | `NSLibrary-<version>-linux-x86_64.AppImage`, `NSLibrary-<version>-linux-amd64.deb` |
+
+CI and releases start each packaged app (Linux, Apple silicon macOS, Windows) and check that its
+server and web UI come up before publishing it (`scripts/smoke.mjs`).
+
+The installers are **not code-signed** with a developer certificate. The macOS apps are signed
+ad-hoc, which Apple silicon requires before it will run an app at all. On macOS, the first launch is blocked: right-click the app
+and choose **Open**, or allow it under System Settings → Privacy & Security. On Windows, SmartScreen
+asks you to confirm (**More info** → **Run anyway**). Install the `.deb` with
+`sudo apt install ./NSLibrary-<version>-linux-amd64.deb` so its dependencies come too. Signing needs
+certificates added as repository secrets (`CSC_LINK` and `CSC_KEY_PASSWORD` for electron-builder).

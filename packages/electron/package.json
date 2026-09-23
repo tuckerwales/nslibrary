@@ -1,6 +1,10 @@
 {
   "name": "@nslib/desktop",
   "version": "0.2.0",
+  "description": "Desktop app for NSLibrary: the library server with a window, tray, and USB",
+  "author": "NSLibrary contributors",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/tuckerwales/nslibrary",
   "private": true,
   "type": "module",
   "main": "src/main.ts",
@@ -9,15 +13,22 @@
     "predev": "node scripts/ensure-electron.mjs",
     "prestart": "node scripts/ensure-electron.mjs",
     "dev": "electron --import tsx src/main.ts",
-    "start": "electron --import tsx src/main.ts"
+    "start": "electron --import tsx src/main.ts",
+    "bundle": "pnpm --filter @nslib/web build && node scripts/bundle.mjs",
+    "start:bundle": "node scripts/ensure-electron.mjs && electron build/main.js",
+    "package:dir": "pnpm bundle && electron-builder --dir --publish never",
+    "dist": "pnpm bundle && electron-builder --publish never"
   },
   "dependencies": {
-    "@nslib/server": "workspace:*",
-    "@nslib/shared": "workspace:*",
-    "tsx": "^4.23.13"
+    "better-sqlite3": "^13.0.3",
+    "usb": "^2.16.0"
   },
   "devDependencies": {
+    "@nslib/server": "workspace:*",
+    "@nslib/shared": "workspace:*",
     "electron": "^35.1.5",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.13"
   }
 }

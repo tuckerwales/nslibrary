@@ -137,6 +137,7 @@ export class DeviceApiService {
   readonly #lastProgressAt = new Map<number, number>();
   readonly #lastJobEventAt = new Map<number, number>();
   readonly #pendingJobEvent = new Map<number, ReturnType<typeof setTimeout>>();
+  readonly #latestJob = new Map<number, WebJob>();
   #serverId: string;
 
   constructor(options: DeviceApiOptions) {
@@ -674,14 +675,13 @@ export class DeviceApiService {
     return job;
   }
 
+  /**
+   * Cancels a queued or running job, or dismisses an interrupted one. Interrupted jobs have to be
+   * cancellable: a console resync offers them again, so otherwise one could never be dropped.
+   */
   cancelJob(jobId: number): WebJob {
     const row = this.#requireJob(jobId);
-    if (
-      row.status === "done" ||
-      row.status === "failed" ||
-      row.status === "cancelled" ||
-      row.status === "interrupted"
-    ) {
+    if (row.status === "done" || row.status === "failed" || row.status === "cancelled") {
       throw new ApiError("JOB_INVALID_STATE", "That job has already finished");
     }
     const now = this.#now();
@@ -835,6 +835,7 @@ export class DeviceApiService {
   close(): void {
     for (const timer of this.#pendingJobEvent.values()) clearTimeout(timer);
     this.#pendingJobEvent.clear();
+    this.#latestJob.clear();
   }
 
   toSummary(row: DeviceRow) {
@@ -1031,10 +1032,14 @@ export class DeviceApiService {
   }
 
   #publishJob(job: WebJob, throttle = false): void {
+    // The newest state is what a delayed publish sends, not the state that scheduled it.
+    this.#latestJob.set(job.id, job);
     const publish = () => {
+      const latest = this.#latestJob.get(job.id) ?? job;
       this.#pendingJobEvent.delete(job.id);
+      this.#latestJob.delete(job.id);
       this.#lastJobEventAt.set(job.id, this.#now());
-      this.#events.publish({ type: "job.updated", job });
+      this.#events.publish({ type: "job.updated", job: latest });
     };
     if (!throttle) {
       const pending = this.#pendingJobEvent.get(job.id);
@@ -1044,6 +1049,8 @@ export class DeviceApiService {
     }
     const elapsed = this.#now() - (this.#lastJobEventAt.get(job.id) ?? 0);
     if (elapsed >= JOB_EVENT_MIN_INTERVAL_MS) {
+      const pending = this.#pendingJobEvent.get(job.id);
+      if (pending) clearTimeout(pending);
       publish();
       return;
     }

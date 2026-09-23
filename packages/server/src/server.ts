@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import type { LogFn } from "./api/context";
 import { buildApp } from "./app";
 import { AuthService, LoginRateLimiter } from "./auth/auth-service";
-import type { ServerConfig } from "./config";
+import { DEFAULT_RESCAN_INTERVAL_MIN, type ServerConfig } from "./config";
 import { type Db, openDatabase } from "./db/client";
 import { DiscoveryServer, discoveryReply } from "./device/discovery";
 import { localAddresses, MdnsResponder } from "./device/mdns";
@@ -139,6 +139,15 @@ export async function createServer(
         events.publish({ type: "library.changed", rev: repo.catalogRev() });
       })
       .catch((err) => log("Scheduled titledb refresh failed", err));
+  let rescan: NodeJS.Timeout | null = null;
+  const rescanIntervalMs =
+    config.rescanIntervalMs === undefined
+      ? DEFAULT_RESCAN_INTERVAL_MIN * 60_000
+      : config.rescanIntervalMs;
+  // Paused scanning stops watchers; the timer honours it too.
+  const periodicRescan = async () => {
+    if (!scanner.paused) await scanner.scanAll();
+  };
   let usbHost: { stop(): Promise<void> } | null = null;
   const runMaintenance = () => {
     repo.purgeMissing(MISSING_FILE_RETENTION_MS);
@@ -181,6 +190,13 @@ export async function createServer(
       await attachLibraryMounts({ config, repo, scanner, log });
       for (const root of repo.listRoots()) await scanner.watchRoot(root);
       scanner.scanAll().catch((err) => log("Startup scan failed", err));
+      if (rescanIntervalMs) {
+        rescan = setInterval(
+          () => void periodicRescan().catch((err) => log("Periodic rescan failed", err)),
+          rescanIntervalMs,
+        );
+        rescan.unref();
+      }
       if (config.usb) {
         try {
           const { startUsbHost } = await import("@nslib/usb-host/host");
@@ -199,6 +215,7 @@ export async function createServer(
       if (maintenance) clearInterval(maintenance);
       if (staleJobSweep) clearInterval(staleJobSweep);
       if (titledbCheck) clearInterval(titledbCheck);
+      if (rescan) clearInterval(rescan);
       await usbHost?.stop();
       usbHost = null;
       await discovery?.close();

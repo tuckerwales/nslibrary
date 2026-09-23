@@ -95,7 +95,7 @@ orphan update or DLC, firmware newer than a device, not present on a given devic
 
 ### Web API (`/api/v1`, cookie session)
 
-Auth (setup, login, logout), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&device…`
+Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&device…`
 and `GET /apps/:id` grouping base, updates, DLC, files and per-device state), file verification,
 keys (`PUT /keys`, `GET /keys/status`), titledb config and refresh, devices (pairing code, list,
 rename, revoke), and jobs (create, reorder, cancel, list).
@@ -103,7 +103,9 @@ rename, revoke), and jobs (create, reorder, cancel, list).
 `/ws` pushes `scan.progress`, `library.changed`, `device.online`/`offline`, and `job.updated`.
 
 Sessions are a 32-byte random token; only its SHA-256 is stored. Cookies are `HttpOnly`,
-`SameSite=Strict`, and `Secure` over HTTPS. Passwords are scrypt (N=2¹⁵, r=8, p=1) with a constant
+`SameSite=Strict`, and `Secure` over HTTPS. Changing the password signs out every other session;
+`reset-password` (a subcommand of the server entrypoint, so it ships in the Docker image) sets one
+from a shell on the server and signs out all of them. Passwords are scrypt (N=2¹⁵, r=8, p=1) with a constant
 time comparison, and a dummy hash is compared when no admin exists so failed sign-ins take the same
 time either way. Failed sign-ins are rate limited per client address.
 
@@ -158,7 +160,7 @@ via `/dev/bus/usb` plus `device_cgroup_rules: ["c 189:* rmw"]`; elsewhere use th
 ## Switch client
 
 C++ with libnx and [Borealis](https://github.com/xfangfang/borealis) (the xfangfang fork, a pinned
-submodule), built with CMake. Portlibs: `switch-curl`, `switch-mbedtls`, `switch-zstd`, plus libnx's
+submodule), built with CMake. Portlibs: `switch-curl`, `switch-mbedtls`, `switch-libzstd`, plus libnx's
 hardware AES-CTR and SHA-256.
 
 ```
@@ -238,9 +240,13 @@ dialog through a preload IPC bridge with `contextIsolation`. The tray shows conn
 active job progress, and closing the window hides to it. Because whoever is at the machine is the
 owner, the desktop app skips the setup token and signs in automatically once an admin exists.
 
-Packaging is not finished: `electron-builder` currently packages `src/main.ts` as-is, which needs
-`tsx` at runtime, so the main process has to be bundled before NSIS/dmg/AppImage builds work.
-Releases publish the `.nro` and the Docker image only.
+Packaging bundles the main process with esbuild (`scripts/bundle.mjs`) into `build/`, next to the
+preload script, migrations, and the built web UI, so the packaged app runs plain JavaScript. Only
+`better-sqlite3` and `usb` come from `node_modules`; both are N-API modules with prebuilt binaries,
+so nothing is compiled for Electron. CI builds the installers on Linux, macOS, and Windows and
+starts the Linux app as a smoke test; each release tag attaches them to the GitHub release, next to
+the `.nro`. They are not code-signed yet, so macOS Gatekeeper and Windows SmartScreen warn on first
+launch.
 
 ## Docker
 

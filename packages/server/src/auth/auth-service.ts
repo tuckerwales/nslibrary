@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { eq, lt } from "drizzle-orm";
+import { eq, lt, ne } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { admin, sessions } from "../db/schema";
 import { hashPassword, verifyPassword } from "./passwords";
@@ -57,6 +57,42 @@ export class AuthService {
     return passwordOk && account.username === username;
   }
 
+  /**
+   * Replaces the admin password after checking the current one, and signs out every other session
+   * so a leaked cookie stops working. Returns false when the current password is wrong.
+   */
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+    keepSessionToken: string,
+  ): Promise<boolean> {
+    const account = this.#db.select().from(admin).get();
+    if (!account || !(await verifyPassword(currentPassword, account.passwordHash))) return false;
+    const passwordHash = await hashPassword(newPassword);
+    const keep = sessionId(keepSessionToken);
+    this.#db.transaction((tx) => {
+      tx.update(admin).set({ passwordHash }).where(eq(admin.id, account.id)).run();
+      tx.delete(sessions).where(ne(sessions.id, keep)).run();
+    });
+    return true;
+  }
+
+  /**
+   * Sets a new admin password without the old one, for someone with shell access to the server
+   * (`reset-password`). Every session is signed out. Returns the username, or null when setup
+   * hasn't happened yet.
+   */
+  async resetPassword(newPassword: string): Promise<string | null> {
+    const account = this.#db.select().from(admin).get();
+    if (!account) return null;
+    const passwordHash = await hashPassword(newPassword);
+    this.#db.transaction((tx) => {
+      tx.update(admin).set({ passwordHash }).where(eq(admin.id, account.id)).run();
+      tx.delete(sessions).run();
+    });
+    return account.username;
+  }
+
   createSession(userAgent: string | undefined): { token: string; expiresAt: number } {
     const token = randomBytes(32).toString("base64url");
     const now = this.#now();
@@ -110,6 +146,9 @@ export class AuthService {
   }
 }
 
+/** Addresses tracked before old ones are swept, so many one-off failures can't grow memory. */
+const PRUNE_AT_KEYS = 1000;
+
 /** In-memory limiter for failed sign-ins per client address. */
 export class LoginRateLimiter {
   readonly #failures = new Map<string, number[]>();
@@ -136,10 +175,20 @@ export class LoginRateLimiter {
   }
 
   recordFailure(key: string): void {
+    if (this.#failures.size >= PRUNE_AT_KEYS) this.prune();
     this.#failures.set(key, [...this.#recent(key), this.#now()]);
   }
 
   reset(key: string): void {
     this.#failures.delete(key);
+  }
+
+  /** Forgets addresses with no recent failures, which would otherwise stay until checked again. */
+  prune(): void {
+    for (const key of [...this.#failures.keys()]) this.#recent(key);
+  }
+
+  get size(): number {
+    return this.#failures.size;
   }
 }

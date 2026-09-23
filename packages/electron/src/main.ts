@@ -53,6 +53,8 @@ function saveDesktopSettings(settings: DesktopSettings): void {
 
 function webDir(): string | null {
   const candidates = [
+    // Beside the bundle in a packaged app (scripts/bundle.mjs).
+    join(here, "web"),
     join(here, "../../web/dist"),
     join(here, "../../../packages/web/dist"),
     process.env.NSLIB_WEB_DIR,

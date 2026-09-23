@@ -2,6 +2,12 @@ import { loadConfig } from "./config";
 import { createServer } from "./server";
 
 const config = loadConfig();
+
+if (process.argv[2] === "reset-password") {
+  const { resetPasswordCommand } = await import("./reset-password");
+  process.exit(await resetPasswordCommand(config));
+}
+
 const server = await createServer(config);
 await server.app.listen({ host: config.host, port: config.port });
 await server.start();

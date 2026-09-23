@@ -129,6 +129,7 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 | `NSLIB_WEB_DIR` | `packages/server/public` or `packages/web/dist` | Built UI; unset serves API only |
 | `NSLIB_TRUST_PROXY` | off | Set `true` behind Coolify / Traefik |
 | `NSLIB_POLLING` | off | Poll library folders (NFS/SMB) instead of inotify |
+| `NSLIB_RESCAN_INTERVAL_MIN` | `360` | Rescan every folder this often, catching changes a watcher missed. `0` turns it off |
 | `NSLIB_DISCOVERY` | on | `0` / `false` disables UDP discovery and mDNS advertising |
 | `NSLIB_DISCOVERY_PORT` | `8466` | UDP port for `NSLIB?1` |
 | `NSLIB_SETUP_TOKEN` | generated | Creating the admin account asks for this value. Unset, the server generates one per boot and logs it, so a server reachable before you've signed up can't be claimed by whoever opens it first |
@@ -142,6 +143,22 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 | `NSLIB_FORWARDER_MAIN` | `data/forwarder/main` if present | ExeFS `main` for the HOME-menu NSP |
 
 The server never writes into library folders. Missing files are marked, then purged after 30 days.
+
+## Forgotten password
+
+**Settings → Account** changes the admin password and signs out every other browser. If you can't
+sign in at all, set a new one from a shell on the server; it works while the server is running and
+signs out every session:
+
+```bash
+# Docker
+docker compose exec -u node nslibrary node dist/main.js reset-password
+# From a checkout (uses NSLIB_DATA_DIR, default ./data)
+pnpm --filter @nslib/server reset-password
+```
+
+It prompts twice on a terminal, or reads the first line of stdin when piped
+(`echo "$NEW_PASSWORD" | …`), so it can be scripted without the password appearing in `ps`.
 
 ## Keys
 

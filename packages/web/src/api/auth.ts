@@ -1,4 +1,4 @@
-import type { AuthStatus, LoginRequest, SetupRequest } from "@nslib/shared";
+import type { AuthStatus, ChangePasswordRequest, LoginRequest, SetupRequest } from "@nslib/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "./client";
 import { queryKeys } from "./keys";
@@ -38,5 +38,13 @@ export function useLogout() {
       client.removeQueries();
       client.setQueryData(queryKeys.auth, status);
     },
+  });
+}
+
+/** Other sessions are signed out; this one stays signed in. */
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body: ChangePasswordRequest) => request<void>("POST", "/auth/password", body),
+    meta: { inlineError: true },
   });
 }

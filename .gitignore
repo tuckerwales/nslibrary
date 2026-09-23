@@ -2,6 +2,7 @@ node_modules/
 dist/
 packages/server/public/
 packages/electron/dist/
+packages/electron/build/
 *.tsbuildinfo
 coverage/
 .env

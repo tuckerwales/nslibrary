@@ -98,6 +98,7 @@ export function HistoryPage() {
   const devices = useDevices();
   const jobs = useJobs(limit);
   const resume = useResumeJob();
+  const dismiss = useCancelJob();
   const names = new Map((devices.data ?? []).map((d) => [d.id, d.name]));
   const deviceName = (id: number) => names.get(id) ?? `Switch ${id}`;
 
@@ -161,14 +162,26 @@ export function HistoryPage() {
                     </p>
                     {job.error && <p className="mt-1 text-sm text-danger">{job.error}</p>}
                     {job.status === "interrupted" && (
-                      <Button
-                        variant="ghost"
-                        className="mt-2 h-8 px-2"
-                        disabled={resume.isPending && resume.variables === job.id}
-                        onClick={() => resume.mutate(job.id)}
-                      >
-                        Resume
-                      </Button>
+                      <div className="mt-2 flex gap-1">
+                        <Button
+                          variant="ghost"
+                          className="h-8 px-2"
+                          disabled={resume.isPending && resume.variables === job.id}
+                          onClick={() => resume.mutate(job.id)}
+                        >
+                          Resume
+                        </Button>
+                        {/* The Switch is offered an interrupted install again when it reconnects. */}
+                        <Button
+                          variant="ghost"
+                          className="h-8 px-2"
+                          aria-label={`Dismiss ${jobTitle(job)}`}
+                          disabled={dismiss.isPending && dismiss.variables === job.id}
+                          onClick={() => dismiss.mutate(job.id)}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
                     )}
                   </li>
                 ))}

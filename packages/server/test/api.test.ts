@@ -19,8 +19,9 @@ import type {
   TitledbStatus,
   VerifyTask,
 } from "@nslib/shared";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SESSION_COOKIE } from "../src/auth/auth-service";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WS_SESSION_CHECK_MS } from "../src/api/library-routes";
+import { LoginRateLimiter, SESSION_COOKIE } from "../src/auth/auth-service";
 import { createServer, type NslibServer } from "../src/server";
 import { fakeNsp, makeTempDir, removeDir, testConfig } from "./helpers";
 
@@ -152,6 +153,87 @@ describe("web API", () => {
       expect((await call("GET", "/roots", { session: newSession })).statusCode).toBe(200);
     });
 
+    it("changes the password and signs out other sessions", async () => {
+      const session = await setUp();
+      const login = (password: string) =>
+        call("POST", "/auth/login", { body: { username: "admin", password } });
+      const other = (await login("correct horse")).cookies.find(
+        (c) => c.name === SESSION_COOKIE,
+      )?.value;
+      const change = (body: object, as = session) =>
+        call("POST", "/auth/password", { session: as, body });
+
+      expect(
+        (
+          await call("POST", "/auth/password", {
+            body: { currentPassword: "correct horse", newPassword: "battery staple" },
+          })
+        ).statusCode,
+      ).toBe(401);
+      expect(
+        (await change({ currentPassword: "correct horse", newPassword: "short" })).statusCode,
+      ).toBe(400);
+      const wrong = await change({ currentPassword: "nope", newPassword: "battery staple" });
+      expect(wrong.statusCode).toBe(403);
+      expect(wrong.json().error.code).toBe("FORBIDDEN");
+
+      expect(
+        (await change({ currentPassword: "correct horse", newPassword: "battery staple" }))
+          .statusCode,
+      ).toBe(204);
+      expect((await call("GET", "/stats", { session })).statusCode).toBe(200);
+      expect((await call("GET", "/stats", { session: other })).statusCode).toBe(401);
+      expect((await login("correct horse")).statusCode).toBe(401);
+      expect((await login("battery staple")).statusCode).toBe(200);
+    });
+
+    it("resets the password from the server and signs everyone out", async () => {
+      const session = await setUp();
+      expect(await server.auth.resetPassword("battery staple")).toBe("admin");
+      expect((await call("GET", "/stats", { session })).statusCode).toBe(401);
+      expect(
+        (
+          await call("POST", "/auth/login", {
+            body: { username: "admin", password: "battery staple" },
+          })
+        ).statusCode,
+      ).toBe(200);
+    });
+
+    it("only accepts tokenless setup from this machine", async () => {
+      const body = { username: "admin", password: "correct horse" };
+      const lan = await server.app.inject({
+        method: "POST",
+        url: "/api/v1/auth/setup",
+        payload: body,
+        remoteAddress: "192.168.1.20",
+        // A forwarded address must not count: anyone can send this header.
+        headers: { "x-forwarded-for": "127.0.0.1" },
+      });
+      expect(lan.statusCode).toBe(403);
+      expect(server.auth.isSetupRequired()).toBe(true);
+      expect((await call("POST", "/auth/setup", { body })).statusCode).toBe(200);
+    });
+
+    it("closes the event socket once its session ends", async () => {
+      const session = await setUp();
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      try {
+        const socket = await server.app.injectWS("/api/v1/ws", {
+          headers: { cookie: `${SESSION_COOKIE}=${session}` },
+        });
+        const closed = new Promise<number>((resolve) => socket.on("close", resolve));
+        vi.advanceTimersByTime(WS_SESSION_CHECK_MS);
+        expect(socket.readyState).toBe(socket.OPEN);
+
+        await call("POST", "/auth/logout", { session });
+        vi.advanceTimersByTime(WS_SESSION_CHECK_MS);
+        expect(await closed).toBe(4001);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("limits repeated failed sign-ins", async () => {
       await setUp();
       for (let i = 0; i < 10; i++) {
@@ -166,6 +248,16 @@ describe("web API", () => {
       expect(limited.statusCode).toBe(429);
       expect(limited.json().error.code).toBe("RATE_LIMITED");
     });
+  });
+
+  it("forgets addresses whose failures have aged out", () => {
+    let now = 0;
+    const limiter = new LoginRateLimiter(10, 1000, () => now);
+    for (let i = 0; i < 1000; i++) limiter.recordFailure(`10.0.${i >> 8}.${i & 255}`);
+    expect(limiter.size).toBe(1000);
+    now = 5000;
+    limiter.recordFailure("10.9.9.9");
+    expect(limiter.size).toBe(1);
   });
 
   describe("library folders", () => {

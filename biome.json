@@ -5,6 +5,7 @@
       "**",
       "!**/dist",
       "!**/node_modules",
+      "!packages/electron/build",
       "!switch/lib",
       "!switch/build",
       "!switch/build-host",
