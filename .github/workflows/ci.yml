@@ -40,27 +40,26 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: Build the installers
-        # AppImage and deb on Linux, dmg (x64 and arm64) on macOS, NSIS on Windows. Unsigned: no
-        # signing certificates are configured.
+        # AppImage and deb on Linux, dmg (x64 and arm64) on macOS, NSIS on Windows. No signing
+        # certificates are configured: the macOS apps are signed ad-hoc, the rest not at all.
         run: pnpm --filter @nslib/desktop dist
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # Sign (ad-hoc) on pull requests too, so CI builds exactly what a release does.
+          CSC_FOR_PULL_REQUEST: "true"
       - name: Start the packaged app
-        # Only Linux runners have a virtual display to start it on.
-        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: packages/electron
         run: |
-          profile="$(mktemp -d)"
-          xvfb-run -a packages/electron/dist/linux-unpacked/nslibrary --no-sandbox \
-            --user-data-dir="$profile" > desktop.log 2>&1 &
-          for _ in $(seq 1 60); do
-            curl -sf http://127.0.0.1:8465/api/health && break
-            sleep 1
-          done
-          curl -sf http://127.0.0.1:8465/api/v1/auth/status
-          curl -sf http://127.0.0.1:8465/ | grep -q "<title>NSLibrary"
-      - name: Log on failure
-        if: failure() && runner.os == 'Linux'
-        run: cat desktop.log
+          case "$RUNNER_OS" in
+            Linux) xvfb-run -a node scripts/smoke.mjs dist/linux-unpacked/nslibrary ;;
+            macOS)
+              # The runner is Apple silicon, so the Intel app can only have its signature checked.
+              codesign --verify --deep --strict dist/mac/NSLibrary.app
+              codesign --verify --deep --strict dist/mac-arm64/NSLibrary.app
+              node scripts/smoke.mjs dist/mac-arm64/NSLibrary.app/Contents/MacOS/NSLibrary ;;
+            Windows) node scripts/smoke.mjs dist/win-unpacked/NSLibrary.exe ;;
+          esac
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ runner.os }}

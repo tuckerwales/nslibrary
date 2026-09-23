@@ -31,6 +31,12 @@ deb:
 win:
   target: nsis
 mac:
+  # No Developer ID is configured, so the app is signed ad-hoc: Apple silicon won't launch an app
+  # with no valid signature at all. Hardened runtime is off because ad-hoc code has no team ID, and
+  # with it macOS would refuse to load the native modules. Once a certificate is added (CSC_LINK),
+  # replace both with the real identity, hardenedRuntime: true, and notarization.
+  identity: "-"
+  hardenedRuntime: false
   target:
     - target: dmg
       arch: [x64, arm64]

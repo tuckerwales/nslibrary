@@ -91,11 +91,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build the installers
         shell: bash
-        # Versioned from the tag, not packages/electron/package.json. Unsigned: no signing
-        # certificates are configured.
+        # Versioned from the tag, not packages/electron/package.json. No signing certificates are
+        # configured: the macOS apps are signed ad-hoc, the rest not at all.
         run: pnpm --filter @nslib/desktop dist -c.extraMetadata.version="${GITHUB_REF_NAME#v}"
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Start the packaged app before publishing it
+        shell: bash
+        working-directory: packages/electron
+        run: |
+          case "$RUNNER_OS" in
+            Linux) xvfb-run -a node scripts/smoke.mjs dist/linux-unpacked/nslibrary ;;
+            macOS)
+              # The runner is Apple silicon, so the Intel app can only have its signature checked.
+              codesign --verify --deep --strict dist/mac/NSLibrary.app
+              codesign --verify --deep --strict dist/mac-arm64/NSLibrary.app
+              node scripts/smoke.mjs dist/mac-arm64/NSLibrary.app/Contents/MacOS/NSLibrary ;;
+            Windows) node scripts/smoke.mjs dist/win-unpacked/NSLibrary.exe ;;
+          esac
       - name: Attach to the GitHub Release
         shell: bash
         env:

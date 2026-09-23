@@ -59,7 +59,11 @@ each `v*` tag attaches them to the GitHub release, versioned from the tag:
 | macOS | `NSLibrary-<version>-mac-arm64.dmg` (Apple silicon), `NSLibrary-<version>-mac-x64.dmg` (Intel) |
 | Linux | `NSLibrary-<version>-linux-x86_64.AppImage`, `NSLibrary-<version>-linux-amd64.deb` |
 
-The installers are **not code-signed**. On macOS, the first launch is blocked: right-click the app
+CI and releases start each packaged app (Linux, Apple silicon macOS, Windows) and check that its
+server and web UI come up before publishing it (`scripts/smoke.mjs`).
+
+The installers are **not code-signed** with a developer certificate. The macOS apps are signed
+ad-hoc, which Apple silicon requires before it will run an app at all. On macOS, the first launch is blocked: right-click the app
 and choose **Open**, or allow it under System Settings → Privacy & Security. On Windows, SmartScreen
 asks you to confirm (**More info** → **Run anyway**). Install the `.deb` with
 `sudo apt install ./NSLibrary-<version>-linux-amd64.deb` so its dependencies come too. Signing needs
