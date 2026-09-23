@@ -23,7 +23,7 @@
     "release:switch": "bash scripts/release-switch.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.13",
+    "@biomejs/biome": "2.5.14",
     "@types/node": "^22.15.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
