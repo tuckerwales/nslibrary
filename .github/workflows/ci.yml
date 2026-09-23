@@ -65,7 +65,7 @@ jobs:
           dkp-pacman -Sy --noconfirm --needed \
             switch-pkg-config switch-freetype switch-harfbuzz switch-libwebp \
             switch-glfw switch-mesa switch-libdrm_nouveau \
-            switch-curl switch-mbedtls switch-zstd switch-glm switch-libpng switch-zlib
+            switch-curl switch-mbedtls switch-libzstd switch-glm switch-libpng switch-zlib
       - run: cmake -B switch/build -S switch -DPLATFORM_SWITCH=ON
       - run: cmake --build switch/build --target nslibrary.nro -j"$(nproc)"
       - uses: actions/upload-artifact@v4

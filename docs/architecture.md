@@ -160,7 +160,7 @@ via `/dev/bus/usb` plus `device_cgroup_rules: ["c 189:* rmw"]`; elsewhere use th
 ## Switch client
 
 C++ with libnx and [Borealis](https://github.com/xfangfang/borealis) (the xfangfang fork, a pinned
-submodule), built with CMake. Portlibs: `switch-curl`, `switch-mbedtls`, `switch-zstd`, plus libnx's
+submodule), built with CMake. Portlibs: `switch-curl`, `switch-mbedtls`, `switch-libzstd`, plus libnx's
 hardware AES-CTR and SHA-256.
 
 ```

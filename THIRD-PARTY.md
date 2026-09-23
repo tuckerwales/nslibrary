@@ -28,7 +28,7 @@ image; none is modified by this project.
 |---|---|
 | switch-curl | curl (MIT/X derivative) |
 | switch-mbedtls | Apache-2.0 |
-| switch-zstd | BSD-3-Clause (dual GPL-2.0) |
+| switch-libzstd | BSD-3-Clause (dual GPL-2.0) |
 | switch-freetype | FTL (dual GPL-2.0) |
 | switch-harfbuzz | MIT |
 | switch-libwebp | BSD-3-Clause |
