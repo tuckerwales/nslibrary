@@ -74,6 +74,41 @@ jobs:
             --title "$GITHUB_REF_NAME" \
             --generate-notes
 
+  desktop:
+    # After the release exists, so a failed desktop build never holds back the .nro.
+    needs: sign
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Build the installers
+        shell: bash
+        # Versioned from the tag, not packages/electron/package.json. Unsigned: no signing
+        # certificates are configured.
+        run: pnpm --filter @nslib/desktop dist -c.extraMetadata.version="${GITHUB_REF_NAME#v}"
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Attach to the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(packages/electron/dist/NSLibrary-*.{AppImage,deb,dmg,exe})
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No installers were built"
+            exit 1
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+
   docker:
     runs-on: ubuntu-latest
     steps:

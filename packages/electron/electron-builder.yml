@@ -1,9 +1,13 @@
 appId: wales.tucker.nslibrary
 productName: NSLibrary
+# One name pattern for every installer, so release assets don't collide (e.g. the two dmgs).
+artifactName: NSLibrary-${version}-${os}-${arch}.${ext}
 directories:
   output: dist
+# The workflows upload installers themselves, and the app has no auto-updater to feed.
+publish: null
 # scripts/bundle.mjs stages everything the main process needs in build/; node_modules only has to
-# provide the native modules (better-sqlite3, usb), which are rebuilt for Electron.
+# provide the native modules (better-sqlite3, usb).
 files:
   - build/**/*
   - package.json
@@ -12,6 +16,8 @@ extraMetadata:
 linux:
   # The default comes from the scoped package name (@nslib/desktop).
   executableName: nslibrary
+  # Required for the .deb. A no-reply address, so no personal email ships inside the package.
+  maintainer: NSLibrary contributors <tuckerwales@users.noreply.github.com>
   target:
     - AppImage
     - deb
@@ -19,10 +25,15 @@ linux:
   extraFiles:
     - from: udev/99-nslibrary.rules
       to: udev/99-nslibrary.rules
+deb:
+  # The default comes from the scoped package name, whose "/" breaks the file name.
+  packageName: nslibrary
 win:
   target: nsis
 mac:
-  target: dmg
+  target:
+    - target: dmg
+      arch: [x64, arm64]
 # better-sqlite3 and usb are N-API modules with prebuilt binaries, which load in Electron as they
 # are. Rebuilding would compile usb from source, needing a C toolchain and libudev headers.
 npmRebuild: false

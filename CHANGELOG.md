@@ -20,8 +20,9 @@ released the `.nro` only.
   described this, but nothing did it.
 
 - The desktop app can be packaged: `pnpm --filter @nslib/desktop package:dir` (or `dist` for installers)
-  bundles the main process so it no longer needs `tsx` at runtime. CI packages and starts the
-  Linux build.
+  bundles the main process so it no longer needs `tsx` at runtime.
+- Desktop installers for Windows (NSIS), macOS (dmg, Apple silicon and Intel), and Linux (AppImage,
+  deb) are built in CI and attached to each GitHub release. They are not code-signed yet.
 
 ### Security
 - The desktop app, which has no setup token, only accepts creating the admin account from the

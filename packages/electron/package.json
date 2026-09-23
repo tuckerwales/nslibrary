@@ -4,6 +4,7 @@
   "description": "Desktop app for NSLibrary: the library server with a window, tray, and USB",
   "author": "NSLibrary contributors",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/tuckerwales/nslibrary",
   "private": true,
   "type": "module",
   "main": "src/main.ts",
@@ -15,8 +16,8 @@
     "start": "electron --import tsx src/main.ts",
     "bundle": "pnpm --filter @nslib/web build && node scripts/bundle.mjs",
     "start:bundle": "node scripts/ensure-electron.mjs && electron build/main.js",
-    "package:dir": "pnpm bundle && electron-builder --dir",
-    "dist": "pnpm bundle && electron-builder"
+    "package:dir": "pnpm bundle && electron-builder --dir --publish never",
+    "dist": "pnpm bundle && electron-builder --publish never"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

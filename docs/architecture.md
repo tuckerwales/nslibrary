@@ -243,9 +243,10 @@ owner, the desktop app skips the setup token and signs in automatically once an 
 Packaging bundles the main process with esbuild (`scripts/bundle.mjs`) into `build/`, next to the
 preload script, migrations, and the built web UI, so the packaged app runs plain JavaScript. Only
 `better-sqlite3` and `usb` come from `node_modules`; both are N-API modules with prebuilt binaries,
-so nothing is compiled for Electron. CI packages the Linux app and starts it as a smoke test.
-Releases publish the `.nro` and the Docker image only; desktop installers aren't signed or published
-yet.
+so nothing is compiled for Electron. CI builds the installers on Linux, macOS, and Windows and
+starts the Linux app as a smoke test; each release tag attaches them to the GitHub release, next to
+the `.nro`. They are not code-signed yet, so macOS Gatekeeper and Windows SmartScreen warn on first
+launch.
 
 ## Docker
 

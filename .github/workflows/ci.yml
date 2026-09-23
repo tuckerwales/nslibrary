@@ -27,7 +27,11 @@ jobs:
           switch/build-host/nslib-switch-tests
 
   desktop:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,9 +39,15 @@ jobs:
           node-version: 22
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - name: Package the Linux app
-        run: pnpm --filter @nslib/desktop package:dir
+      - name: Build the installers
+        # AppImage and deb on Linux, dmg (x64 and arm64) on macOS, NSIS on Windows. Unsigned: no
+        # signing certificates are configured.
+        run: pnpm --filter @nslib/desktop dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - name: Start the packaged app
+        # Only Linux runners have a virtual display to start it on.
+        if: runner.os == 'Linux'
         run: |
           profile="$(mktemp -d)"
           xvfb-run -a packages/electron/dist/linux-unpacked/nslibrary --no-sandbox \
@@ -49,8 +59,18 @@ jobs:
           curl -sf http://127.0.0.1:8465/api/v1/auth/status
           curl -sf http://127.0.0.1:8465/ | grep -q "<title>NSLibrary"
       - name: Log on failure
-        if: failure()
+        if: failure() && runner.os == 'Linux'
         run: cat desktop.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          path: |
+            packages/electron/dist/NSLibrary-*.AppImage
+            packages/electron/dist/NSLibrary-*.deb
+            packages/electron/dist/NSLibrary-*.dmg
+            packages/electron/dist/NSLibrary-*.exe
+          if-no-files-found: error
+          retention-days: 7
 
   switch:
     runs-on: ubuntu-latest

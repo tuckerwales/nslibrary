@@ -49,3 +49,18 @@ with the preload script, migrations, web UI, and forwarder icon, and `electron-b
 `pnpm --filter @nslib/desktop start:bundle` runs the bundle without packaging. Build installers on
 the platform they're for. The native modules (`better-sqlite3`, `usb`) are N-API with prebuilt
 binaries, so there is nothing to compile. The Linux packages include the udev rule under `udev/`.
+
+CI builds all of them on every pull request (downloadable from the run's artifacts for a week), and
+each `v*` tag attaches them to the GitHub release, versioned from the tag:
+
+| Platform | File |
+|---|---|
+| Windows | `NSLibrary-<version>-win-x64.exe` (NSIS installer) |
+| macOS | `NSLibrary-<version>-mac-arm64.dmg` (Apple silicon), `NSLibrary-<version>-mac-x64.dmg` (Intel) |
+| Linux | `NSLibrary-<version>-linux-x86_64.AppImage`, `NSLibrary-<version>-linux-amd64.deb` |
+
+The installers are **not code-signed**. On macOS, the first launch is blocked: right-click the app
+and choose **Open**, or allow it under System Settings → Privacy & Security. On Windows, SmartScreen
+asks you to confirm (**More info** → **Run anyway**). Install the `.deb` with
+`sudo apt install ./NSLibrary-<version>-linux-amd64.deb` so its dependencies come too. Signing needs
+certificates added as repository secrets (`CSC_LINK` and `CSC_KEY_PASSWORD` for electron-builder).
