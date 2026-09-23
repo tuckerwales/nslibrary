@@ -11,6 +11,8 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-23
+
 ### Added
 - **Settings → Account** changes the admin password and signs out every other session.
 - `reset-password` sets a new admin password from a shell on the server
