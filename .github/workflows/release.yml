@@ -17,10 +17,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install Switch portlibs
+      - name: Check Switch portlibs
+        # The image already ships every portlib the app needs, so only the local database is
+        # queried: pkg.devkitpro.org can refuse CI runners (403). A missing one fails here by name.
         run: |
-          # The devkitPro image ships its pacman as dkp-pacman.
-          dkp-pacman -Sy --noconfirm --needed \
+          dkp-pacman -Q \
             switch-pkg-config switch-freetype switch-harfbuzz switch-libwebp \
             switch-glfw switch-mesa switch-libdrm_nouveau \
             switch-curl switch-mbedtls switch-libzstd switch-glm switch-libpng switch-zlib
