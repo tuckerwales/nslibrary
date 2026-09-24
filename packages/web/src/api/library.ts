@@ -1,12 +1,14 @@
 import type {
   AppDetail,
   AppFlag,
+  AppSort,
   AppSummary,
   CreateRootRequest,
   HomebrewItem,
   LibraryRoot,
   LibraryStats,
   ProblemsReport,
+  SortOrder,
   UpdateRootRequest,
   VerifyMode,
   VerifyTask,
@@ -29,13 +31,32 @@ export function useStats() {
   });
 }
 
-export function useApps(q: string, flag: AppFlag | null) {
+/** The library orderings the web UI offers, as they appear in `?sort=`. */
+export const LIBRARY_SORTS = {
+  name: { sort: "name", order: "asc" },
+  "added-desc": { sort: "added", order: "desc" },
+  "added-asc": { sort: "added", order: "asc" },
+} as const satisfies Record<string, { sort: AppSort; order: SortOrder }>;
+
+export type LibrarySort = keyof typeof LIBRARY_SORTS;
+
+export function isLibrarySort(value: string | null): value is LibrarySort {
+  return value !== null && Object.hasOwn(LIBRARY_SORTS, value);
+}
+
+export function useApps(q: string, flag: AppFlag | null, librarySort: LibrarySort = "name") {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (flag) params.set("flag", flag);
+  // The server's default is name order, so only other orders go on the wire.
+  if (librarySort !== "name") {
+    const { sort, order } = LIBRARY_SORTS[librarySort];
+    params.set("sort", sort);
+    params.set("order", order);
+  }
   const query = params.size > 0 ? `?${params}` : "";
   return useQuery({
-    queryKey: queryKeys.appList(q, flag),
+    queryKey: queryKeys.appList(q, flag, librarySort),
     queryFn: () => request<AppSummary[]>("GET", `/apps${query}`),
     placeholderData: keepPreviousData,
   });

@@ -7,7 +7,7 @@ import { renderWithApp, stubApi } from "./render";
 afterEach(() => vi.unstubAllGlobals());
 
 function setUp(url = "/") {
-  stubApi({
+  const fetch = stubApi({
     "/apps": [app()],
     "/stats": {
       applications: 1,
@@ -22,6 +22,13 @@ function setUp(url = "/") {
   });
   renderWithApp(<LibraryPage />, { url });
   return {
+    /** The query strings of every /apps request so far. */
+    appRequests: () =>
+      fetch.mock.calls
+        .map(([input]) => new URL(String(input), "http://localhost"))
+        .filter((url) => url.pathname.endsWith("/apps"))
+        .map((url) => url.search),
+    sort: () => screen.getByRole<HTMLSelectElement>("combobox", { name: /sort/i }),
     search: () => screen.getByRole<HTMLInputElement>("searchbox"),
     location: () => screen.getByTestId("location").textContent,
   };
@@ -65,5 +72,51 @@ describe("LibraryPage layout", () => {
     setUp();
     await screen.findByText("Example");
     expect(screen.getByRole("button", { name: "Grid" }).getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("LibraryPage sort", () => {
+  afterEach(() => localStorage.clear());
+
+  it("sorts by date added, in the URL and the request, and remembers the choice", async () => {
+    const page = setUp();
+    await screen.findByText("Example");
+    expect(page.sort().value).toBe("name");
+    // Name order is the server's default, so it sends no sort parameters.
+    expect(page.appRequests()).toEqual([""]);
+    expect(screen.queryByText(/^Added/)).toBeNull();
+
+    fireEvent.change(page.sort(), { target: { value: "added-desc" } });
+    await waitFor(() => expect(page.location()).toBe("/?sort=added-desc"));
+    await waitFor(() => expect(page.appRequests()).toContain("?sort=added&order=desc"));
+    expect(localStorage.getItem("nslib.librarySort")).toBe("added-desc");
+    expect(await screen.findByText(/^Added/)).toBeTruthy();
+
+    fireEvent.change(page.sort(), { target: { value: "name" } });
+    await waitFor(() => expect(page.location()).toBe("/"));
+    expect(localStorage.getItem("nslib.librarySort")).toBe("name");
+  });
+
+  it("opens in the order chosen last time, unless the URL names one", async () => {
+    localStorage.setItem("nslib.librarySort", "added-asc");
+    const page = setUp();
+    await screen.findByText("Example");
+    expect(page.sort().value).toBe("added-asc");
+    expect(page.appRequests()).toEqual(["?sort=added&order=asc"]);
+  });
+
+  it("prefers the URL's order to the remembered one", async () => {
+    localStorage.setItem("nslib.librarySort", "added-asc");
+    const page = setUp("/?sort=added-desc");
+    await screen.findByText("Example");
+    expect(page.sort().value).toBe("added-desc");
+    expect(page.appRequests()).toEqual(["?sort=added&order=desc"]);
+  });
+
+  it("ignores an unknown order in the URL", async () => {
+    const page = setUp("/?sort=bogus");
+    await screen.findByText("Example");
+    expect(page.sort().value).toBe("name");
+    expect(page.appRequests()).toEqual([""]);
   });
 });
