@@ -12,6 +12,7 @@ export function app(overrides: Partial<AppSummary> = {}): AppSummary {
     addonCount: 0,
     fileCount: 1,
     totalSize: 1024,
+    addedAt: 1_758_700_800_000,
     flags: [],
     ...overrides,
   };

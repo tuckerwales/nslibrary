@@ -18,6 +18,7 @@ interface CatalogRow {
   fileId: number;
   format: ContainerFormat;
   size: number;
+  firstSeenAt: number;
   appName: string | null;
   appPublisher: string | null;
   appIconKey: string | null;
@@ -37,6 +38,7 @@ function loadRows(db: Db, titledb: boolean): CatalogRow[] {
       fileId: files.id,
       format: files.format,
       size: files.size,
+      firstSeenAt: files.firstSeenAt,
       appName: tdb.appName,
       appPublisher: tdb.appPublisher,
       appIconKey: applications.iconKey,
@@ -117,6 +119,7 @@ function toApp(applicationId: string, rows: CatalogRow[], preferCompressed: bool
   }, undefined);
 
   const first = rows[0];
+  const addedAt = rows.reduce((min, r) => Math.min(min, r.firstSeenAt), first?.firstSeenAt ?? 0);
   return {
     i: applicationId,
     n: first?.appName ?? base?.displayName ?? first?.displayName ?? applicationId,
@@ -126,9 +129,13 @@ function toApp(applicationId: string, rows: CatalogRow[], preferCompressed: bool
     b: base ? [versionOf(base), base.metaId, base.size, base.format] : null,
     u: updates.map((row) => [versionOf(row), row.metaId, row.size, row.format]),
     d: dlc.map((row) => [row.titleId, versionOf(row), row.displayName, row.metaId, row.size]),
+    // Seconds: enough to sort by, and shorter on the wire. The console does the sorting, because
+    // paginateCatalog pages by application ID.
+    a: Math.floor(addedAt / 1000),
   };
 }
 
+/** Sorted by application ID: paginateCatalog's cursor depends on it. */
 export function buildCatalogApps(db: Db, preferCompressed: boolean, titledb = false): CatalogApp[] {
   const byApp = groupBy(loadRows(db, titledb), (row) => row.applicationId);
   return [...byApp]

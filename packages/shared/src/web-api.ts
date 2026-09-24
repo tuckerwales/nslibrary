@@ -185,6 +185,11 @@ export type AppFlag =
   /** Titledb lists a newer update than any file in the library. */
   | "update-available";
 
+/** Library orderings for `GET /apps`. Ties fall back to name, then application ID. */
+export const APP_SORTS = ["name", "added"] as const;
+export type AppSort = (typeof APP_SORTS)[number];
+export type SortOrder = "asc" | "desc";
+
 export interface AppSummary {
   applicationId: string;
   name: string;
@@ -197,6 +202,8 @@ export interface AppSummary {
   addonCount: number;
   fileCount: number;
   totalSize: number;
+  /** When the game's earliest present file was first seen, in epoch milliseconds. */
+  addedAt: number;
   flags: AppFlag[];
 }
 
