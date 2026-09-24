@@ -11,6 +11,8 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-24
+
 ### Added
 - Sort the library by date added, newest or oldest first, in the web UI (the **Sort** menu next to
   the list and grid buttons) and on the Switch (**Y** on the Library tab). Both remember the choice.
