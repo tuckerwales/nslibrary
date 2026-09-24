@@ -11,6 +11,19 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+### Added
+- Sort the library by date added, newest or oldest first, in the web UI (the **Sort** menu next to
+  the list and grid buttons) and on the Switch (**Y** on the Library tab). Both remember the choice.
+  A game's date is when its first file appeared in the library, so adding an update or DLC later
+  does not move it. Libraries scanned before this release have one date for everything they held
+  then, so those titles fall back to name order among themselves.
+  ([#13](https://github.com/tuckerwales/nslibrary/issues/13))
+- `GET /api/v1/apps` accepts `sort=name|added` and `order=asc|desc`, and each title has `addedAt`.
+  The device catalog has an optional `a` (date added, epoch seconds).
+
+### Changed
+- The Switch library grid is now in name order by default, instead of title ID order.
+
 ## [0.3.0] - 2026-09-23
 
 ### Added

@@ -16,6 +16,8 @@ struct Settings {
     /** Zero RequiredSystemVersion on install when the console firmware is older, as DBI's reset does. */
     bool clearFirmwareRequirement = true;
     bool useUsb = false;
+    /** Library grid order: "name", "added-desc" or "added-asc" (see ui/library_sort.hpp). */
+    std::string librarySort = "name";
 
     void load();
     void save() const;

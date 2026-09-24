@@ -105,6 +105,8 @@ export const CatalogAppSchema = z.object({
   u: z.array(CatalogContentRefSchema),
   /** DLC */
   d: z.array(CatalogAddonSchema),
+  /** when the game's earliest file was first seen, in epoch seconds; absent from older servers */
+  a: z.number().int().nonnegative().optional(),
 });
 
 export const CatalogResponseSchema = z.object({

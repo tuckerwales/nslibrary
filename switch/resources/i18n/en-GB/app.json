@@ -35,7 +35,11 @@
   },
   "library": {
     "nothing": "This title has no installable content.",
-    "empty": "The library is empty."
+    "empty": "The library is empty.",
+    "sort": "Sort: {}",
+    "sort_name": "Name",
+    "sort_added_desc": "Recently added",
+    "sort_added_asc": "Oldest added"
   },
   "detail": {
     "base": "Base game",

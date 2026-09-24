@@ -66,6 +66,16 @@ TEST(protocol_catalog_golden) {
     CHECK_EQ(app.updates[0].version, 393216u);
     CHECK_EQ(app.dlc.size(), 1u);
     CHECK_EQ(app.dlc[0].name, std::string("Bonus Pack"));
+    CHECK(app.addedAt.has_value());
+    CHECK_EQ(*app.addedAt, 1758700800);
+}
+
+TEST(protocol_catalog_from_an_older_server_has_no_date_added) {
+    const auto c = parseCatalog(
+        R"({"rev":1,"full":true,"apps":[{"i":"0100000000010000","n":"Game","ic":null,"b":null,"u":[],"d":[]}],"del":[],"next":null})");
+    CHECK_EQ(c.apps.size(), 1u);
+    CHECK(!c.apps[0].addedAt.has_value());
+    CHECK_EQ(c.skipped, 0u);
 }
 
 TEST(protocol_events_golden) {

@@ -35,7 +35,11 @@
   },
   "library": {
     "nothing": "Questo titolo non ha contenuto installabile.",
-    "empty": "La libreria è vuota."
+    "empty": "La libreria è vuota.",
+    "sort": "Ordina: {}",
+    "sort_name": "Nome",
+    "sort_added_desc": "Aggiunti di recente",
+    "sort_added_asc": "Aggiunti per primi"
   },
   "detail": {
     "base": "Gioco base",

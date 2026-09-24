@@ -53,6 +53,7 @@ void Settings::load() {
             clearFirmwareRequirement = v["clearFirmwareRequirement"].asBool();
         }
         if (v["useUsb"].isBool()) useUsb = v["useUsb"].asBool();
+        if (v.has("librarySort") && v["librarySort"].isString()) librarySort = v["librarySort"].asString();
     } catch (...) {
     }
     ensureUuid();
@@ -71,6 +72,7 @@ void Settings::save() const {
     o.set("verifyHash", Json::boolean(verifyHash));
     o.set("clearFirmwareRequirement", Json::boolean(clearFirmwareRequirement));
     o.set("useUsb", Json::boolean(useUsb));
+    o.set("librarySort", Json::string(librarySort));
     try {
         writeFileAtomic(kPath, o.dump());
     } catch (const std::exception&) {

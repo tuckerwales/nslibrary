@@ -3,7 +3,7 @@ export const queryKeys = {
   auth: ["auth"],
   stats: ["stats"],
   apps: ["apps"],
-  appList: (q: string, flag: string | null) => ["apps", q, flag],
+  appList: (q: string, flag: string | null, sort = "name") => ["apps", q, flag, sort],
   app: ["app"],
   appDetail: (applicationId: string) => ["app", applicationId],
   homebrew: ["homebrew"],

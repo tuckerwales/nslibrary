@@ -35,7 +35,11 @@
   },
   "library": {
     "nothing": "Deze titel heeft geen installeerbare inhoud.",
-    "empty": "De bibliotheek is leeg."
+    "empty": "De bibliotheek is leeg.",
+    "sort": "Sorteren: {}",
+    "sort_name": "Naam",
+    "sort_added_desc": "Recent toegevoegd",
+    "sort_added_asc": "Eerst toegevoegd"
   },
   "detail": {
     "base": "Basisspel",

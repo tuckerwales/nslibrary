@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { VerifyRequestSchema, type VerifyTask } from "@nslib/shared";
+import { APP_SORTS, VerifyRequestSchema, type VerifyTask } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { SESSION_COOKIE } from "../auth/auth-service";
@@ -27,6 +27,8 @@ const AppListQuerySchema = z.object({
       "update-available",
     ])
     .optional(),
+  sort: z.enum(APP_SORTS).optional(),
+  order: z.enum(["asc", "desc"]).optional(),
 });
 
 const AppParamsSchema = z.object({

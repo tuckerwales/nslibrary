@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ui/library_sort.hpp"
+
 #include <borealis.hpp>
 
 #include <cstdint>
@@ -35,9 +37,13 @@ public:
     void rebuild(bool force = false);
 
 private:
+    /** Moves to the next order, saves it, and rebuilds the grid. */
+    void cycleSort();
+
     int64_t builtRev_ = -1;
     size_t builtCount_ = 0;
     size_t builtInstalled_ = 0;
+    LibrarySort builtSort_ = LibrarySort::Name;
 };
 
 class UpdatesTab : public brls::Box {

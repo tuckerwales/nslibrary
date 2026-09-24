@@ -1,11 +1,12 @@
 import type { AppFlag } from "@nslib/shared";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { useApps, useRoots, useStats } from "../api";
+import { isLibrarySort, type LibrarySort, useApps, useRoots, useStats } from "../api";
 import { ButtonLink } from "../components/Button";
 import { LoadError, Loading } from "../components/Feedback";
 import { inputClass } from "../components/Field";
 import { PageHeader } from "../components/PageHeader";
+import { RelativeTime } from "../components/RelativeTime";
 import { type TitleLayout, TitleList } from "../components/TitleList";
 import { formatBytes, plural } from "../format";
 
@@ -74,6 +75,73 @@ function useLibraryLayout() {
     }
   };
   return [layout, choose] as const;
+}
+
+const SORT_KEY = "nslib.librarySort";
+
+const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
+  { value: "name", label: "Name" },
+  { value: "added-desc", label: "Recently added" },
+  { value: "added-asc", label: "Oldest added" },
+];
+
+function readStoredSort(): LibrarySort {
+  try {
+    const stored = localStorage.getItem(SORT_KEY);
+    return isLibrarySort(stored) ? stored : "name";
+  } catch {
+    return "name";
+  }
+}
+
+/**
+ * The order, kept in `?sort=` like the filter so Back and shared links keep it. A URL without
+ * one (the Library nav link, a fresh visit) uses the order chosen last time in this browser.
+ */
+function useLibrarySort(
+  raw: string | null,
+  setParam: (value: LibrarySort | null) => void,
+): [LibrarySort, (value: LibrarySort) => void] {
+  const [stored, setStored] = useState(readStoredSort);
+  const sort = isLibrarySort(raw) ? raw : stored;
+  const choose = (value: LibrarySort) => {
+    setStored(value);
+    try {
+      localStorage.setItem(SORT_KEY, value);
+    } catch {
+      // Not remembered; the URL still carries it for this visit.
+    }
+    setParam(value === "name" ? null : value);
+  };
+  return [sort, choose];
+}
+
+function SortSelect({
+  sort,
+  onChange,
+}: {
+  sort: LibrarySort;
+  onChange: (value: LibrarySort) => void;
+}) {
+  return (
+    <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+      <span className="hidden sm:inline">Sort</span>
+      <span className="sr-only sm:hidden">Sort by</span>
+      <select
+        className="h-9 rounded-md border border-line bg-panel px-2 text-sm text-ink"
+        value={sort}
+        onChange={(e) => {
+          if (isLibrarySort(e.target.value)) onChange(e.target.value);
+        }}
+      >
+        {SORT_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 const LAYOUTS: { value: TitleLayout; label: string; icon: ReactNode }[] = [
@@ -155,7 +223,16 @@ export function LibraryPage() {
   );
 
   const [layout, setLayout] = useLibraryLayout();
-  const apps = useApps(q, flag);
+  const [sort, setSort] = useLibrarySort(params.get("sort"), (value) =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      if (value) next.set("sort", value);
+      else next.delete("sort");
+      return next;
+    }),
+  );
+  const apps = useApps(q, flag, sort);
+  const byDate = sort !== "name";
   const stats = useStats().data;
   const roots = useRoots().data;
 
@@ -194,16 +271,17 @@ export function LibraryPage() {
         <label className="sr-only" htmlFor="library-search">
           Search the library
         </label>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <input
             id="library-search"
             type="search"
             placeholder="Search by name or title ID"
-            className={`${inputClass} min-w-0 max-w-md`}
+            className={`${inputClass} min-w-0 max-w-md sm:flex-1`}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
-          <div className="ml-auto">
+          <div className="flex items-center gap-3 sm:ml-auto">
+            <SortSelect sort={sort} onChange={setSort} />
             <LayoutToggle layout={layout} onChange={setLayout} />
           </div>
         </div>
@@ -234,8 +312,17 @@ export function LibraryPage() {
           <Loading />
         ) : apps.data.length > 0 ? (
           <TitleList
-            key={`${q}\n${flag}`}
-            items={apps.data.map((app) => ({ app }))}
+            key={`${q}\n${flag}\n${sort}`}
+            items={apps.data.map((app) => ({
+              app,
+              ...(byDate && {
+                detail: (
+                  <>
+                    Added <RelativeTime timestamp={app.addedAt} />
+                  </>
+                ),
+              }),
+            }))}
             layout={layout}
           />
         ) : q || flag ? (

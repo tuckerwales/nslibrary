@@ -87,6 +87,8 @@ struct CatalogApp {
     std::optional<CatalogContentRef> base;
     std::vector<CatalogContentRef> updates;
     std::vector<CatalogAddon> dlc;
+    /** When the game was added to the library, in epoch seconds. Absent from older servers. */
+    std::optional<int64_t> addedAt;
 };
 
 struct CatalogResponse {

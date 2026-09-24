@@ -3,12 +3,14 @@ import {
   type AppContent,
   type AppDetail,
   type AppFlag,
+  type AppSort,
   type AppSummary,
   type DuplicateGroup,
   type HomebrewItem,
   type LibraryFileInfo,
   type LibraryStats,
   type ProblemsReport,
+  type SortOrder,
   WEB_API_BASE_PATH,
 } from "@nslib/shared";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
@@ -57,6 +59,7 @@ function loadContentRows(db: Db, options: LoadOptions = {}) {
       keyGeneration: contentMetas.keyGeneration,
       requiredSystemVersion: contentMetas.requiredSystemVersion,
       installSize: contentMetas.installSize,
+      firstSeenAt: files.firstSeenAt,
       file: fileInfoColumns,
       appName: tdb.appName,
       appPublisher: tdb.appPublisher,
@@ -151,6 +154,8 @@ function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
     addonCount: new Set(addons.map((r) => r.titleId)).size,
     fileCount: allFiles.length,
     totalSize: allFiles.reduce((sum, file) => sum + file.size, 0),
+    // When the game entered the library: its earliest file, so a later update does not move it.
+    addedAt: rows.reduce((min, r) => Math.min(min, r.firstSeenAt), first?.firstSeenAt ?? 0),
     flags,
   };
 }
@@ -158,7 +163,20 @@ function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
 export interface ListApplicationsOptions {
   q?: string;
   flag?: AppFlag;
+  sort?: AppSort;
+  order?: SortOrder;
   titledb?: boolean;
+}
+
+const byName = (a: AppSummary, b: AppSummary) =>
+  nameCollator.compare(a.name, b.name) || a.applicationId.localeCompare(b.applicationId);
+
+/** Orders by the chosen key; ties (a first scan dates every file the same) fall back to name. */
+function appComparator(sort: AppSort, order: SortOrder) {
+  const direction = order === "desc" ? -1 : 1;
+  if (sort === "added")
+    return (a: AppSummary, b: AppSummary) => direction * (a.addedAt - b.addedAt) || byName(a, b);
+  return (a: AppSummary, b: AppSummary) => direction * byName(a, b);
 }
 
 function summarizeAll(db: Db, titledb: boolean): AppSummary[] {
@@ -185,10 +203,7 @@ export function listApplications(db: Db, options: ListApplicationsOptions = {}):
     })
     .map(([id, appRows]) => summarize(id, appRows))
     .filter((app) => !options.flag || app.flags.includes(options.flag))
-    .sort(
-      (a, b) =>
-        nameCollator.compare(a.name, b.name) || a.applicationId.localeCompare(b.applicationId),
-    );
+    .sort(appComparator(options.sort ?? "name", options.order ?? "asc"));
 }
 
 export function getApplication(

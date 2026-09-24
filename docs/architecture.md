@@ -95,7 +95,7 @@ orphan update or DLC, firmware newer than a device, not present on a given devic
 
 ### Web API (`/api/v1`, cookie session)
 
-Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&device…`
+Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&sort&order&device…`
 and `GET /apps/:id` grouping base, updates, DLC, files and per-device state), file verification,
 keys (`PUT /keys`, `GET /keys/status`), titledb config and refresh, devices (pairing code, list,
 rename, revoke), and jobs (create, reorder, cancel, list).

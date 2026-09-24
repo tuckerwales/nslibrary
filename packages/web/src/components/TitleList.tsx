@@ -1,5 +1,5 @@
 import type { AppSummary } from "@nslib/shared";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Link } from "react-router";
 import { formatBytes } from "../format";
 import { Button } from "./Button";
@@ -12,7 +12,7 @@ export const TITLE_PAGE_SIZE = 100;
 export interface TitleListItem {
   app: AppSummary;
   /** Shown under the name instead of the title ID. */
-  detail?: string;
+  detail?: ReactNode;
 }
 
 function TitleRow({ app, detail }: TitleListItem) {

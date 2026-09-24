@@ -235,7 +235,8 @@ describe("device API", () => {
     const catalog = CatalogResponseSchema.parse(full.json());
     expect(catalog.full).toBe(true);
     expect(catalog.apps).toHaveLength(1);
-    expect(catalog.apps[0]).toMatchObject({ i: BASE, n: "Example" });
+    // `a` is the date added, in seconds.
+    expect(catalog.apps[0]).toMatchObject({ i: BASE, n: "Example", a: now / 1000 });
     expect(catalog.apps[0]?.b?.[3]).toBe("nsp");
 
     const unchanged = (await device("GET", `/catalog?since=${catalog.rev}`, { token })).json();

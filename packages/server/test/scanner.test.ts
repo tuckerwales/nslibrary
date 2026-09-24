@@ -114,9 +114,19 @@ describe("LibraryScanner", () => {
 
     expect(await scanner.scanRoot(root.id)).toMatchObject({ moved: 1, added: 0, missing: 0 });
     expect(repo.listRootFiles(root.id)).toMatchObject([
-      { id: before?.id, relPath: `games/${renamed}`, parseStatus: "ok", missingSince: null },
+      {
+        id: before?.id,
+        relPath: `games/${renamed}`,
+        parseStatus: "ok",
+        missingSince: null,
+        firstSeenAt: before?.firstSeenAt,
+      },
     ]);
-    expect(listApplications(db)[0]?.name).toBe("Renamed Game");
+    // A moved file keeps its date, so sorting by date added does not treat it as new.
+    expect(listApplications(db)[0]).toMatchObject({
+      name: "Renamed Game",
+      addedAt: before?.firstSeenAt,
+    });
   });
 
   it("leaves files alone when the folder is unreachable", async () => {

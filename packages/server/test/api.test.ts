@@ -325,6 +325,61 @@ describe("web API", () => {
       await write("backup.nsp", fakeNsp({ seed: "unknown" }));
     }
 
+    it("sorts games by date added, falling back to name", async () => {
+      const session = await setUp();
+      const library = join(dir, "library");
+      await populate(library);
+      const root = (
+        await call("POST", "/roots", { session, body: { path: library } })
+      ).json<LibraryRoot>();
+      await server.scanner.scanRoot(root.id);
+
+      const order = async (query: string) =>
+        (await call("GET", `/apps${query}`, { session }))
+          .json<AppSummary[]>()
+          .map((a) => [a.name, a.addedAt]);
+
+      // One scan dates every file the same, so date order falls back to name either way.
+      const scannedAt = (await order(""))[0]?.[1];
+      expect(await order("?sort=added&order=desc")).toEqual([
+        ["Example Game", scannedAt],
+        ["Other Game Update", scannedAt],
+      ]);
+
+      const setFirstSeen = server.sqlite.prepare(
+        "update files set first_seen_at = ? where rel_path = ?",
+      );
+      server.sqlite
+        .prepare("update files set first_seen_at = 5000 where rel_path like 'Example Game%'")
+        .run();
+      server.sqlite
+        .prepare("update files set first_seen_at = 9000 where rel_path like 'dlc/%'")
+        .run();
+      setFirstSeen.run(1000, `Example Game [${BASE}][v0].nsp`);
+      setFirstSeen.run(2000, "Other Game Update [0100000000AB0800][v65536].nsp");
+
+      // A game is dated by its earliest file, so newer DLC does not move it.
+      expect(await order("?sort=added")).toEqual([
+        ["Example Game", 1000],
+        ["Other Game Update", 2000],
+      ]);
+      expect(await order("?sort=added&order=desc")).toEqual([
+        ["Other Game Update", 2000],
+        ["Example Game", 1000],
+      ]);
+      // The default is unchanged: name, A to Z.
+      expect((await order("")).map(([name]) => name)).toEqual([
+        "Example Game",
+        "Other Game Update",
+      ]);
+      expect((await order("?order=desc")).map(([name]) => name)).toEqual([
+        "Other Game Update",
+        "Example Game",
+      ]);
+      expect((await call("GET", "/apps?sort=size", { session })).statusCode).toBe(400);
+      expect((await call("GET", "/apps?order=up", { session })).statusCode).toBe(400);
+    });
+
     it("groups content by game and reports problems", async () => {
       const session = await setUp();
       const library = join(dir, "library");

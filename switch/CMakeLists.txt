@@ -45,6 +45,7 @@ set(NSLIB_COMMON_SRC
     source/install/placeholder_journal.cpp
     source/installed/compare.cpp
     source/ui/format.cpp
+    source/ui/library_sort.cpp
     source/app/atomic_file.cpp
     source/transport/usb_frame.cpp
     source/transport/resume.cpp
@@ -191,6 +192,7 @@ else()
         tests/client_fixes_test.cpp
         tests/hardening_test.cpp
         tests/format_test.cpp
+        tests/library_sort_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source

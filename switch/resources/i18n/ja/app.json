@@ -35,7 +35,11 @@
   },
   "library": {
     "nothing": "このタイトルにインストールできる内容がありません。",
-    "empty": "ライブラリは空です。"
+    "empty": "ライブラリは空です。",
+    "sort": "並べ替え: {}",
+    "sort_name": "名前",
+    "sort_added_desc": "追加日が新しい順",
+    "sort_added_asc": "追加日が古い順"
   },
   "detail": {
     "base": "本体",

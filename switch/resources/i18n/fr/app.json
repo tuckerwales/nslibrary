@@ -35,7 +35,11 @@
   },
   "library": {
     "nothing": "Ce titre n’a pas de contenu installable.",
-    "empty": "La bibliothèque est vide."
+    "empty": "La bibliothèque est vide.",
+    "sort": "Tri : {}",
+    "sort_name": "Nom",
+    "sort_added_desc": "Ajouts récents",
+    "sort_added_asc": "Ajouts les plus anciens"
   },
   "detail": {
     "base": "Jeu de base",
