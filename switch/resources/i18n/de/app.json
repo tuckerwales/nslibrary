@@ -35,7 +35,11 @@
   },
   "library": {
     "nothing": "Dieser Titel hat keinen installierbaren Inhalt.",
-    "empty": "Die Bibliothek ist leer."
+    "empty": "Die Bibliothek ist leer.",
+    "sort": "Sortierung: {}",
+    "sort_name": "Name",
+    "sort_added_desc": "Zuletzt hinzugefügt",
+    "sort_added_asc": "Zuerst hinzugefügt"
   },
   "detail": {
     "base": "Basisspiel",

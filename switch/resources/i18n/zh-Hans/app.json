@@ -35,7 +35,11 @@
   },
   "library": {
     "nothing": "此标题没有可安装内容。",
-    "empty": "资料库是空的。"
+    "empty": "资料库是空的。",
+    "sort": "排序：{}",
+    "sort_name": "名称",
+    "sort_added_desc": "最近添加",
+    "sort_added_asc": "最早添加"
   },
   "detail": {
     "base": "本体",

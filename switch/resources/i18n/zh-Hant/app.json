@@ -35,7 +35,11 @@
   },
   "library": {
     "nothing": "此標題沒有可安裝內容。",
-    "empty": "資料庫是空的。"
+    "empty": "資料庫是空的。",
+    "sort": "排序：{}",
+    "sort_name": "名稱",
+    "sort_added_desc": "最近新增",
+    "sort_added_asc": "最早新增"
   },
   "detail": {
     "base": "本體",

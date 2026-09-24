@@ -5,6 +5,7 @@
 #include "ui/detail.hpp"
 #include "ui/format.hpp"
 #include "ui/icon_cache.hpp"
+#include "ui/library_sort.hpp"
 #include "ui/widgets.hpp"
 
 #include <atomic>
@@ -147,18 +148,40 @@ TitleCell* findCell(brls::Box* list, const std::string& appId, size_t skipChildr
     return nullptr;
 }
 
+std::string sortHint(LibrarySort sort) {
+    return brls::getStr("app/library/sort", brls::getStr(librarySortKey(sort)));
+}
+
 } // namespace
 
 LibraryTab::LibraryTab() {
     this->inflateFromXMLRes("xml/tabs/library.xml");
+    // Registered on the tab, so it applies whichever title has focus.
+    this->registerAction(sortHint(LibrarySort::Name), brls::BUTTON_Y, [this](brls::View*) {
+        cycleSort();
+        return true;
+    });
+    rebuild(true);
+}
+
+void LibraryTab::cycleSort() {
+    auto& session = Session::instance();
+    const bool hasDates = catalogHasDates(session.catalogSnapshot());
+    const auto current = effectiveLibrarySort(parseLibrarySort(session.settings.librarySort), hasDates);
+    session.settings.librarySort = librarySortId(nextLibrarySort(current, hasDates));
+    session.settings.save();
     rebuild(true);
 }
 
 void LibraryTab::rebuild(bool force) {
     auto* list = dynamic_cast<brls::Box*>(this->getView("list"));
     auto& session = Session::instance();
-    const auto apps = session.catalogSnapshot();
+    auto apps = session.catalogSnapshot();
     const auto installed = session.installedSnapshot();
+
+    // The server sends the catalog in title ID order; the saved order is applied here. An older
+    // server sends no dates, so the grid falls back to name order and keeps the saved choice.
+    const auto sort = effectiveLibrarySort(parseLibrarySort(session.settings.librarySort), catalogHasDates(apps));
 
     setHeader(dynamic_cast<brls::Header*>(this->getView("header")), "app/tabs/library"_i18n, apps.size());
 
@@ -175,11 +198,15 @@ void LibraryTab::rebuild(bool force) {
     const int64_t rev = session.catalogRev();
     const size_t installedCount = installed.titles.size();
     if (!force && rev == builtRev_ && apps.size() == builtCount_ && installedCount == builtInstalled_ &&
-        !(apps.empty() && session.isReady()))
+        sort == builtSort_ && !(apps.empty() && session.isReady()))
         return;
     builtRev_ = rev;
     builtCount_ = apps.size();
     builtInstalled_ = installedCount;
+    builtSort_ = sort;
+    sortCatalog(apps, sort);
+    this->updateActionHint(brls::BUTTON_Y, sortHint(sort));
+    brls::Application::getGlobalHintsUpdateEvent()->fire();
 
     std::string focusedId;
     if (auto* focused = dynamic_cast<TitleCell*>(brls::Application::getCurrentFocus())) focusedId = focused->appId();

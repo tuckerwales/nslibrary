@@ -54,6 +54,7 @@ CatalogApp parseApp(const Json& v) {
     if (v.has("d") && v["d"].isArray()) {
         for (const auto& item : v["d"].items()) a.dlc.push_back(parseAddon(item));
     }
+    if (v.has("a") && v["a"].isNumber()) a.addedAt = v["a"].asInt();
     return a;
 }
 
