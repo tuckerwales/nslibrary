@@ -271,16 +271,16 @@ export function LibraryPage() {
         <label className="sr-only" htmlFor="library-search">
           Search the library
         </label>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <input
             id="library-search"
             type="search"
             placeholder="Search by name or title ID"
-            className={`${inputClass} min-w-0 max-w-md`}
+            className={`${inputClass} min-w-0 max-w-md sm:flex-1`}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex items-center gap-3 sm:ml-auto">
             <SortSelect sort={sort} onChange={setSort} />
             <LayoutToggle layout={layout} onChange={setLayout} />
           </div>
