@@ -1,8 +1,11 @@
 import { useSyncExternalStore } from "react";
 
+export type ToastTone = "error" | "success";
+
 export interface Toast {
   id: number;
   message: string;
+  tone: ToastTone;
 }
 
 const DISMISS_AFTER_MS = 8000;
@@ -20,11 +23,11 @@ export function dismissToast(id: number) {
   emit();
 }
 
-/** Shows a short error message in the corner. Repeats of a visible message are dropped. */
-export function showToast(message: string) {
+/** Shows a short message in the corner, an error unless told otherwise. Repeats are dropped. */
+export function showToast(message: string, tone: ToastTone = "error") {
   if (toasts.some((toast) => toast.message === message)) return;
   const id = nextId++;
-  toasts = [...toasts, { id, message }];
+  toasts = [...toasts, { id, message, tone }];
   emit();
   setTimeout(() => dismissToast(id), DISMISS_AFTER_MS);
 }

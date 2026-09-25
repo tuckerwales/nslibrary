@@ -1,5 +1,6 @@
 import type {
   CompressCandidate,
+  CompressFolderOption,
   CompressSettings,
   CompressSettingsPatch,
   CompressStartResponse,
@@ -97,5 +98,36 @@ export function useCancelCompress() {
         upsertCompressTask(tasks, task),
       ),
     meta: { inlineError: true },
+  });
+}
+
+/** Folders the server suggests saving NSZ files to, with whether it can write there. */
+export function useCompressFolders(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.compressFolders,
+    queryFn: () => request<CompressFolderOption[]>("GET", "/compress/folders"),
+    enabled,
+  });
+}
+
+/** Deletes the NSP a finished compression was made from. */
+export function useRemoveOriginal() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: number) =>
+      request<CompressTask>("POST", `/files/${fileId}/compress/remove-original`),
+    onSuccess: (task) =>
+      client.setQueryData<CompressTask[]>(queryKeys.compress, (tasks) =>
+        upsertCompressTask(tasks, task),
+      ),
+    meta: { inlineError: true },
+  });
+}
+
+export function useClearFinishedCompressions() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => request<CompressTask[]>("POST", "/compress/clear"),
+    onSuccess: (tasks) => client.setQueryData(queryKeys.compress, tasks),
   });
 }

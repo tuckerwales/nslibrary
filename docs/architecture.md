@@ -80,9 +80,14 @@ against.
   the scanner ignores it), renamed once checked, and never over an existing file. Leftover partial
   files are removed on start. If the output folder is inside an enabled library folder, that folder
   is rescanned, and **Prefer NSZ** then makes the catalog offer the new copy.
-- **Removing the original** is off by default. When on, the NSP (every part of a split one) is
-  deleted only after the check passes, and kept, with a note, if an install from it is queued or
-  running, it changed during compression, or its folder is read-only.
+- **Removing the original** happens only after the check passes: when you press **Delete the NSP**
+  on a finished compression, or automatically if you turn that on. The NSP (every part of a split
+  one) is kept, with the reason, if an install from it is queued or running, it changed since it
+  was compressed, or its folder is read-only. A deleted NSP is dropped from the library rather than
+  listed under Problems as missing.
+- **Output folder.** `GET /compress/folders` suggests each library folder and an `NSZ` folder
+  inside it, marked with whether the server can write there, and `PUT /compress/settings` with
+  `createOutputDir` creates the chosen one (a single level, inside an existing folder).
 
 Tasks and results (sizes, space saved, per-entry notes) are kept in memory like verify tasks;
 settings (output folder, zstd level 1 to 22, default 18, and removing originals) are in `settings`.
@@ -133,8 +138,9 @@ orphan update or DLC, firmware newer than a device, not present on a given devic
 
 Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&sort&order&device…`
 and `GET /apps/:id` grouping base, updates, DLC, files and per-device state), file verification,
-compression (`GET /compress`, `GET`/`PUT /compress/settings`, `GET /compress/candidates`,
-`POST /compress` for several files, `POST /files/:id/compress` and `…/compress/cancel`),
+compression (`GET /compress`, `GET`/`PUT /compress/settings`, `GET /compress/folders`,
+`GET /compress/candidates`, `POST /compress` for several files, `POST /compress/clear`, and
+`POST /files/:id/compress`, `…/compress/cancel` and `…/compress/remove-original`),
 keys (`PUT /keys`, `GET /keys/status`), titledb config and refresh, devices (pairing code, list,
 rename, revoke), and jobs (create, reorder, cancel, list).
 

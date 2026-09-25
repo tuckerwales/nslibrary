@@ -4,11 +4,22 @@
  * then renamed, so a half-written file never shows up in the library. Progress and results are
  * published as `compress.updated` events.
  */
-import { access, constants, opendir, realpath, rename, rm, rmdir, stat } from "node:fs/promises";
+import {
+  access,
+  constants,
+  mkdir,
+  opendir,
+  realpath,
+  rename,
+  rm,
+  rmdir,
+  stat,
+} from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import type { Keyset } from "@nslib/formats";
 import {
   type CompressCandidate,
+  type CompressFolderOption,
   type CompressPhase,
   type CompressResult,
   type CompressSettings,
@@ -46,10 +57,14 @@ const PARTIAL_SUFFIX = ".nslib-partial";
 const PROGRESS_EVENT_INTERVAL_MS = 500;
 const MAX_FINISHED_TASKS = 200;
 const TYPE_ORDER: Record<ContentMetaType, number> = { application: 0, patch: 1, addon: 2 };
+/** Name of the folder suggested inside each library folder. */
+const SUGGESTED_FOLDER = "NSZ";
 
 interface Entry {
   task: CompressTask;
   abort: AbortController;
+  /** The NSP as it was compressed, so removing it later can check it hasn't changed since. */
+  source: { file: FileRow; root: RootRow; located: LocatedLibraryFile } | null;
 }
 
 export interface CompressServiceOptions {
@@ -81,6 +96,15 @@ export function nszNameFor(relPath: string): string {
 
 function errorCode(err: unknown): string | undefined {
   return (err as NodeJS.ErrnoException)?.code;
+}
+
+async function writable(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -135,6 +159,7 @@ export class CompressService {
     const outputDir = this.#outputDir();
     return {
       outputDir,
+      keysReady: this.#keysReady(),
       level: this.#level(),
       removeOriginal: this.#removeOriginal(),
       outputInLibrary: outputDir !== null && this.#rootContaining(outputDir) !== null,
@@ -144,6 +169,7 @@ export class CompressService {
 
   async updateSettings(patch: CompressSettingsPatch): Promise<CompressSettings> {
     if (patch.outputDir !== undefined) {
+      if (patch.outputDir && patch.createOutputDir) await this.#createFolder(patch.outputDir);
       const outputDir = patch.outputDir ? await this.#checkOutputDir(patch.outputDir) : null;
       this.#repo.putSetting(COMPRESS_OUTPUT_DIR_KEY, outputDir);
     }
@@ -152,6 +178,45 @@ export class CompressService {
       this.#repo.putSetting(COMPRESS_REMOVE_ORIGINAL_KEY, patch.removeOriginal ? "1" : "0");
     }
     return this.settings();
+  }
+
+  /** Makes one missing folder inside an existing one; deeper paths are more likely typos. */
+  async #createFolder(input: string): Promise<void> {
+    if (!isAbsolute(input) || (await exists(input))) return;
+    if (!(await exists(dirname(input)))) {
+      throw new ApiError("BAD_REQUEST", `Folder not found: ${dirname(input)}`);
+    }
+    try {
+      await mkdir(input);
+    } catch {
+      throw new ApiError(
+        "BAD_REQUEST",
+        `The server can't create ${input}. In Docker, mount the folder without :ro.`,
+      );
+    }
+  }
+
+  /**
+   * Each library folder and an `NSZ` folder inside it, marked with whether the server can write
+   * there. Library folders are often mounted read-only, so this saves guessing.
+   */
+  async folderOptions(): Promise<CompressFolderOption[]> {
+    const options: CompressFolderOption[] = [];
+    const roots = this.#repo.listRoots().filter((root) => root.enabled);
+    for (const root of roots) {
+      const rootWritable = await writable(root.path);
+      const inside = join(root.path, SUGGESTED_FOLDER);
+      const insideExists = await exists(inside);
+      options.push({
+        path: inside,
+        rootPath: root.path,
+        exists: insideExists,
+        writable: insideExists ? await writable(inside) : rootWritable,
+      });
+      options.push({ path: root.path, rootPath: root.path, exists: true, writable: rootWritable });
+    }
+    // Folders the server can write to first, keeping each library folder's pair together.
+    return options.sort((a, b) => Number(b.writable) - Number(a.writable));
   }
 
   /** Resolves and checks a folder the server can write NSZ files to. */
@@ -180,11 +245,15 @@ export class CompressService {
     return resolved;
   }
 
+  #keysReady(): boolean {
+    return this.#keys()?.has("header_key") ?? false;
+  }
+
   async #problem(outputDir: string | null): Promise<string | null> {
-    if (!this.#keys()?.has("header_key")) {
+    if (!this.#keysReady()) {
       return "Compressing needs your prod.keys. Add them in Settings.";
     }
-    if (!outputDir) return "Choose an output folder first.";
+    if (!outputDir) return "Choose where to save NSZ files first.";
     try {
       await this.#checkOutputDir(outputDir);
       return null;
@@ -225,8 +294,10 @@ export class CompressService {
       task: {
         fileId,
         relPath: file.relPath,
+        name: this.#titleName(fileId) ?? basename(file.relPath),
         state: "queued",
         phase: null,
+        phaseStartedAt: null,
         bytesDone: 0,
         bytesTotal: 0,
         result: null,
@@ -235,6 +306,7 @@ export class CompressService {
         updatedAt: now,
       },
       abort: new AbortController(),
+      source: null,
     };
     this.#tasks.delete(fileId);
     this.#tasks.set(fileId, entry);
@@ -250,8 +322,44 @@ export class CompressService {
     if (!isActive(entry.task)) return entry.task;
     entry.abort.abort();
     // A queued task never starts; a running one stops at its next block and removes its file.
-    this.#finish(entry, { state: "cancelled", phase: null });
+    this.#finish(entry, { state: "cancelled", phase: null, phaseStartedAt: null });
     return entry.task;
+  }
+
+  /** Forgets finished compressions (their files are untouched). Returns what's left. */
+  clearFinished(): CompressTask[] {
+    for (const [fileId, entry] of this.#tasks) {
+      if (!isActive(entry.task)) this.#tasks.delete(fileId);
+    }
+    return this.list();
+  }
+
+  /**
+   * Deletes the NSP a finished compression was made from, after the same checks as removing it
+   * automatically: no install is using it and it hasn't changed since.
+   */
+  async removeOriginal(fileId: number): Promise<CompressTask> {
+    const entry = this.#tasks.get(fileId);
+    const result = entry?.task.result;
+    if (entry?.task.state !== "done" || !result || !entry.source) {
+      throw new ApiError("NOT_FOUND", "There's no finished compression of that file");
+    }
+    if (result.originalRemoved) return entry.task;
+    const { file, root, located } = entry.source;
+    const kept = await this.#removeOriginalFile(file, root, located);
+    if (kept) throw new ApiError("CONFLICT", kept);
+    this.#update(entry, { result: { ...result, originalRemoved: true } });
+    return entry.task;
+  }
+
+  #titleName(fileId: number): string | null {
+    const metas = this.#repo.db
+      .select({ name: contentMetas.displayName, type: contentMetas.type })
+      .from(contentMetas)
+      .where(eq(contentMetas.fileId, fileId))
+      .all()
+      .sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]);
+    return metas[0]?.name ?? null;
   }
 
   /** Stops running work. Partial files are removed as each task unwinds. */
@@ -363,13 +471,14 @@ export class CompressService {
 
   async #run(entry: Entry): Promise<void> {
     if (entry.abort.signal.aborted) return;
-    this.#update(entry, { state: "running", phase: "compressing" });
+    this.#update(entry, { state: "running", phase: "compressing", phaseStartedAt: this.#now() });
     let lastEvent = 0;
     const onProgress = (phase: CompressPhase, done: number, total: number) => {
       const phaseChanged = entry.task.phase !== phase;
       entry.task = {
         ...entry.task,
         phase,
+        phaseStartedAt: phaseChanged ? this.#now() : entry.task.phaseStartedAt,
         bytesDone: done,
         bytesTotal: total,
         updatedAt: this.#now(),
@@ -383,7 +492,7 @@ export class CompressService {
     try {
       const result = await this.#compress(entry, onProgress);
       if (entry.abort.signal.aborted) return;
-      this.#finish(entry, { state: "done", phase: null, result });
+      this.#finish(entry, { state: "done", phase: null, phaseStartedAt: null, result });
     } catch (err) {
       if (entry.abort.signal.aborted) return;
       if (!(err instanceof ApiError || err instanceof CompressError)) {
@@ -393,7 +502,7 @@ export class CompressService {
         err instanceof ApiError || err instanceof CompressError
           ? err.message
           : `Couldn't compress the file: ${err instanceof Error ? err.message : String(err)}`;
-      this.#finish(entry, { state: "failed", phase: null, error });
+      this.#finish(entry, { state: "failed", phase: null, phaseStartedAt: null, error });
     }
   }
 
@@ -461,6 +570,7 @@ export class CompressService {
       await pool.close();
     }
 
+    entry.source = { file, root, located };
     const warnings = [...compressed.warnings];
     let originalRemoved = false;
     if (this.#removeOriginal()) {
@@ -471,7 +581,6 @@ export class CompressService {
 
     const outputRoot = this.#rootContaining(outputDir);
     if (outputRoot) this.#rescan(outputRoot.id);
-    if (originalRemoved && outputRoot?.id !== root.id) this.#rescan(root.id);
     return {
       outputPath,
       sourceSize: located.size,
@@ -517,6 +626,9 @@ export class CompressService {
       // A split folder (`Game.nsp/00`, `01`, …) goes too once it's empty.
       const folder = join(root.path, ...file.relPath.split("/"));
       if (dirname(now.absolutePath) === folder) await rmdir(folder).catch(() => {});
+      // Deleted on purpose, so it shouldn't linger in Problems as a missing file.
+      this.#repo.deleteFile(file.id);
+      this.#events.publish({ type: "library.changed", rev: this.#repo.catalogRev() });
       return null;
     } catch (err) {
       const code = errorCode(err);

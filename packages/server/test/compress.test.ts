@@ -25,6 +25,7 @@ import {
 import type {
   AppDetail,
   CompressCandidate,
+  CompressFolderOption,
   CompressSettings,
   CompressStartResponse,
   CompressTask,
@@ -344,7 +345,7 @@ describe("compression API", () => {
 
     await call("PUT", "/keys", { contents: formatProdKeys(keys) });
     expect((await call("GET", "/compress/settings")).json<CompressSettings>().problem).toMatch(
-      /output folder/,
+      /save NSZ files/,
     );
     const saved = await call("PUT", "/compress/settings", { outputDir: dir, level: 3 });
     expect(saved.json<CompressSettings>()).toMatchObject({
@@ -430,13 +431,14 @@ describe("compression API", () => {
     expect(task.state).toBe("done");
     expect(task.result).toMatchObject({ originalRemoved: true, inLibrary: false });
     await expect(stat(nspPath)).rejects.toThrow();
+    expect(server.repo.getFile(file.id)).toBeUndefined();
     expect((await stat(task.result!.outputPath)).size).toBe(task.result!.outputSize);
   });
 
   it("refuses files it can't compress and cancels queued ones", async () => {
     const { output, file, root } = await library();
     expect((await call("POST", `/files/${file.id}/compress`)).json().error.msg).toMatch(
-      /output folder/,
+      /save NSZ files/,
     );
     await call("PUT", "/compress/settings", { outputDir: output, level: 1 });
 
@@ -456,6 +458,52 @@ describe("compression API", () => {
     const nsz = server.repo.listRootFiles(root.id).find((f) => f.format === "nsz");
     const refused = await call("POST", `/files/${nsz!.id}/compress`);
     expect(refused.json().error.msg).toMatch(/Only NSP/);
+  });
+
+  it("suggests folders it can write to and creates the one chosen", async () => {
+    const { root } = await library();
+    const folders = (await call("GET", "/compress/folders")).json<CompressFolderOption[]>();
+    expect(folders).toEqual([
+      { path: join(root.path, "NSZ"), rootPath: root.path, exists: false, writable: true },
+      { path: root.path, rootPath: root.path, exists: true, writable: true },
+    ]);
+    const saved = await call("PUT", "/compress/settings", {
+      outputDir: join(root.path, "NSZ"),
+      createOutputDir: true,
+    });
+    expect(saved.json<CompressSettings>()).toMatchObject({
+      outputDir: join(root.path, "NSZ"),
+      outputInLibrary: true,
+      keysReady: true,
+      problem: null,
+    });
+    expect((await stat(join(root.path, "NSZ"))).isDirectory()).toBe(true);
+    // Only one level is created, so a typo doesn't make a tree of folders.
+    const deep = await call("PUT", "/compress/settings", {
+      outputDir: join(root.path, "a", "b"),
+      createOutputDir: true,
+    });
+    expect(deep.json().error.msg).toMatch(/Folder not found/);
+  });
+
+  it("deletes the original on request after a successful compression, then clears the list", async () => {
+    const { nspPath, output, file } = await library({ outputInside: false });
+    await call("PUT", "/compress/settings", { outputDir: output, level: 1 });
+    expect((await call("POST", `/files/${file.id}/compress/remove-original`)).statusCode).toBe(404);
+    const started = (await call("POST", `/files/${file.id}/compress`)).json<CompressTask>();
+    expect(started.name).toBe("Squeeze");
+    const task = await waitFor(file.id);
+    expect(task.phaseStartedAt).toBeNull();
+    expect(task.result?.originalRemoved).toBe(false);
+
+    const removed = await call("POST", `/files/${file.id}/compress/remove-original`);
+    expect(removed.json<CompressTask>().result?.originalRemoved).toBe(true);
+    await expect(stat(nspPath)).rejects.toThrow();
+    // Deleted on purpose, so it's gone from the library rather than listed as missing.
+    expect(server.repo.getFile(file.id)).toBeUndefined();
+
+    expect((await call("POST", "/compress/clear")).json<CompressTask[]>()).toEqual([]);
+    expect(server.compress.get(file.id)).toBeNull();
   });
 
   it("clears partial files left by a restart", async () => {

@@ -65,6 +65,8 @@ export const CompressSettingsSchema = z.object({
   level: z.number().int().min(COMPRESS_LEVEL_MIN).max(COMPRESS_LEVEL_MAX).optional(),
   /** Delete the NSP once its NSZ has been written and checked. */
   removeOriginal: z.boolean().optional(),
+  /** Create `outputDir` (one level, inside an existing folder) if it doesn't exist yet. */
+  createOutputDir: z.boolean().optional(),
 });
 
 export const CompressRequestSchema = z.object({
@@ -159,6 +161,8 @@ export interface CompressSettings {
   outputDir: string | null;
   level: number;
   removeOriginal: boolean;
+  /** prod.keys with a header key are loaded; compressing needs them. */
+  keysReady: boolean;
   /** Whether `outputDir` is inside an enabled library folder, so new files show up by themselves. */
   outputInLibrary: boolean;
   /** Why compressing can't start right now (no folder, folder gone or read-only, no keys). */
@@ -198,8 +202,12 @@ export interface CompressTask {
   fileId: number;
   /** The source file, relative to its library folder. */
   relPath: string;
+  /** The title's name, for people rather than file systems. */
+  name: string;
   state: VerifyTaskState;
   phase: CompressPhase | null;
+  /** When the current phase began, so clients can estimate the time left. */
+  phaseStartedAt: number | null;
   /** Progress through the current phase: bytes read from the NSP, then from the NSZ. */
   bytesDone: number;
   bytesTotal: number;
@@ -209,6 +217,17 @@ export interface CompressTask {
   error: string | null;
   startedAt: number;
   updatedAt: number;
+}
+
+/** A folder the Compression page offers as the output folder. */
+export interface CompressFolderOption {
+  path: string;
+  /** The library folder it is in (or is). */
+  rootPath: string;
+  /** Already on disk; otherwise saving it with `createOutputDir` makes it. */
+  exists: boolean;
+  /** The server can write there (or, when it doesn't exist, in its parent). */
+  writable: boolean;
 }
 
 /** An NSP whose content isn't in the library as NSZ yet. */

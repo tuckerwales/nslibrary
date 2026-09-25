@@ -517,6 +517,12 @@ export class LibraryRepository {
     return result.changes;
   }
 
+  /** Forgets a file that was deliberately deleted, so it isn't reported as missing. */
+  deleteFile(fileId: number): void {
+    const result = this.db.delete(files).where(eq(files.id, fileId)).run();
+    if (result.changes > 0) this.bumpCatalogRev();
+  }
+
   /** Forces present files to be re-inspected (e.g. after keys are uploaded). */
   invalidatePresentFiles(): number {
     const result = this.db

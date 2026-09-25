@@ -1,5 +1,6 @@
 import {
   type CompressCandidate,
+  type CompressFolderOption,
   CompressRequestSchema,
   type CompressSettings,
   CompressSettingsSchema,
@@ -22,6 +23,13 @@ export async function registerCompressRoutes(api: FastifyInstance, ctx: AppConte
     const body = parseWith(CompressSettingsSchema, request.body);
     return ctx.compress.updateSettings(body);
   });
+
+  api.get(
+    "/compress/folders",
+    async (): Promise<CompressFolderOption[]> => ctx.compress.folderOptions(),
+  );
+
+  api.post("/compress/clear", async (): Promise<CompressTask[]> => ctx.compress.clearFinished());
 
   api.get(
     "/compress/candidates",
@@ -48,6 +56,11 @@ export async function registerCompressRoutes(api: FastifyInstance, ctx: AppConte
     const { id } = parseWith(FileIdParams, request.params);
     reply.status(202);
     return ctx.compress.start(id);
+  });
+
+  api.post("/files/:id/compress/remove-original", async (request): Promise<CompressTask> => {
+    const { id } = parseWith(FileIdParams, request.params);
+    return ctx.compress.removeOriginal(id);
   });
 
   api.post("/files/:id/compress/cancel", async (request): Promise<CompressTask> => {

@@ -8,8 +8,16 @@ import type {
 } from "@nslib/shared";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
-import { LIBRARY_QUERY_KEYS, queryKeys, upsertCompressTask, upsertVerifyTask } from "./api";
+import {
+  isCompressActive,
+  LIBRARY_QUERY_KEYS,
+  queryKeys,
+  upsertCompressTask,
+  upsertVerifyTask,
+} from "./api";
+import { savedText } from "./compress";
 import { isActiveJobStatus } from "./jobs";
+import { showToast } from "./toast";
 
 const MAX_RETRY_DELAY_MS = 30_000;
 
@@ -64,6 +72,19 @@ function patchJob(client: QueryClient, job: WebJob): boolean {
   return previous !== job.status;
 }
 
+/**
+ * A compression can take a long time, so its end is announced wherever you are. Only a task seen
+ * running is announced: a finished one arriving again (say, after a reconnect) isn't news.
+ */
+function announceCompression(previous: CompressTask | undefined, task: CompressTask) {
+  if (!previous || !isCompressActive(previous) || isCompressActive(task)) return;
+  if (task.state === "done" && task.result) {
+    showToast(`${task.name} is compressed: ${savedText(task.result)}.`, "success");
+  } else if (task.state === "failed") {
+    showToast(`Couldn't compress ${task.name}. ${task.error ?? ""}`.trim());
+  }
+}
+
 /** Updates the query cache for one event from the server's stream. */
 export function applyServerEvent(client: QueryClient, event: ServerEvent) {
   switch (event.type) {
@@ -96,8 +117,11 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         );
       }
       break;
-    case "compress.updated":
-      if (client.getQueryData(queryKeys.compress)) {
+    case "compress.updated": {
+      const tasks = client.getQueryData<CompressTask[]>(queryKeys.compress);
+      if (tasks) {
+        const previous = tasks.find((task) => task.fileId === event.task.fileId);
+        announceCompression(previous, event.task);
         client.setQueryData<CompressTask[]>(queryKeys.compress, (tasks) =>
           upsertCompressTask(tasks, event.task),
         );
@@ -107,6 +131,7 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         void client.invalidateQueries({ queryKey: queryKeys.compressCandidates });
       }
       break;
+    }
     case "job.updated": {
       // Progress arrives every half second; only status changes need anything refetched.
       if (!patchJob(client, event.job)) break;

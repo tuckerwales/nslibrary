@@ -24,6 +24,7 @@ export const queryKeys = {
   compress: ["compress"],
   compressSettings: ["compress-settings"],
   compressCandidates: ["compress-candidates"],
+  compressFolders: ["compress-folders"],
   jobList: (limit: number) => ["jobs", limit],
   pairingCode: ["pairing-code"],
 } as const;
@@ -44,4 +45,5 @@ export const LIBRARY_QUERY_KEYS = [
   queryKeys.forwarder,
   queryKeys.compressSettings,
   queryKeys.compressCandidates,
+  queryKeys.compressFolders,
 ];
