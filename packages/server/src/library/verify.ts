@@ -24,7 +24,8 @@ export interface VerifyOptions {
   onProgress?: (done: number, total: number) => void;
 }
 
-async function sha256Of(
+/** SHA-256 of an NCA, restored first when `compressed` (an NCZ). */
+export async function sha256Of(
   reader: RandomAccessReader,
   compressed: boolean,
   onChunk: (bytes: number) => void,

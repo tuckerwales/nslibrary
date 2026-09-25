@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_SERVER_PORT, DISCOVERY_PORT } from "@nslib/shared";
@@ -58,9 +59,16 @@ export interface ServerConfig {
   forwarderMainPath: string | null;
   /** Largest save archive a console may upload. Defaults to 1 GiB. */
   saveMaxBytes?: number;
+  /** Worker threads zstd uses when compressing NSP to NSZ. Defaults to `defaultCompressThreads()`. */
+  compressThreads?: number;
 }
 
 export const DEFAULT_RESCAN_INTERVAL_MIN = 6 * 60;
+
+/** One core is left for serving installs and the UI; four is plenty for disk-bound NAS boxes. */
+export function defaultCompressThreads(): number {
+  return Math.max(1, Math.min(4, availableParallelism() - 1));
+}
 
 const WEB_DIR_CANDIDATES = [
   fileURLToPath(new URL("../public", import.meta.url)),
@@ -144,6 +152,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
         ? defaultNro
         : null,
     saveMaxBytes: positiveInt("NSLIB_SAVE_MAX_MB", env.NSLIB_SAVE_MAX_MB, 1024) * 1024 * 1024,
+    compressThreads: positiveInt(
+      "NSLIB_COMPRESS_THREADS",
+      env.NSLIB_COMPRESS_THREADS,
+      defaultCompressThreads(),
+    ),
     forwarderMainPath: env.NSLIB_FORWARDER_MAIN
       ? resolve(env.NSLIB_FORWARDER_MAIN)
       : existsSync(defaultForwarder)

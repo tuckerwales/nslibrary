@@ -11,6 +11,7 @@ const page = <K extends string>(load: () => Promise<Record<K, React.ComponentTyp
   lazy(() => load().then((module) => ({ default: module[name] })));
 
 const AppPage = page(() => import("./pages/AppPage"), "AppPage");
+const CompressionPage = page(() => import("./pages/CompressionPage"), "CompressionPage");
 const DevicesPage = page(() => import("./pages/DevicesPage"), "DevicesPage");
 const FoldersPage = page(() => import("./pages/FoldersPage"), "FoldersPage");
 const HistoryPage = page(() => import("./pages/HistoryPage"), "HistoryPage");
@@ -57,6 +58,7 @@ export function App() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/saves" element={<SavesPage />} />
           <Route path="/problems" element={<ProblemsPage />} />
+          <Route path="/compression" element={<CompressionPage />} />
           <Route path="/devices" element={<DevicesPage />} />
           <Route path="/folders" element={<FoldersPage />} />
           <Route path="/settings" element={<SettingsPage />} />

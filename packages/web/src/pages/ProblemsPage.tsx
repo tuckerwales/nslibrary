@@ -154,7 +154,26 @@ export function ProblemsPage() {
 
       <Section
         title="Duplicates"
-        description="The same content is in more than one file. Keeping one copy is enough; a verified, compressed copy is usually the best one to keep."
+        description={
+          <>
+            The same content is in more than one file. Keeping one copy is enough; a verified,
+            compressed copy is usually the best one to keep.
+            {duplicates.some(
+              (group) =>
+                group.files.some((f) => f.format === "nsp") &&
+                group.files.some((f) => f.format === "nsz"),
+            ) && (
+              <>
+                {" "}
+                NSP files you compressed can be deleted from the{" "}
+                <Link to="/compression" className="underline">
+                  Compression
+                </Link>{" "}
+                page once their NSZ has been checked.
+              </>
+            )}
+          </>
+        }
         count={duplicates.length}
       >
         {duplicates.map((group) => (

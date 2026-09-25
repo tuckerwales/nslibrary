@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { NavLink, useLocation } from "react-router";
-import { useLogout, useStats } from "../api";
+import { isCompressActive, useCompressTasks, useLogout, useStats } from "../api";
 import { Button } from "./Button";
 import { ConnectionBanner } from "./ConnectionBanner";
 import { Toaster } from "./Toaster";
@@ -54,6 +54,8 @@ function useFocusOnNavigate(main: React.RefObject<HTMLElement | null>) {
 
 export function Shell({ username, children }: { username: string; children: ReactNode }) {
   const stats = useStats().data;
+  // Loaded here so compressions show in the nav, and finish with a message, on every page.
+  const compressing = (useCompressTasks().data ?? []).filter(isCompressActive).length;
   const logout = useLogout();
   const main = useRef<HTMLElement>(null);
   const nav = useRef<HTMLElement>(null);
@@ -94,6 +96,7 @@ export function Shell({ username, children }: { username: string; children: Reac
           <NavItem to="/saves" label="Saves" />
           <NavItem to="/homebrew" label="Homebrew" count={stats?.homebrew} />
           <NavItem to="/problems" label="Problems" count={stats?.problems} alert />
+          <NavItem to="/compression" label="Compression" count={compressing} />
           <NavItem to="/devices" label="Devices" />
           <NavItem to="/folders" label="Folders" />
           <NavItem to="/settings" label="Settings" />

@@ -132,7 +132,20 @@ export function decryptNcaHeader(encrypted: Buffer, keys: Keyset): Buffer {
   return nintendoXtsCrypt(headerKey(keys), encrypted.subarray(0, NCA_HEADER_SIZE), false);
 }
 
-export function parseDecryptedNcaHeader(header: Buffer, keys: Keyset, titleKey?: Buffer): NcaInfo {
+export interface NcaParseOptions {
+  /**
+   * Accept BKTR (AesCtrEx) sections, as patch NCAs use. Their `cryptoCounter` is only the base
+   * counter; reading one needs the section's subsection table, so only the NCZ encoder asks.
+   */
+  allowAesCtrEx?: boolean;
+}
+
+export function parseDecryptedNcaHeader(
+  header: Buffer,
+  keys: Keyset,
+  titleKey?: Buffer,
+  options: NcaParseOptions = {},
+): NcaInfo {
   const magic = readMagic(header, 0x200, 4);
   if (magic === "NCA2" || magic === "NCA1" || magic === "NCA0") {
     throw new FormatError("UNSUPPORTED", `${magic} headers are not supported`);
@@ -169,7 +182,7 @@ export function parseDecryptedNcaHeader(header: Buffer, keys: Keyset, titleKey?:
     if (encryptionType === NcaEncryptionType.AesXts) {
       throw new FormatError("UNSUPPORTED", `NCA section ${i} uses AES-XTS`);
     }
-    if (encryptionType === NcaEncryptionType.AesCtrEx) {
+    if (encryptionType === NcaEncryptionType.AesCtrEx && !options.allowAesCtrEx) {
       throw new FormatError("UNSUPPORTED", `NCA section ${i} uses BKTR (AesCtrEx)`);
     }
     sections.push({

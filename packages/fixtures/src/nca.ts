@@ -127,6 +127,116 @@ export function buildNca(options: BuildNcaOptions): Buffer {
   return Buffer.concat([nintendoXtsCrypt(headerKey, header, true), encryptedSection]);
 }
 
+export interface BktrNcaOptions {
+  titleId: string;
+  keys: ReadonlyMap<string, Buffer>;
+  seed?: string;
+  /** Plaintext of the patched region; split into subsections at `subsections` sizes. */
+  data: Buffer;
+  /** Subsection sizes (summing to `data.length`) and their counter generations. */
+  subsections: { size: number; generation: number }[];
+  /** Upper counter from the FS header: generation (low 32 bits) and secure value (high 32). */
+  secureValue?: number;
+  baseGeneration?: number;
+  /** Write a table that points outside the section, as a damaged NCA might. */
+  corruptTable?: boolean;
+}
+
+export interface BktrNca {
+  nca: Buffer;
+  /** Absolute offset of `data` within the NCA. */
+  dataOffset: number;
+}
+
+const BKTR_NODE = 0x4000;
+
+/**
+ * A patch-style NCA with one BKTR (AesCtrEx) section: the data region is encrypted per subsection
+ * with the counter's generation replaced, and the relocation and subsection tables after it use
+ * the base counter. Only what the NCZ encoder reads is filled in.
+ */
+export function buildBktrNca(options: BktrNcaOptions): BktrNca {
+  const headerKey = options.keys.get("header_key");
+  const kaek = options.keys.get(kaekName(0, 0));
+  if (headerKey === undefined || kaek === undefined) throw new Error("buildBktrNca needs keys");
+  const total = options.subsections.reduce((sum, s) => sum + s.size, 0);
+  if (total !== options.data.length) throw new Error("subsection sizes must cover the data");
+
+  const dataSize = options.data.length;
+  const relocationOffset = dataSize;
+  const relocation = Buffer.alloc(BKTR_NODE);
+  const subsectionOffset = relocationOffset + relocation.length;
+  const table = Buffer.alloc(2 * BKTR_NODE);
+  table.writeUInt32LE(1, 4);
+  table.writeBigUInt64LE(BigInt(options.corruptTable ? dataSize * 4 : dataSize), 8);
+  table.writeUInt32LE(options.subsections.length, BKTR_NODE + 4);
+  table.writeBigUInt64LE(BigInt(dataSize), BKTR_NODE + 8);
+  let position = 0;
+  options.subsections.forEach((subsection, i) => {
+    const o = BKTR_NODE + 0x10 + i * 0x10;
+    table.writeBigUInt64LE(BigInt(position), o);
+    table.writeUInt32LE(subsection.generation, o + 0x0c);
+    position += subsection.size;
+  });
+  const section = padTo(Buffer.concat([options.data, relocation, table]), MEDIA_UNIT);
+  const sectionStart = NCA_HEADER_SIZE;
+  const ncaSize = sectionStart + section.length;
+
+  const secureValue = options.secureValue ?? 0x5ec0e;
+  const baseGeneration = options.baseGeneration ?? 0;
+  const fsHeader = Buffer.alloc(0x200);
+  fsHeader.writeUInt16LE(2, 0);
+  fsHeader.writeUInt8(0, 0x2);
+  fsHeader.writeUInt8(3, 0x3);
+  fsHeader.writeUInt8(4, 0x4);
+  const writeBktrHeader = (at: number, offset: number, size: number, entries: number) => {
+    fsHeader.writeBigUInt64LE(BigInt(offset), at);
+    fsHeader.writeBigUInt64LE(BigInt(size), at + 8);
+    fsHeader.write("BKTR", at + 0x10, "latin1");
+    fsHeader.writeUInt32LE(1, at + 0x14);
+    fsHeader.writeUInt32LE(entries, at + 0x18);
+  };
+  writeBktrHeader(0x100, relocationOffset, relocation.length, 1);
+  writeBktrHeader(0x120, subsectionOffset, table.length, options.subsections.length);
+  fsHeader.writeUInt32LE(baseGeneration, 0x140);
+  fsHeader.writeUInt32LE(secureValue, 0x144);
+
+  const plainKeyArea = deterministicBytes(`${options.seed ?? options.titleId}:bktr-key-area`, 0x40);
+  const key = plainKeyArea.subarray(0x20, 0x30);
+  const counter = (generation: number) => {
+    const iv = Buffer.alloc(16);
+    iv.writeUInt32BE(secureValue, 0);
+    iv.writeUInt32BE(generation, 4);
+    return iv;
+  };
+  const parts: Buffer[] = [];
+  position = 0;
+  for (const subsection of options.subsections) {
+    const plain = options.data.subarray(position, position + subsection.size);
+    parts.push(aesCtrAt(key, counter(subsection.generation), sectionStart + position, plain));
+    position += subsection.size;
+  }
+  parts.push(
+    aesCtrAt(key, counter(baseGeneration), sectionStart + dataSize, section.subarray(dataSize)),
+  );
+
+  const header = Buffer.alloc(NCA_HEADER_SIZE);
+  header.write("NCA3", 0x200, "latin1");
+  header.writeUInt8(NcaContentType.Program, 0x205);
+  header.writeBigUInt64LE(BigInt(ncaSize), 0x208);
+  writeTitleId(header, 0x210, options.titleId);
+  header.writeUInt32LE(sectionStart / MEDIA_UNIT, 0x240);
+  header.writeUInt32LE(ncaSize / MEDIA_UNIT, 0x244);
+  createHash("sha256").update(fsHeader).digest().copy(header, 0x280);
+  aesEcb(kaek, plainKeyArea, true).copy(header, 0x300);
+  fsHeader.copy(header, 0x400);
+
+  return {
+    nca: Buffer.concat([nintendoXtsCrypt(headerKey, header, true), ...parts]),
+    dataOffset: sectionStart,
+  };
+}
+
 export interface ControlNcaOptions {
   titleId: string;
   keys: ReadonlyMap<string, Buffer>;
@@ -215,6 +325,8 @@ export interface TitlePackageOptions {
   applicationId?: string;
   /** Include a ticket so keyless inspection still identifies the title. */
   ticket?: boolean;
+  /** The program's ExeFS `main`. Defaults to 0x100 random bytes; pass more to get NCZ-sized NCAs. */
+  programData?: Buffer;
 }
 
 export interface TitlePackage {
@@ -237,7 +349,10 @@ export function buildTitleNsp(options: TitlePackageOptions): TitlePackage {
     fs: {
       type: "pfs0",
       data: buildPfs0([
-        { name: "main", data: deterministicBytes(`${options.titleId}:main`, 0x100) },
+        {
+          name: "main",
+          data: options.programData ?? deterministicBytes(`${options.titleId}:main`, 0x100),
+        },
       ]),
     },
   });

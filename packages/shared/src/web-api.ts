@@ -56,6 +56,25 @@ export const VerifyRequestSchema = z.object({
   mode: z.enum(["quick", "full"]).optional(),
 });
 
+/** zstd levels. 18 is nsz's default; 22 is the slowest and smallest. */
+export const COMPRESS_LEVEL_MIN = 1;
+export const COMPRESS_LEVEL_MAX = 22;
+export const DEFAULT_COMPRESS_LEVEL = 18;
+
+export const CompressSettingsSchema = z.object({
+  /** Absolute folder on the server that new NSZ files are written to. Null clears it. */
+  outputDir: z.string().trim().max(4096).nullable().optional(),
+  level: z.number().int().min(COMPRESS_LEVEL_MIN).max(COMPRESS_LEVEL_MAX).optional(),
+  /** Delete the NSP once its NSZ has been written and checked. */
+  removeOriginal: z.boolean().optional(),
+  /** Create `outputDir` (one level, inside an existing folder) if it doesn't exist yet. */
+  createOutputDir: z.boolean().optional(),
+});
+
+export const CompressRequestSchema = z.object({
+  fileIds: z.array(z.number().int().positive()).min(1, "Choose at least one file").max(10_000),
+});
+
 export const RenameDeviceRequestSchema = z.object({
   name: z.string().trim().min(1, "Enter a name").max(64),
 });
@@ -99,6 +118,8 @@ export type UpdateRootRequest = z.infer<typeof UpdateRootRequestSchema>;
 export type PutKeysRequest = z.infer<typeof PutKeysRequestSchema>;
 export type TitledbConfig = z.infer<typeof TitledbConfigSchema>;
 export type VerifyRequest = z.infer<typeof VerifyRequestSchema>;
+export type CompressSettingsPatch = z.infer<typeof CompressSettingsSchema>;
+export type CompressRequest = z.infer<typeof CompressRequestSchema>;
 export type RenameDeviceRequest = z.infer<typeof RenameDeviceRequestSchema>;
 export type CreateJobsRequest = z.infer<typeof CreateJobsRequestSchema>;
 export type ReorderJobsRequest = z.infer<typeof ReorderJobsRequestSchema>;
@@ -152,6 +173,93 @@ export interface VerifyTask {
   error: string | null;
   startedAt: number;
   updatedAt: number;
+}
+
+export interface CompressSettings {
+  outputDir: string | null;
+  level: number;
+  removeOriginal: boolean;
+  /** prod.keys with a header key are loaded; compressing needs them. */
+  keysReady: boolean;
+  /** Whether `outputDir` is inside an enabled library folder, so new files show up by themselves. */
+  outputInLibrary: boolean;
+  /** Why compressing can't start right now (no folder, folder gone or read-only, no keys). */
+  problem: string | null;
+}
+
+export type CompressPhase = "compressing" | "checking" | "finishing";
+
+/** One entry of the NSP and what became of it. */
+export interface CompressItem {
+  name: string;
+  /** `name` with `.nca` changed to `.ncz` when it was compressed. */
+  outputName: string;
+  compressed: boolean;
+  sourceSize: number;
+  outputSize: number;
+  /** Why an NCA that is normally compressed was copied as it is. */
+  note: string | null;
+}
+
+export interface CompressResult {
+  /** Absolute path of the new NSZ on the server. */
+  outputPath: string;
+  sourceSize: number;
+  outputSize: number;
+  /** `sourceSize - outputSize`. */
+  savedBytes: number;
+  items: CompressItem[];
+  /** The output folder is in the library, so the NSZ is (or soon will be) listed. */
+  inLibrary: boolean;
+  originalRemoved: boolean;
+  warnings: string[];
+}
+
+/** A compression running in the background. Updates arrive as `compress.updated` events. */
+export interface CompressTask {
+  fileId: number;
+  /** The source file, relative to its library folder. */
+  relPath: string;
+  /** The title's name, for people rather than file systems. */
+  name: string;
+  state: VerifyTaskState;
+  phase: CompressPhase | null;
+  /** When the current phase began, so clients can estimate the time left. */
+  phaseStartedAt: number | null;
+  /** Progress through the current phase: bytes read from the NSP, then from the NSZ. */
+  bytesDone: number;
+  bytesTotal: number;
+  /** Set when `state` is `done`. */
+  result: CompressResult | null;
+  /** Set when `state` is `failed`. */
+  error: string | null;
+  startedAt: number;
+  updatedAt: number;
+}
+
+/** A folder the Compression page offers as the output folder. */
+export interface CompressFolderOption {
+  path: string;
+  /** The library folder it is in (or is). */
+  rootPath: string;
+  /** Already on disk; otherwise saving it with `createOutputDir` makes it. */
+  exists: boolean;
+  /** The server can write there (or, when it doesn't exist, in its parent). */
+  writable: boolean;
+}
+
+/** An NSP whose content isn't in the library as NSZ yet. */
+export interface CompressCandidate {
+  file: LibraryFileInfo;
+  name: string;
+  type: ContentMetaType;
+  version: number | null;
+}
+
+export interface CompressStartResponse {
+  tasks: CompressTask[];
+  /** Files that weren't queued, with the reason. */
+  skipped: { fileId: number; reason: string }[];
 }
 
 export interface AuthStatus {
@@ -424,4 +532,5 @@ export type ServerEvent =
   | { type: "device.offline"; deviceId: number }
   | { type: "job.updated"; job: WebJob }
   | { type: "verify.updated"; task: VerifyTask }
-  | { type: "saves.changed" };
+  | { type: "saves.changed" }
+  | { type: "compress.updated"; task: CompressTask };

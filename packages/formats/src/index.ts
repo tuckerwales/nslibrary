@@ -5,6 +5,7 @@ export * from "./crypto";
 export * from "./keys";
 export * from "./nca";
 export * from "./ncz";
+export * from "./ncz-encode";
 export * from "./nro";
 export * from "./partition";
 export * from "./reader";

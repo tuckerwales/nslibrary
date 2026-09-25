@@ -170,6 +170,23 @@ export class LibraryRepository {
       .run();
   }
 
+  getSetting(key: string): string | null {
+    return this.db.select().from(settings).where(eq(settings.key, key)).get()?.value ?? null;
+  }
+
+  /** Stores a setting; null deletes it. */
+  putSetting(key: string, value: string | null): void {
+    if (value === null) {
+      this.db.delete(settings).where(eq(settings.key, key)).run();
+      return;
+    }
+    this.db
+      .insert(settings)
+      .values({ key, value })
+      .onConflictDoUpdate({ target: settings.key, set: { value } })
+      .run();
+  }
+
   setRootScanResult(id: number, lastScanError: string | null): void {
     this.db
       .update(libraryRoots)
@@ -498,6 +515,12 @@ export class LibraryRepository {
       .run();
     if (result.changes > 0) this.bumpCatalogRev();
     return result.changes;
+  }
+
+  /** Forgets a file that was deliberately deleted, so it isn't reported as missing. */
+  deleteFile(fileId: number): void {
+    const result = this.db.delete(files).where(eq(files.id, fileId)).run();
+    if (result.changes > 0) this.bumpCatalogRev();
   }
 
   /** Forces present files to be re-inspected (e.g. after keys are uploaded). */

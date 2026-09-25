@@ -142,11 +142,13 @@ export async function parseNczHeader(reader: RandomAccessReader): Promise<NczHea
 }
 
 /**
- * Re-encrypts the CTR/BKTR parts of `chunk`, which holds the NCA bytes starting at
- * `absoluteOffset`. Chunks must arrive in order; the returned cursor skips sections that ended
- * before this chunk, so thousands of sections don't make every chunk rescan the table.
+ * Applies AES-CTR to the CTR/BKTR parts of `chunk` in place, which holds the NCA bytes starting at
+ * `absoluteOffset`. CTR is its own inverse, so this re-encrypts when restoring and decrypts when
+ * encoding. `sections` must be sorted by offset and chunks must arrive in order; the returned
+ * cursor skips sections that ended before this chunk, so thousands of sections don't make every
+ * chunk rescan the table.
  */
-function encryptChunk(
+export function applyNczSectionCrypto(
   chunk: Buffer,
   absoluteOffset: number,
   sections: readonly NczSection[],
@@ -236,7 +238,7 @@ export async function* restoreNczChunks(reader: RandomAccessReader): AsyncGenera
     // Raw blocks can be views of the reader's buffer, and stream chunks can share the decoder's
     // memory, so copy before encrypting in place.
     const owned = Buffer.from(chunk);
-    cursor = encryptChunk(owned, offset, sections, cursor);
+    cursor = applyNczSectionCrypto(owned, offset, sections, cursor);
     offset += owned.length;
     yield owned;
   }

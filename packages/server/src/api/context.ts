@@ -5,6 +5,7 @@ import type { DeviceRow } from "../db/schema";
 import type { DeviceApiService } from "../device/service";
 import type { EventBus } from "../events";
 import type { KeyStore } from "../keys/store";
+import type { CompressService } from "../library/compress-service";
 import type { LibraryRepository } from "../library/repository";
 import type { LibraryScanner } from "../library/scanner";
 import type { VerifyService } from "../library/verify-service";
@@ -26,6 +27,7 @@ export interface AppContext {
   devices: DeviceApiService;
   verify: VerifyService;
   saves: SaveService;
+  compress: CompressService;
   iconDir: string;
   log: LogFn;
 }
