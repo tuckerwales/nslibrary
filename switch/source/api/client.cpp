@@ -156,4 +156,27 @@ void DeviceApiClient::getFile(int64_t fileId, uint64_t offset, uint64_t length,
     }
 }
 
+std::vector<SaveBackup> DeviceApiClient::listSaves(const std::string& app, bool latest) {
+    std::vector<std::pair<std::string, std::string>> q;
+    if (!app.empty()) q.emplace_back("app", app);
+    if (latest) q.emplace_back("latest", "1");
+    return parseSaveList(expectJson(call("GET", "/saves" + queryString(q), nullptr, true)));
+}
+
+SaveUploadResult DeviceApiClient::uploadSave(const SaveUploadQuery& query, uint64_t length, const BodySource& body) {
+    transport_.setTimeoutMs(60000);
+    transport_.setConnectTimeoutMs(10000);
+    const auto res = transport_.upload(saveUploadPath(query), "application/x-tar", length, body);
+    return parseSaveUpload(expectJson(res));
+}
+
+void DeviceApiClient::downloadSave(int64_t id, uint64_t length,
+    const std::function<void(const uint8_t*, size_t)>& sink)
+{
+    transport_.setTimeoutMs(30000);
+    transport_.setConnectTimeoutMs(10000);
+    const int status = transport_.stream("/saves/" + std::to_string(id) + "/data", 0, length, {}, sink);
+    if (status != 200 && status != 206) throwStreamError(status, "NOT_FOUND", "save download");
+}
+
 } // namespace nslib

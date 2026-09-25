@@ -8,6 +8,8 @@
 #include "ui/pair.hpp"
 
 #ifdef __SWITCH__
+#include "saves/console.hpp"
+#include "ui/saves.hpp"
 #include "update/apply.hpp"
 #endif
 
@@ -49,12 +51,19 @@ int main(int argc, char* argv[]) {
     nslib::recoverReplacedFile(nslib::kSwitchNroPath);
 #endif
     nslib::cleanupStalePlaceholders();
+#ifdef __SWITCH__
+    // Archives a backup or restore left behind when the app was closed part way through.
+    nslib::clearSaveStaging();
+#endif
 
     brls::Application::registerXMLView("LibraryTab", nslib::LibraryTab::create);
     brls::Application::registerXMLView("UpdatesTab", nslib::UpdatesTab::create);
     brls::Application::registerXMLView("QueueTab", nslib::QueueTab::create);
     brls::Application::registerXMLView("InstalledTab", nslib::InstalledTab::create);
     brls::Application::registerXMLView("MissingTab", nslib::MissingTab::create);
+#ifdef __SWITCH__
+    brls::Application::registerXMLView("SavesTab", nslib::SavesTab::create);
+#endif
     brls::Application::registerXMLView("SettingsTab", nslib::SettingsTab::create);
 
     auto& session = nslib::Session::instance();

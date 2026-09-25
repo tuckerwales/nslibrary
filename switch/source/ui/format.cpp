@@ -151,4 +151,17 @@ std::string installPhaseKey(const std::string& phase) {
     return "";
 }
 
+Ago agoFrom(int64_t thenSeconds, int64_t nowSeconds) {
+    const auto rounded = [](int64_t value, int64_t unit) { return (value + unit / 2) / unit; };
+    const int64_t seconds = nowSeconds > thenSeconds ? nowSeconds - thenSeconds : 0;
+    if (seconds < 45) return {Ago::Unit::Now, 0};
+    const int64_t minutes = rounded(seconds, 60);
+    if (minutes < 60) return {Ago::Unit::Minutes, minutes};
+    const int64_t hours = rounded(minutes, 60);
+    if (hours < 24) return {Ago::Unit::Hours, hours};
+    const int64_t days = rounded(hours, 24);
+    if (days < 30) return {Ago::Unit::Days, days};
+    return {Ago::Unit::Older, days};
+}
+
 } // namespace nslib
