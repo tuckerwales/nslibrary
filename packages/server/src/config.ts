@@ -56,6 +56,8 @@ export interface ServerConfig {
   nroPath: string | null;
   /** Compiled forwarder `main` (exefs). Null uses a stub so the NSP still packs. */
   forwarderMainPath: string | null;
+  /** Largest save archive a console may upload. Defaults to 1 GiB. */
+  saveMaxBytes?: number;
 }
 
 export const DEFAULT_RESCAN_INTERVAL_MIN = 6 * 60;
@@ -141,6 +143,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       : existsSync(defaultNro)
         ? defaultNro
         : null,
+    saveMaxBytes: positiveInt("NSLIB_SAVE_MAX_MB", env.NSLIB_SAVE_MAX_MB, 1024) * 1024 * 1024,
     forwarderMainPath: env.NSLIB_FORWARDER_MAIN
       ? resolve(env.NSLIB_FORWARDER_MAIN)
       : existsSync(defaultForwarder)

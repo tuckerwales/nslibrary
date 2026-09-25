@@ -12,6 +12,7 @@ import { registerErrorHandling } from "./api/errors";
 import { registerKeysRoutes } from "./api/keys-routes";
 import { registerLibraryRoutes } from "./api/library-routes";
 import { registerRootRoutes } from "./api/root-routes";
+import { registerSaveWebRoutes } from "./api/save-routes";
 
 export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   const logger = ctx.config.logLevel === false ? false : { level: ctx.config.logLevel };
@@ -44,6 +45,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
         await registerLibraryRoutes(secured, ctx);
         await registerKeysRoutes(secured, ctx);
         await registerDeviceWebRoutes(secured, ctx);
+        await registerSaveWebRoutes(secured, ctx);
       });
     },
     { prefix: WEB_API_BASE_PATH },

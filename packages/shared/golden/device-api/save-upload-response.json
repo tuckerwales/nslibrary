@@ -1,0 +1,20 @@
+{
+  "backup": {
+    "id": 12,
+    "app": "0100ABCDEF010000",
+    "type": "account",
+    "user": "0123456789ABCDEF0FEDCBA987654321",
+    "userName": "Player",
+    "device": "Living room",
+    "mine": true,
+    "size": 11264,
+    "dataSize": 1062,
+    "files": 7,
+    "sha256": "3f0c2c3bbfe3a3b3d6c1bb6a5e2b0f6f7c9b0e1e4a2d5c8b7a6f5e4d3c2b1a09",
+    "at": 1790000000,
+    "origin": "manual",
+    "pinned": false,
+    "note": null
+  },
+  "dup": true
+}

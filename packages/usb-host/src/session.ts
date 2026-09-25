@@ -42,6 +42,11 @@ export interface UsbLinkOptions {
   handler: UsbRequestHandler;
   /** Idle timeout before the host treats the Switch as gone. 0 disables. */
   idleMs?: number;
+  /**
+   * Largest request payload kept in memory (save uploads). A bigger one is read and discarded so
+   * the next frame still lines up, and answered with PAYLOAD_TOO_LARGE. Defaults to 1 GiB.
+   */
+  maxRequestPayload?: number;
   log?: (message: string, err?: unknown) => void;
 }
 
@@ -54,6 +59,7 @@ export class UsbLink {
   readonly #channel: ByteChannel;
   readonly #handler: UsbRequestHandler;
   readonly #idleMs: number;
+  readonly #maxRequestPayload: number;
   readonly #log?: (message: string, err?: unknown) => void;
   #lastRx = Date.now();
   #running = false;
@@ -65,6 +71,7 @@ export class UsbLink {
     this.#channel = channel;
     this.#handler = options.handler;
     this.#idleMs = options.idleMs ?? 15_000;
+    this.#maxRequestPayload = options.maxRequestPayload ?? 1024 * 1024 * 1024;
     this.#log = options.log;
   }
 
@@ -90,9 +97,9 @@ export class UsbLink {
           ? await this.#readExact(header.jsonLength, signal)
           : new Uint8Array(0);
         const payload = header.payloadLength
-          ? await this.#readExact(header.payloadLength, signal)
+          ? await this.#readPayload(header.payloadLength, signal)
           : new Uint8Array(0);
-        this.#bytesIn += headerBytes.byteLength + jsonBytes.byteLength + payload.byteLength;
+        this.#bytesIn += headerBytes.byteLength + jsonBytes.byteLength + header.payloadLength;
 
         if (header.kind === FrameKind.Ping) {
           await this.#writeFrame({
@@ -106,6 +113,22 @@ export class UsbLink {
         }
         if (header.kind !== FrameKind.Request) {
           this.#log?.(`Ignoring USB frame kind ${header.kind}`);
+          continue;
+        }
+        if (payload === null) {
+          await this.#writeFrame({
+            kind: FrameKind.Response,
+            requestId: header.requestId,
+            status: 413,
+            json: {
+              b: {
+                error: {
+                  code: "PAYLOAD_TOO_LARGE",
+                  msg: `USB requests larger than ${this.#maxRequestPayload} bytes are not accepted`,
+                },
+              },
+            },
+          });
           continue;
         }
         const req = headerToObject(jsonBytes) as UsbRequestJson;
@@ -151,6 +174,22 @@ export class UsbLink {
   stop(): void {
     this.#running = false;
     this.#channel.close();
+  }
+
+  /**
+   * Reads a request payload a chunk at a time, so the idle timeout applies per chunk and a large
+   * upload is not mistaken for a silent Switch. Null when it was over the limit and discarded.
+   */
+  async #readPayload(length: number, signal?: AbortSignal): Promise<Uint8Array | null> {
+    const keep = length <= this.#maxRequestPayload;
+    const out = keep ? new Uint8Array(length) : null;
+    for (let done = 0; done < length; ) {
+      const chunk = await this.#readExact(Math.min(USB_STREAM_CHUNK_SIZE, length - done), signal);
+      this.#lastRx = Date.now();
+      out?.set(chunk, done);
+      done += chunk.byteLength;
+    }
+    return out;
   }
 
   async #readExact(n: number, signal?: AbortSignal): Promise<Uint8Array> {

@@ -8,6 +8,7 @@ import type { KeyStore } from "../keys/store";
 import type { LibraryRepository } from "../library/repository";
 import type { LibraryScanner } from "../library/scanner";
 import type { VerifyService } from "../library/verify-service";
+import type { SaveService } from "../saves/service";
 import type { TitledbService } from "../titledb/service";
 
 export type LogFn = (message: string, err?: unknown) => void;
@@ -24,6 +25,7 @@ export interface AppContext {
   titledb: TitledbService;
   devices: DeviceApiService;
   verify: VerifyService;
+  saves: SaveService;
   iconDir: string;
   log: LogFn;
 }
