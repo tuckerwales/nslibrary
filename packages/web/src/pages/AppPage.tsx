@@ -2,13 +2,18 @@ import type { AppContent, AppFlag, LibraryFileInfo, VerifyTask } from "@nslib/sh
 import { Link, useParams } from "react-router";
 import {
   ApiRequestError,
+  isCompressActive,
   useApp,
   useCancelVerify,
+  useCompressSettings,
+  useCompressTask,
   useRootPaths,
+  useStartCompress,
   useStartVerify,
   useVerifyTask,
 } from "../api";
-import { Button } from "../components/Button";
+import { Button, ButtonLink } from "../components/Button";
+import { CompressHeadline, CompressOutcome, CompressProgress } from "../components/CompressStatus";
 import { ContentStrip } from "../components/ContentStrip";
 import { LoadError, Loading } from "../components/Feedback";
 import { FileName } from "../components/FileName";
@@ -58,7 +63,16 @@ function verifyProgressText(task: VerifyTask): string {
   return `Verifying ${Math.floor((task.bytesDone / task.bytesTotal) * 100)}%`;
 }
 
-function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string | undefined }) {
+function FileRow({
+  file,
+  rootPath,
+  hasNsz,
+}: {
+  file: LibraryFileInfo;
+  rootPath: string | undefined;
+  /** The same content is in the library as NSZ already. */
+  hasNsz: boolean;
+}) {
   // Verifies run on the server in the background, so they survive leaving this page.
   const task = useVerifyTask(file.id).data ?? null;
   const start = useStartVerify();
@@ -68,10 +82,22 @@ function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string |
   const label = VERIFY_LABEL[status];
   const failures =
     task?.state === "done" ? (task.result?.items.filter((item) => !item.ok) ?? []) : [];
+  const compressTask = useCompressTask(file.id).data ?? null;
+  const compressReady = useCompressSettings().data?.problem === null;
+  const startCompress = useStartCompress();
+  const compressing = isCompressActive(compressTask);
+  // Offered for NSP files that have no NSZ copy yet and aren't being (or haven't just been) done.
+  const offerCompress =
+    file.format === "nsp" &&
+    file.missingSince === null &&
+    !hasNsz &&
+    !compressing &&
+    compressTask?.state !== "done";
   const errors = [
     task?.state === "failed" ? task.error : null,
     start.error?.message,
     cancel.error?.message,
+    startCompress.error?.message,
   ].filter((message): message is string => Boolean(message));
 
   return (
@@ -85,7 +111,29 @@ function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string |
           <span className={active ? "text-muted" : label.className} aria-live="polite">
             {active ? verifyProgressText(task) : label.text}
           </span>
-          <span className="sm:justify-self-end">
+          <span className="flex flex-wrap gap-x-1 sm:justify-self-end">
+            {offerCompress &&
+              (compressReady ? (
+                <Button
+                  variant="ghost"
+                  className="h-8 px-2"
+                  disabled={startCompress.isPending}
+                  aria-label={`Compress to NSZ: ${file.relPath}`}
+                  onClick={() => startCompress.mutate(file.id)}
+                >
+                  Compress
+                </Button>
+              ) : (
+                // Compressing needs keys and a folder first; that page walks through both.
+                <ButtonLink
+                  to="/compression"
+                  variant="ghost"
+                  className="h-8 px-2"
+                  aria-label={`Compress to NSZ (set up first): ${file.relPath}`}
+                >
+                  Compress
+                </ButtonLink>
+              ))}
             {active ? (
               <Button
                 variant="ghost"
@@ -110,6 +158,23 @@ function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string |
           </span>
         </span>
       </div>
+      {compressTask && (
+        <div className="mt-2 rounded-md bg-panel px-3 py-2">
+          {compressing ? (
+            <>
+              <p className="text-sm font-semibold">Compressing to NSZ</p>
+              <CompressProgress task={compressTask} />
+            </>
+          ) : (
+            <>
+              <p className="text-sm">
+                <CompressHeadline task={compressTask} />
+              </p>
+              <CompressOutcome task={compressTask} />
+            </>
+          )}
+        </div>
+      )}
       {errors.length > 0 && (
         <ul className="mt-1 space-y-0.5 text-sm text-danger">
           {errors.map((message) => (
@@ -229,7 +294,12 @@ export function AppPage() {
                     )}
                     <ul>
                       {content.files.map((file) => (
-                        <FileRow key={file.id} file={file} rootPath={rootPaths.get(file.rootId)} />
+                        <FileRow
+                          key={file.id}
+                          file={file}
+                          rootPath={rootPaths.get(file.rootId)}
+                          hasNsz={content.files.some((other) => other.format === "nsz")}
+                        />
                       ))}
                     </ul>
                   </div>

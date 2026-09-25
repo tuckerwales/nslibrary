@@ -13,7 +13,10 @@ export function Toaster() {
           key={toast.id}
           className="pointer-events-auto flex w-full items-start gap-3 rounded-md border border-line bg-panel p-3 text-sm shadow-lg"
         >
-          <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-danger" />
+          <span
+            aria-hidden="true"
+            className={`mt-1.5 size-2 shrink-0 rounded-full ${toast.tone === "success" ? "bg-update" : "bg-danger"}`}
+          />
           <p className="min-w-0 flex-1">{toast.message}</p>
           <button
             type="button"

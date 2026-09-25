@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { Link } from "react-router";
 import {
   useChangePassword,
   useDownloadForwarder,
@@ -97,7 +98,11 @@ function InstallsSection() {
       <h2 className="text-xl">Installs</h2>
       <p className="mt-2 text-muted">
         When the same title exists as both NSP and NSZ, the Switch catalog prefers the compressed
-        copy.
+        copy. The server can make NSZ copies of your NSP files on the{" "}
+        <Link to="/compression" className="underline">
+          Compression
+        </Link>{" "}
+        page.
       </p>
       {settings.error && <LoadError error={settings.error} />}
       {settings.data && (

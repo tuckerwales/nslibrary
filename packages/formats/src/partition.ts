@@ -2,7 +2,7 @@
  * PFS0 (NSP/NSZ) and HFS0 (XCI partitions). Both are a 0x10 header, fixed-size entries,
  * a string table, then file data; entry offsets are relative to the end of the header.
  */
-import { FormatError, hex, readMagic, readU64 } from "./binary";
+import { alignUp, FormatError, hex, readMagic, readU64 } from "./binary";
 import { type RandomAccessReader, readExact } from "./reader";
 
 export type EntryKind = "cnmt" | "nca" | "ncz" | "tik" | "cert" | "other";
@@ -151,4 +151,38 @@ export async function parseHfs0(
     });
   }
   return { offset: base, headerSize: raw.headerSize, entries };
+}
+
+export interface Pfs0HeaderEntry {
+  name: string;
+  size: number;
+}
+
+/**
+ * A PFS0 header for files stored back to back in `entries` order. Its length depends only on the
+ * names, so a writer can reserve it, stream the files, and write it again once sizes are known.
+ * The string table is padded so file data starts on an `align` boundary, as nsz does.
+ */
+export function buildPfs0Header(entries: readonly Pfs0HeaderEntry[], align = 0x20): Buffer {
+  const names = entries.map((entry) => Buffer.from(`${entry.name}\0`, "utf8"));
+  const fixedSize = 0x10 + entries.length * PFS0_ENTRY_SIZE;
+  const namesSize = names.reduce((sum, name) => sum + name.length, 0);
+  const stringTableSize = alignUp(fixedSize + namesSize, align) - fixedSize;
+  const header = Buffer.alloc(fixedSize + stringTableSize);
+  header.write("PFS0", 0, "latin1");
+  header.writeUInt32LE(entries.length, 4);
+  header.writeUInt32LE(stringTableSize, 8);
+
+  let dataOffset = 0;
+  let nameOffset = 0;
+  entries.forEach((entry, i) => {
+    const o = 0x10 + i * PFS0_ENTRY_SIZE;
+    header.writeBigUInt64LE(BigInt(dataOffset), o);
+    header.writeBigUInt64LE(BigInt(entry.size), o + 0x08);
+    header.writeUInt32LE(nameOffset, o + 0x10);
+    names[i]?.copy(header, fixedSize + nameOffset);
+    dataOffset += entry.size;
+    nameOffset += names[i]?.length ?? 0;
+  });
+  return header;
 }

@@ -18,6 +18,8 @@ services:
       - nslib-data:/data
       # Mount dumps as /library/<name>:ro — they are attached as roots on start.
       # - ${NSLIB_LIBRARY:-./games}:/library/games:ro
+      # A writable folder for NSZ files the Compression page makes (choose /library/nsz there).
+      # - ${NSLIB_NSZ:-./nsz}:/library/nsz
     healthcheck:
       test:
         [

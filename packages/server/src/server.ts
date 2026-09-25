@@ -7,13 +7,14 @@ import type { FastifyInstance } from "fastify";
 import type { LogFn } from "./api/context";
 import { buildApp } from "./app";
 import { AuthService, LoginRateLimiter } from "./auth/auth-service";
-import { DEFAULT_RESCAN_INTERVAL_MIN, type ServerConfig } from "./config";
+import { DEFAULT_RESCAN_INTERVAL_MIN, defaultCompressThreads, type ServerConfig } from "./config";
 import { type Db, openDatabase } from "./db/client";
 import { DiscoveryServer, discoveryReply } from "./device/discovery";
 import { localAddresses, MdnsResponder } from "./device/mdns";
 import { DeviceApiService, STALE_JOB_MS } from "./device/service";
 import { EventBus } from "./events";
 import { KeyStore } from "./keys/store";
+import { CompressService } from "./library/compress-service";
 import { LibraryRepository } from "./library/repository";
 import { LibraryScanner } from "./library/scanner";
 import { VerifyService } from "./library/verify-service";
@@ -38,6 +39,7 @@ export interface NslibServer {
   auth: AuthService;
   devices: DeviceApiService;
   verify: VerifyService;
+  compress: CompressService;
   discovery: DiscoveryServer | null;
   mdns: MdnsResponder | null;
   /** Starts watchers, the startup scan, USB host, and periodic maintenance. Call after listen(). */
@@ -72,6 +74,17 @@ export async function createServer(
   });
   const auth = new AuthService(db, now);
   const verify = new VerifyService(repo, events, now);
+  const compress = new CompressService({
+    repo,
+    events,
+    keys: () => keys.get(),
+    rescan: (rootId) => {
+      scanner.scanRoot(rootId).catch((err) => log(`Scan of library folder ${rootId} failed`, err));
+    },
+    threads: config.compressThreads ?? defaultCompressThreads(),
+    now,
+    log,
+  });
   const devices = new DeviceApiService({
     db,
     events,
@@ -121,6 +134,7 @@ export async function createServer(
     titledb,
     devices,
     verify,
+    compress,
     iconDir,
     log,
   });
@@ -166,10 +180,12 @@ export async function createServer(
     auth,
     devices,
     verify,
+    compress,
     discovery,
     mdns,
     async start() {
       runMaintenance();
+      await compress.removeLeftovers();
       maintenance = setInterval(runMaintenance, MAINTENANCE_INTERVAL_MS);
       maintenance.unref();
       staleJobSweep = setInterval(
@@ -222,6 +238,7 @@ export async function createServer(
       await mdns?.close();
       devices.close();
       verify.close();
+      await compress.close();
       await fastify.close();
       await scanner.close();
       sqlite.close();

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_SERVER_PORT, DISCOVERY_PORT } from "@nslib/shared";
@@ -56,9 +57,16 @@ export interface ServerConfig {
   nroPath: string | null;
   /** Compiled forwarder `main` (exefs). Null uses a stub so the NSP still packs. */
   forwarderMainPath: string | null;
+  /** Worker threads zstd uses when compressing NSP to NSZ. Defaults to `defaultCompressThreads()`. */
+  compressThreads?: number;
 }
 
 export const DEFAULT_RESCAN_INTERVAL_MIN = 6 * 60;
+
+/** One core is left for serving installs and the UI; four is plenty for disk-bound NAS boxes. */
+export function defaultCompressThreads(): number {
+  return Math.max(1, Math.min(4, availableParallelism() - 1));
+}
 
 const WEB_DIR_CANDIDATES = [
   fileURLToPath(new URL("../public", import.meta.url)),
@@ -141,6 +149,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       : existsSync(defaultNro)
         ? defaultNro
         : null,
+    compressThreads: positiveInt(
+      "NSLIB_COMPRESS_THREADS",
+      env.NSLIB_COMPRESS_THREADS,
+      defaultCompressThreads(),
+    ),
     forwarderMainPath: env.NSLIB_FORWARDER_MAIN
       ? resolve(env.NSLIB_FORWARDER_MAIN)
       : existsSync(defaultForwarder)
