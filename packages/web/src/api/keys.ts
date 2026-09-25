@@ -18,6 +18,14 @@ export const queryKeys = {
   device: ["device"],
   deviceDetail: (id: number) => ["device", id],
   jobs: ["jobs"],
+  /** Will-it-fit checks; stale whenever a Switch reports space, a job changes, or the library does. */
+  spaceCheck: ["space-check"],
+  spaceCheckFor: (deviceId: number, target: string, items: number[]) => [
+    "space-check",
+    deviceId,
+    target,
+    items,
+  ],
   /** Background verifies; kept current by `verify.updated` events. */
   verify: ["verify"],
   /** Background compressions; kept current by `compress.updated` events. */
@@ -46,4 +54,5 @@ export const LIBRARY_QUERY_KEYS = [
   queryKeys.compressSettings,
   queryKeys.compressCandidates,
   queryKeys.compressFolders,
+  queryKeys.spaceCheck,
 ];

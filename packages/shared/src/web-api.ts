@@ -6,6 +6,7 @@ import {
   type InstallTarget,
   InstallTargetSchema,
   type JobStatus,
+  type Storage,
 } from "./device-api";
 import type { ContentMetaType } from "./title-id";
 
@@ -83,6 +84,11 @@ export const CreateJobsRequestSchema = z.object({
   target: InstallTargetSchema.optional(),
 });
 
+export const SpaceCheckRequestSchema = z.object({
+  items: z.array(z.number().int().positive()).max(1000),
+  target: InstallTargetSchema.optional(),
+});
+
 export const ReorderJobsRequestSchema = z.object({
   deviceId: z.number().int().positive(),
   ids: z.array(z.number().int().positive()),
@@ -106,6 +112,7 @@ export type CompressSettingsPatch = z.infer<typeof CompressSettingsSchema>;
 export type CompressRequest = z.infer<typeof CompressRequestSchema>;
 export type RenameDeviceRequest = z.infer<typeof RenameDeviceRequestSchema>;
 export type CreateJobsRequest = z.infer<typeof CreateJobsRequestSchema>;
+export type SpaceCheckRequest = z.infer<typeof SpaceCheckRequestSchema>;
 export type ReorderJobsRequest = z.infer<typeof ReorderJobsRequestSchema>;
 export type ServerSettingsPatch = z.infer<typeof ServerSettingsSchema>;
 
@@ -422,6 +429,53 @@ export interface DeviceDetail extends DeviceSummary {
   titles: InstalledTitle[];
 }
 
+/** One storage in a space check. */
+export interface StorageUse {
+  free: number;
+  total: number;
+  /** Bytes the installs already queued for this Switch will write here. */
+  queued: number;
+  /** Bytes the checked batch would write here. */
+  batch: number;
+}
+
+/** One title in a space check, and where it would land. */
+export interface SpaceCheckItem {
+  contentMetaId: number;
+  titleId: string;
+  type: ContentMetaType;
+  version: number | null;
+  name: string;
+  /** Bytes the install writes to the console. */
+  bytes: number;
+  /** The install size is unknown (no keys, or unreadable metadata), so `bytes` is the file size. */
+  estimated: boolean;
+  /** Where the install would write, or null when there is no room anywhere it may go. */
+  storage: Storage | null;
+  fits: boolean;
+  /** This exact title and version is already on the Switch. Reinstalling it writes little or nothing. */
+  installed: boolean;
+}
+
+/**
+ * Whether a batch of installs fits on a Switch, from the free space it last reported. Installs that
+ * are already queued run first and are counted before the batch.
+ */
+export interface SpaceCheck {
+  deviceId: number;
+  target: InstallTarget;
+  /** False until the Switch has reported its free space; nothing else here means much until then. */
+  known: boolean;
+  /** Null when the Switch has no SD card, or hasn't reported. */
+  sd: StorageUse | null;
+  nand: StorageUse | null;
+  items: SpaceCheckItem[];
+  /** Installs already waiting for or running on this Switch. */
+  queuedJobs: number;
+  /** Every item in the batch fits (true when the space is unknown). */
+  fits: boolean;
+}
+
 export type JobSource = "web" | "switch";
 
 export interface WebJob {
@@ -479,6 +533,8 @@ export type ServerEvent =
   | { type: "device.paired"; deviceId: number; name: string }
   | { type: "device.online"; deviceId: number }
   | { type: "device.offline"; deviceId: number }
+  /** The Switch reported new free space or installed titles. */
+  | { type: "device.updated"; deviceId: number }
   | { type: "job.updated"; job: WebJob }
   | { type: "verify.updated"; task: VerifyTask }
   | { type: "compress.updated"; task: CompressTask };

@@ -10,6 +10,7 @@ import {
   type LibraryRoot,
   type PairingCode,
   PairResponseSchema,
+  type SpaceCheck,
   type WebJob,
 } from "@nslib/shared";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -265,6 +266,69 @@ describe("device API", () => {
     expect(detail.titles).toEqual([
       { titleId: BASE, version: 0, type: "application", storage: "sd", applicationId: BASE },
     ]);
+  });
+
+  it("checks whether a batch fits after the installs already queued", async () => {
+    const session = await setUp();
+    const { token, deviceId } = (await pair(session)).json();
+    const { contentMetaId, nsp } = await addGame(session);
+    const check = (target: string) =>
+      web("POST", `/devices/${deviceId}/space-check`, {
+        session,
+        body: { items: [contentMetaId], target },
+      }).then((res) => {
+        expect(res.statusCode).toBe(200);
+        return res.json<SpaceCheck>();
+      });
+
+    // Nothing reported yet: no warning, and nothing to compare against.
+    const unknown = await check("auto");
+    expect(unknown).toMatchObject({ known: false, fits: true, sd: null, nand: null });
+    expect(unknown.items[0]).toMatchObject({ storage: null, fits: true });
+
+    // Without keys the install size is unknown, so the file size stands in for it.
+    const size = nsp.length;
+    await device("PUT", "/state", {
+      token,
+      body: {
+        fw: "19.0.1",
+        ams: "1.8.0",
+        space: { sd: [size + 10, 1_000_000], nand: [size - 1, 2_000_000] },
+        titles: [[BASE, 0, "application", "nand"]],
+      },
+    });
+    const first = await check("auto");
+    expect(first).toMatchObject({
+      known: true,
+      fits: true,
+      queuedJobs: 0,
+      sd: { free: size + 10, total: 1_000_000, queued: 0, batch: size },
+      nand: { free: size - 1, total: 2_000_000, queued: 0, batch: 0 },
+    });
+    expect(first.items[0]).toMatchObject({
+      contentMetaId,
+      bytes: size,
+      estimated: true,
+      storage: "sd",
+      fits: true,
+      installed: true,
+    });
+    expect((await check("nand")).items[0]).toMatchObject({ storage: "nand", fits: false });
+
+    // A queued install takes the SD card's room, so the same batch no longer fits.
+    await web("POST", "/jobs", {
+      session,
+      body: { deviceId, items: [contentMetaId], target: "sd" },
+    });
+    const second = await check("auto");
+    expect(second).toMatchObject({ fits: false, queuedJobs: 1, sd: { queued: size, batch: 0 } });
+    expect(second.items[0]).toMatchObject({ storage: null, fits: false });
+
+    const missing = await web("POST", `/devices/${deviceId}/space-check`, {
+      session,
+      body: { items: [999_999] },
+    });
+    expect(missing.statusCode).toBe(404);
   });
 
   it("queues jobs from the web UI and runs the device lifecycle", async () => {

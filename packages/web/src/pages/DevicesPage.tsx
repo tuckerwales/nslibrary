@@ -8,6 +8,7 @@ import {
   usePairingCode,
   useRenameDevice,
   useRevokeDevice,
+  useSpaceCheck,
 } from "../api";
 import { Button } from "../components/Button";
 import { ConfirmPanel } from "../components/ConfirmPanel";
@@ -15,6 +16,7 @@ import { ErrorText, LoadError, Loading } from "../components/Feedback";
 import { inputClass } from "../components/Field";
 import { PageHeader } from "../components/PageHeader";
 import { RelativeTime } from "../components/RelativeTime";
+import { StorageMeter } from "../components/StorageMeter";
 import { activeJobs, finishedJobs, jobStatusLabel, jobTitle } from "../jobs";
 
 function formatCode(code: string): string {
@@ -78,6 +80,31 @@ function PairingPanel() {
       </Button>
       <ErrorText>{pair.error?.message}</ErrorText>
     </section>
+  );
+}
+
+const NO_ITEMS: number[] = [];
+
+/** Free space as the Switch last reported it, with what its queued installs will take. */
+function DeviceStorage({ device }: { device: DeviceSummary }) {
+  const check = useSpaceCheck(device.revoked ? null : device.id, NO_ITEMS, "auto");
+  const queued = check.data?.deviceId === device.id ? check.data : undefined;
+  const { sd, nand } = device.space;
+  if (!sd && !nand) return null;
+  return (
+    <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-2">
+      {sd && (
+        <StorageMeter storage="sd" free={sd[0]} total={sd[1]} queued={queued?.sd?.queued ?? 0} />
+      )}
+      {nand && (
+        <StorageMeter
+          storage="nand"
+          free={nand[0]}
+          total={nand[1]}
+          queued={queued?.nand?.queued ?? 0}
+        />
+      )}
+    </div>
   );
 }
 
@@ -163,6 +190,8 @@ function DeviceRow({ device, jobs }: { device: DeviceSummary; jobs: WebJob[] }) 
           </div>
         )}
       </div>
+
+      <DeviceStorage device={device} />
 
       {confirming && (
         <ConfirmPanel

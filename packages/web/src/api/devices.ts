@@ -2,7 +2,9 @@ import type {
   CreateJobsRequest,
   DeviceDetail,
   DeviceSummary,
+  InstallTarget,
   PairingCode,
+  SpaceCheck,
   WebJob,
 } from "@nslib/shared";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +26,21 @@ export function useDevice(id: number | null) {
     queryKey: queryKeys.deviceDetail(id ?? 0),
     queryFn: () => request<DeviceDetail>("GET", `/devices/${id}`),
     enabled: id !== null,
+  });
+}
+
+/**
+ * Whether `items` would fit on the Switch with `target`, after what is already queued for it. With no
+ * items it still answers how much the queue will take from each storage.
+ */
+export function useSpaceCheck(deviceId: number | null, items: number[], target: InstallTarget) {
+  return useQuery({
+    queryKey: queryKeys.spaceCheckFor(deviceId ?? 0, target, items),
+    queryFn: () =>
+      request<SpaceCheck>("POST", `/devices/${deviceId}/space-check`, { items, target }),
+    enabled: deviceId !== null,
+    // Ticking a box keeps the last answer on screen until the new one arrives.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -52,6 +69,7 @@ function useInvalidateDevicesAndJobs() {
     Promise.all([
       client.invalidateQueries({ queryKey: queryKeys.devices }),
       client.invalidateQueries({ queryKey: queryKeys.jobs }),
+      client.invalidateQueries({ queryKey: queryKeys.spaceCheck }),
     ]);
 }
 
