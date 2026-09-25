@@ -33,6 +33,10 @@ released the `.nro` only.
   `GET /compress/candidates`, `POST /compress`, `POST /compress/clear`,
   `POST /files/:id/compress`, `/cancel` and `/remove-original`, and `compress.updated` events.
 
+### Changed
+- **Devices** lists active Switches first and tucks revoked ones into a collapsed "N revoked
+  Switches" section, so old pairings no longer push the live ones down the page.
+
 ## [0.4.0] - 2026-09-24
 
 ### Added
