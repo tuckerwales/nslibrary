@@ -112,7 +112,10 @@ void runWithProgress(const std::string& title, const std::string& failTitle,
     const std::function<std::string(const SaveStepFn&)>& work)
 {
     auto cancelled = std::make_shared<bool>(false);
-    showProgress(title, [cancelled] { *cancelled = true; });
+    showProgress(title, [cancelled] {
+        *cancelled = true;
+        Session::instance().abortSaveTransfer();
+    });
     const SaveStepFn step = [cancelled](const std::string& phase, uint64_t done, uint64_t total) {
         const bool cancellable = phase == "app/saves/phase_reading" || phase == "app/saves/phase_downloading";
         if (cancellable && *cancelled) throw std::runtime_error("cancelled");
@@ -218,7 +221,10 @@ void backUpEverySave() {
     size_t stored = 0, unchanged = 0;
     std::vector<std::string> failures;
     auto cancelled = std::make_shared<bool>(false);
-    showProgress("app/saves/backing_up_all"_i18n, [cancelled] { *cancelled = true; });
+    showProgress("app/saves/backing_up_all"_i18n, [cancelled] {
+        *cancelled = true;
+        Session::instance().abortSaveTransfer();
+    });
     for (size_t i = 0; i < saves.size() && !*cancelled; i++) {
         const auto& save = saves[i];
         const std::string name = gameName(save) + "   " + ownerName(save);

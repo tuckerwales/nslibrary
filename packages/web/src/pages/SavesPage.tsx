@@ -13,7 +13,6 @@ import { formatBytes, plural } from "../format";
 
 const ORIGIN_LABEL: Record<SaveOrigin, string | null> = {
   manual: null,
-  auto: "Automatic",
   "pre-restore": "Before a restore",
 };
 

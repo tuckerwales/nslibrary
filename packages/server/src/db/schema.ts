@@ -23,7 +23,7 @@ const JOB_SOURCES = ["web", "switch"] as const;
 const INSTALL_PHASES = ["preflight", "ticket", "meta", "content", "commit", "record"] as const;
 const STORAGES = ["sd", "nand"] as const;
 const SAVE_TYPES = ["account", "device"] as const;
-const SAVE_ORIGINS = ["manual", "auto", "pre-restore"] as const;
+const SAVE_ORIGINS = ["manual", "pre-restore"] as const;
 
 /** Timestamps are epoch milliseconds. */
 export const libraryRoots = sqliteTable("library_roots", {

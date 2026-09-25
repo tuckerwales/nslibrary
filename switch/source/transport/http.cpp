@@ -380,6 +380,12 @@ HttpResponse HttpTransport::upload(const std::string& path, const std::string& c
     curl_slist_free_all(hdr);
     if (st.error) std::rethrow_exception(st.error);
     if (abort_) throw StreamFatal("cancelled");
+    // A server can refuse before reading the whole body (too large, bad query). Its JSON says why
+    // better than curl's "failed sending data" does.
+    if (rc != CURLE_OK && out.status >= 400 && !out.body.empty()) {
+        brls::Logger::error("HTTP upload {} refused: {}", path, out.status);
+        return out;
+    }
     if (rc != CURLE_OK) {
         brls::Logger::error("HTTP upload {} curl {}", path, curl_easy_strerror(rc));
         throw std::runtime_error("HTTP POST " + path + ": " + curlMessage(rc));

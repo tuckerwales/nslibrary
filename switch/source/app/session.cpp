@@ -708,6 +708,11 @@ void Session::restoreSave(const ConsoleSave& save, const SaveBackup& backup, con
     if (transport_) transport_->clearAbort();
     restoreConsoleSave(save, backup, *client_, progress);
 }
+
+void Session::abortSaveTransfer() {
+    // The next backup or restore clears it again, as the next install does.
+    if (transport_) transport_->abort();
+}
 #endif
 
 bool Session::canUpdate() const {

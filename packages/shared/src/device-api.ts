@@ -194,8 +194,8 @@ export const EventsQuerySchema = z.object({
  * account it belongs to. Account IDs are only meaningful on the console that made them.
  */
 export const SaveTypeSchema = z.enum(["account", "device"]);
-/** Why a backup was made: from the Saves tab, automatically, or just before a restore replaced it. */
-export const SaveOriginSchema = z.enum(["manual", "auto", "pre-restore"]);
+/** Why a backup was made: from the Saves tab, or just before a restore replaced the save. */
+export const SaveOriginSchema = z.enum(["manual", "pre-restore"]);
 /** An account UID as 32 uppercase hex digits: `uid[0]` then `uid[1]`, each as 16 digits. */
 export const AccountIdSchema = z
   .string()

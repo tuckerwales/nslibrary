@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildPfs0, buildTicket, deterministicBytes, rightsIdFor } from "@nslib/fixtures";
+import { buildSaveArchive } from "@nslib/formats";
 import { createServer, type ServerConfig } from "@nslib/server";
 import {
   CatalogResponseSchema,
@@ -293,6 +294,40 @@ describe("device-sim contract", () => {
 
       const downloaded = await web(baseUrl, cookie, "GET", `/saves/${stored.backup.id}/download`);
       expect(Buffer.from(await downloaded.arrayBuffer()).equals(archive)).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("refuses an oversized save over a live socket and keeps serving", async () => {
+    dir = await makeTempDir();
+    const server = await createServer({
+      ...testConfig(join(dir, "data")),
+      saveMaxBytes: 1024 * 1024,
+    });
+    const baseUrl = await listenUrl(server);
+    try {
+      const cookie = await setupAdmin(baseUrl);
+      const { code } = (await (
+        await web(baseUrl, cookie, "POST", "/devices/pairing-code")
+      ).json()) as { code: string };
+      const client = new DeviceClient(baseUrl);
+      await client.pair({
+        code,
+        deviceUuid: randomUUID(),
+        name: "sim",
+        fw: "19.0.1",
+        amsVersion: "1.8.0",
+        appVersion: "0.1.0",
+      });
+      // Refused from its Content-Length, before the 20 MB body is read.
+      const big = buildSaveArchive([{ path: "big.bin", data: Buffer.alloc(20 * 1024 * 1024) }]);
+      await expect(
+        client.uploadSave(big, { app: "0100ABCDEF012000", type: "device" }),
+      ).rejects.toMatchObject({ code: "PAYLOAD_TOO_LARGE", status: 413 });
+      const small = buildSaveArchive([{ path: "small.bin", data: Buffer.alloc(10) }]);
+      const stored = await client.uploadSave(small, { app: "0100ABCDEF012000", type: "device" });
+      expect(stored.dup).toBe(false);
     } finally {
       await server.close();
     }

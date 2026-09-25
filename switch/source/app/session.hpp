@@ -79,6 +79,8 @@ public:
     SaveBackupResult backupSave(const ConsoleSave& save, const std::string& origin,
         const std::string& unchangedSince = {}, const SaveStepFn& progress = {});
     void restoreSave(const ConsoleSave& save, const SaveBackup& backup, const SaveStepFn& progress = {});
+    /** Stops a save download or HTTP upload in flight; the operation then fails with "cancelled". */
+    void abortSaveTransfer();
 #endif
 #ifdef __SWITCH__
     /**

@@ -160,7 +160,7 @@ struct SaveBackup {
     std::string sha256;
     /** Epoch seconds. */
     int64_t at = 0;
-    /** "manual", "auto" or "pre-restore". */
+    /** "manual" or "pre-restore". */
     std::string origin;
     bool pinned = false;
     std::string note;
