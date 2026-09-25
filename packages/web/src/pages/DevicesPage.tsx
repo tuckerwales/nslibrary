@@ -211,6 +211,9 @@ export function DevicesPage() {
   const devices = useDevices();
   const jobs = useJobs();
   const list = devices.data ?? [];
+  const current = list.filter((device) => !device.revoked);
+  const revoked = list.filter((device) => device.revoked);
+  const jobList = jobs.data ?? [];
 
   return (
     <>
@@ -226,14 +229,31 @@ export function DevicesPage() {
           <LoadError error={devices.error} />
         ) : !devices.data ? (
           <Loading className="mt-3" />
-        ) : list.length > 0 ? (
-          <ul className="mt-3 border-t border-line">
-            {list.map((device) => (
-              <DeviceRow key={device.id} device={device} jobs={jobs.data ?? []} />
-            ))}
-          </ul>
         ) : (
-          <p className="mt-3 text-muted">No Switches paired yet.</p>
+          <>
+            {current.length > 0 ? (
+              <ul className="mt-3 border-t border-line">
+                {current.map((device) => (
+                  <DeviceRow key={device.id} device={device} jobs={jobList} />
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-muted">No Switches paired yet.</p>
+            )}
+            {/* Revoked Switches can't connect again, so keep them out of the way. */}
+            {revoked.length > 0 && (
+              <details className="mt-6">
+                <summary className="cursor-pointer text-sm text-muted">
+                  {revoked.length === 1 ? "1 revoked Switch" : `${revoked.length} revoked Switches`}
+                </summary>
+                <ul className="mt-3 border-t border-line">
+                  {revoked.map((device) => (
+                    <DeviceRow key={device.id} device={device} jobs={jobList} />
+                  ))}
+                </ul>
+              </details>
+            )}
+          </>
         )}
       </section>
     </>
