@@ -22,6 +22,8 @@ import {
   type PairRequest,
   type PairResponse,
   type ServerSettings,
+  type SpaceCheck,
+  type StorageUse,
   type WebJob,
 } from "@nslib/shared";
 import { and, eq, inArray, lt } from "drizzle-orm";
@@ -44,6 +46,7 @@ import type { EventBus } from "../events";
 import { type LocatedLibraryFile, locateOnDisk } from "../library/library-fs";
 import { buildCatalogApps, paginateCatalog } from "./catalog";
 import { DeviceEventLog } from "./events";
+import { planSpace, type ReportedSpace } from "./space";
 
 export const PREFER_NSZ_KEY = "prefer_nsz";
 export const SERVER_ID_KEY = "server_id";
@@ -456,6 +459,112 @@ export class DeviceApiService {
         )
         .run();
     });
+    this.#events.publish({ type: "device.updated", deviceId });
+  }
+
+  /**
+   * Whether installing `contentMetaIds` on `target` would fit, from the space the Switch last
+   * reported, after the installs already queued for it. The Switch checks again before writing;
+   * this is so the web UI can warn before sending something that is going to fail.
+   */
+  checkSpace(deviceId: number, contentMetaIds: number[], target: InstallTarget): SpaceCheck {
+    const device = this.#requireDeviceRow(deviceId);
+    const space: ReportedSpace = {
+      sd: device.sdFree !== null ? [device.sdFree, device.sdTotal ?? device.sdFree] : null,
+      nand:
+        device.nandFree !== null ? [device.nandFree, device.nandTotal ?? device.nandFree] : null,
+    };
+    const known = space.sd !== null || space.nand !== null;
+
+    const pendingJobs = this.#db
+      .select({
+        target: installJobs.target,
+        size: installJobs.size,
+        installSize: contentMetas.installSize,
+      })
+      .from(installJobs)
+      .leftJoin(contentMetas, eq(contentMetas.id, installJobs.contentMetaId))
+      .where(
+        and(
+          eq(installJobs.deviceId, deviceId),
+          inArray(installJobs.status, ["queued", "claimed", "running"]),
+        ),
+      )
+      .orderBy(installJobs.position, installJobs.id)
+      .all();
+
+    const metas = contentMetaIds.length
+      ? this.#db
+          .select({
+            id: contentMetas.id,
+            titleId: contentMetas.titleId,
+            version: contentMetas.version,
+            type: contentMetas.type,
+            name: contentMetas.displayName,
+            installSize: contentMetas.installSize,
+            fileSize: files.size,
+          })
+          .from(contentMetas)
+          .innerJoin(files, eq(files.id, contentMetas.fileId))
+          .where(inArray(contentMetas.id, contentMetaIds))
+          .all()
+      : [];
+    const byId = new Map(metas.map((meta) => [meta.id, meta]));
+    const items = contentMetaIds.map((id) => {
+      const meta = byId.get(id);
+      if (!meta) throw new ApiError("NOT_FOUND", "That title is no longer in the library");
+      return meta;
+    });
+
+    const installed = new Set(
+      this.#db
+        .select({ titleId: deviceTitles.titleId, version: deviceTitles.version })
+        .from(deviceTitles)
+        .where(eq(deviceTitles.deviceId, deviceId))
+        .all()
+        .map((title) => `${title.titleId}:${title.version}`),
+    );
+
+    const plan = planSpace(
+      space,
+      pendingJobs.map((job) => ({ bytes: job.installSize ?? job.size, target: job.target })),
+      items.map((item) => ({ bytes: item.installSize ?? item.fileSize, target })),
+    );
+    const use = (storage: "sd" | "nand"): StorageUse | null => {
+      const reported = space[storage];
+      if (!reported) return null;
+      return {
+        free: reported[0],
+        total: reported[1],
+        queued: plan.queued[storage],
+        batch: plan.batch[storage],
+      };
+    };
+
+    return {
+      deviceId,
+      target,
+      known,
+      sd: use("sd"),
+      nand: use("nand"),
+      items: items.map((item, index) => {
+        const placement = plan.placements[index] ?? { storage: null, fits: false };
+        return {
+          contentMetaId: item.id,
+          titleId: item.titleId,
+          type: item.type,
+          version: item.version,
+          name: item.name,
+          bytes: item.installSize ?? item.fileSize,
+          estimated: item.installSize === null,
+          storage: known ? placement.storage : target === "auto" ? null : target,
+          fits: known ? placement.fits : true,
+          installed: installed.has(`${item.titleId}:${item.version ?? 0}`),
+        };
+      }),
+      queuedJobs: pendingJobs.length,
+      fits: !known || plan.placements.every((placement) => placement.fits),
+    };
   }
 
   getCatalog(query: CatalogQuery): CatalogResponse {

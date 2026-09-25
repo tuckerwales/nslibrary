@@ -52,6 +52,14 @@ CI builds the same target in `devkitpro/devkita64` and uploads the artifact.
 
 **Updates** lists library updates newer than what is installed, **Installed** groups this console's games, updates, and DLC (with firmware, Atmosphère, and free space at the top), and **Not installed** lists library base games this Switch does not have.
 
+Select anything in **Installed** to see how much space it uses and what you can do with it:
+
+- **Uninstall** removes it. For a game that means the game with its updates and DLC, the way HOME's "Delete Software" does it, and save data is kept. For an update or DLC it removes just that title and updates HOME's record (after removing an update, HOME stops expecting it).
+- **Move to System memory** / **Move to SD card** copies the title to the other storage, points HOME at the copy, then deletes the original. A game moves together with whatever of its updates and DLC is on the other storage. Nothing is deleted until the copy has finished and HOME has been updated, so pressing B to cancel, or a failed copy, leaves the title where it was. If a crash interrupts a copy, the half-written content is cleaned up the next time NSLibrary starts.
+- Both wait for a running install to finish, and refuse to touch the game NSLibrary is running in place of (title override), since its content is in use.
+
+After either, the new free space is sent to the library server, so the web UI's space check is current.
+
 If HOME says "A system update is required in order to use this software", or asks for an update you removed, open the game or its update in **Installed** and choose **Reset required version**. The dialog first shows the firmware the game asks for and the update version HOME expects. The reset works like DBI's: it sets RequiredSystemVersion to 0 in the console's content meta database for the game and its update, and sets the launch version to 0. A game built for newer firmware than the console can still fail to start. If HOME keeps asking, restart the console.
 
 USB: on the Connect screen choose **USB cable** while NSLibrary is running on the computer (Electron, or Docker on Linux with `/dev/bus/usb`). Windows needs [WinUSB](windows-usb-driver.md).

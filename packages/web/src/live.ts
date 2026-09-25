@@ -109,6 +109,11 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       void client.invalidateQueries({ queryKey: queryKeys.devices });
       void client.invalidateQueries({ queryKey: queryKeys.deviceDetail(event.deviceId) });
       break;
+    case "device.updated":
+      void client.invalidateQueries({ queryKey: queryKeys.devices });
+      void client.invalidateQueries({ queryKey: queryKeys.deviceDetail(event.deviceId) });
+      void client.invalidateQueries({ queryKey: queryKeys.spaceCheck });
+      break;
     case "verify.updated":
       // Only patch a list that's already loaded; otherwise the next fetch has it anyway.
       if (client.getQueryData(queryKeys.verify)) {
@@ -136,6 +141,7 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       // Progress arrives every half second; only status changes need anything refetched.
       if (!patchJob(client, event.job)) break;
       void client.invalidateQueries({ queryKey: queryKeys.devices });
+      void client.invalidateQueries({ queryKey: queryKeys.spaceCheck });
       if (!isActiveJobStatus(event.job.status)) {
         void client.invalidateQueries({ queryKey: queryKeys.deviceDetail(event.job.deviceId) });
       }

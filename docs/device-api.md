@@ -44,5 +44,11 @@ The Switch broadcasts UDP `NSLIB?1` to port 8466. The server replies unicast wit
 ## Web UI
 
 - **Devices** — pairing code, list, rename, revoke, job status
-- **Send to Switch** on a title page — `POST /api/v1/jobs {deviceId, items, target}`
+- **Send to Switch** on a title page — `POST /api/v1/jobs {deviceId, items, target}`. Before sending, the page asks
+  `POST /api/v1/devices/:id/space-check {items, target}` whether the batch fits, and asks for confirmation when it doesn't.
+  The check plays the queue forward the way the Switch will: installs already queued for that Switch go first, `auto`
+  prefers the SD card, and an install that doesn't fit takes no space. Sizes are each title's install size from its CNMT,
+  or the file size when that couldn't be read (marked `estimated`). It goes by the free space the Switch last reported
+  in `PUT /state`, which it sends after every install, uninstall, and move; the Switch still checks again before writing.
+- **Devices** shows each Switch's SD card and system memory, with what its queued installs will take.
 - Settings: prefer NSZ/XCZ when the same title exists in more than one format

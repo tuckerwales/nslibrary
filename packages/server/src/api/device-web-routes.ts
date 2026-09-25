@@ -5,6 +5,8 @@ import {
   type PairingCode,
   RenameDeviceRequestSchema,
   ReorderJobsRequestSchema,
+  type SpaceCheck,
+  SpaceCheckRequestSchema,
   type WebJob,
 } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
@@ -44,6 +46,12 @@ export async function registerDeviceWebRoutes(
   api.post("/devices/:id/revoke", async (request): Promise<DeviceDetail> => {
     const { id } = parseWith(IdParams, request.params);
     return ctx.devices.revokeDevice(id);
+  });
+
+  api.post("/devices/:id/space-check", async (request): Promise<SpaceCheck> => {
+    const { id } = parseWith(IdParams, request.params);
+    const body = parseWith(SpaceCheckRequestSchema, request.body);
+    return ctx.devices.checkSpace(id, body.items, body.target ?? "auto");
   });
 
   api.get("/jobs", async (request): Promise<WebJob[]> => {

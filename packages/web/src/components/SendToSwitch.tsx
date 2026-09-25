@@ -1,11 +1,13 @@
-import type { AppContent, InstallTarget } from "@nslib/shared";
+import type { AppContent, InstallTarget, SpaceCheck, SpaceCheckItem } from "@nslib/shared";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { useCreateJobs, useDevices } from "../api";
-import { updateLabel } from "../format";
+import { useCreateJobs, useDevices, useSpaceCheck } from "../api";
+import { formatBytes, plural, updateLabel } from "../format";
 import { Button } from "./Button";
+import { ConfirmPanel } from "./ConfirmPanel";
 import { ErrorText } from "./Feedback";
 import { Select } from "./Select";
+import { STORAGE_LABEL, StorageMeter } from "./StorageMeter";
 
 const TARGETS: { value: InstallTarget; label: string }[] = [
   { value: "auto", label: "Auto" },
@@ -21,6 +23,108 @@ function contentLabel(content: AppContent): string {
   return content.name;
 }
 
+function itemSize(item: SpaceCheckItem): string {
+  return `${item.estimated ? "≈ " : ""}${formatBytes(item.bytes)}`;
+}
+
+/** Where the items that don't fit were meant to go, for the warning. */
+function unfitWhere(check: SpaceCheck): string {
+  if (check.target !== "auto") return STORAGE_LABEL[check.target];
+  return check.sd ? "the SD card or system memory" : STORAGE_LABEL.nand;
+}
+
+/** Free space on the Switch, and what the queue and this batch would take from it. */
+function SpacePreview({
+  check,
+  deviceName,
+  stale,
+  labels,
+}: {
+  check: SpaceCheck;
+  deviceName: string;
+  stale: boolean;
+  /** How the content list names each item, so the warning reads the same way. */
+  labels: ReadonlyMap<number, string>;
+}) {
+  const label = (item: SpaceCheckItem) => labels.get(item.contentMetaId) ?? item.name;
+  if (!check.known) {
+    return (
+      <p className="mt-4 text-sm text-muted">
+        {deviceName} hasn&apos;t reported its free space yet. It does each time it connects, so the
+        space check starts working after that.
+      </p>
+    );
+  }
+
+  const unfit = check.items.filter((item) => !item.fits);
+  const estimated = check.items.some((item) => item.estimated);
+  const installed = check.items.filter((item) => item.installed);
+  // With a fixed target, how much has to be freed there for everything to fit.
+  const shortOn = (storage: "sd" | "nand") => {
+    const use = check[storage];
+    if (!use || check.target !== storage || unfit.length === 0) return 0;
+    const wanted = check.items.reduce((sum, item) => sum + item.bytes, 0);
+    return Math.max(0, use.queued + wanted - use.free);
+  };
+
+  return (
+    <div className={`mt-4 transition-opacity ${stale ? "opacity-60" : ""}`}>
+      <h3 className="text-sm font-semibold">Space on {deviceName}</h3>
+      <div className="mt-2 flex flex-col gap-3">
+        {check.sd && <StorageMeter storage="sd" {...check.sd} short={shortOn("sd")} />}
+        {check.nand && <StorageMeter storage="nand" {...check.nand} short={shortOn("nand")} />}
+        {!check.sd && (
+          <p className="text-sm text-muted">
+            No SD card reported, so installs go to system memory.
+          </p>
+        )}
+      </div>
+      {check.queuedJobs > 0 && (
+        <p className="mt-2 text-sm text-muted">
+          Counts {plural(check.queuedJobs, "install")} already queued for this Switch, which run
+          first.
+        </p>
+      )}
+
+      {unfit.length > 0 && (
+        <div className="mt-3 rounded-md bg-danger-soft p-3 text-sm">
+          <p className="font-semibold text-danger">
+            {unfit.length === check.items.length
+              ? "This won't fit"
+              : `${unfit.length} of ${check.items.length} won't fit`}{" "}
+            on {unfitWhere(check)}
+          </p>
+          <ul className="mt-1">
+            {unfit.map((item) => (
+              <li key={item.contentMetaId}>
+                {label(item)} · {itemSize(item)}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2">
+            The Switch checks again before writing and stops an install that doesn&apos;t fit. To
+            make room, uninstall or move titles from the Installed tab on the Switch
+            {check.target !== "auto" ? ", or choose another target" : ""}.
+          </p>
+        </div>
+      )}
+
+      {estimated && (
+        <p className="mt-2 text-sm text-muted">
+          Sizes marked ≈ are file sizes, because the installed size couldn&apos;t be read.
+          Compressed files (NSZ, XCZ) take more space once installed.
+        </p>
+      )}
+      {installed.length > 0 && (
+        <p className="mt-2 text-sm text-muted">
+          Already on {deviceName}: {installed.map(label).join(", ")}. Reinstalling writes little or
+          nothing, so these may need less space than shown.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SendToSwitch({ contents }: { contents: AppContent[] }) {
   const devices = useDevices();
   const send = useCreateJobs();
@@ -32,8 +136,19 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
   const [target, setTarget] = useState<InstallTarget>("auto");
   // Track what's unticked rather than ticked, so content that appears later starts ticked.
   const [unselected, setUnselected] = useState<ReadonlySet<number>>(() => new Set());
+  const [confirming, setConfirming] = useState(false);
 
   const chosen = active.find((d) => d.id === deviceId) ?? active[0];
+  const items = contents
+    .filter((c) => !unselected.has(c.contentMetaId))
+    .map((c) => c.contentMetaId);
+  const check = useSpaceCheck(chosen?.id ?? null, items, target);
+  // A placeholder answer is for the last selection: fine to show dimmed, not to decide on.
+  const shown = check.data?.deviceId === chosen?.id && items.length > 0 ? check.data : undefined;
+  const current = check.isPlaceholderData ? undefined : shown;
+  const sizes = new Map(shown?.items.map((item) => [item.contentMetaId, item]));
+  const unfitCount = current?.items.filter((item) => !item.fits).length ?? 0;
+  const labels = new Map(contents.map((c) => [c.contentMetaId, contentLabel(c)]));
 
   if (devices.isPending) return null;
   if (active.length === 0) {
@@ -50,7 +165,14 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
   // Changing what will be sent clears the result of the last send.
   const edit = (apply: () => void) => {
     apply();
+    setConfirming(false);
     if (!send.isPending) send.reset();
+  };
+
+  const queue = () => {
+    if (!chosen) return;
+    setConfirming(false);
+    send.mutate({ deviceId: chosen.id, items, target });
   };
 
   const toggle = (id: number) =>
@@ -62,10 +184,6 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
         return next;
       }),
     );
-
-  const items = contents
-    .filter((c) => !unselected.has(c.contentMetaId))
-    .map((c) => c.contentMetaId);
 
   return (
     <section className="mt-8 max-w-xl border-t border-line pt-6">
@@ -120,22 +238,54 @@ export function SendToSwitch({ contents }: { contents: AppContent[] }) {
                   onChange={() => toggle(content.contentMetaId)}
                 />
                 {contentLabel(content)}
+                {sizes.has(content.contentMetaId) && (
+                  <span className="text-muted">
+                    · {itemSize(sizes.get(content.contentMetaId) as SpaceCheckItem)}
+                  </span>
+                )}
               </label>
             </li>
           ))}
         </ul>
       </fieldset>
 
+      {shown && chosen && (
+        <SpacePreview
+          check={shown}
+          deviceName={chosen.name}
+          stale={check.isPlaceholderData}
+          labels={labels}
+        />
+      )}
+      <ErrorText>{check.error?.message}</ErrorText>
+
       <Button
         className="mt-4"
         disabled={!chosen || items.length === 0 || send.isPending}
+        aria-expanded={unfitCount > 0 ? confirming : undefined}
         onClick={() => {
-          if (!chosen) return;
-          send.mutate({ deviceId: chosen.id, items, target });
+          if (unfitCount > 0) setConfirming(true);
+          else queue();
         }}
       >
         {send.isPending ? "Queuing…" : "Send to Switch"}
       </Button>
+      {confirming && current && chosen && (
+        <ConfirmPanel
+          label="Send without enough space"
+          confirmLabel="Send anyway"
+          busy={send.isPending}
+          onConfirm={queue}
+          onCancel={() => setConfirming(false)}
+        >
+          <p>
+            {unfitCount === 1 ? "One install doesn't" : `${unfitCount} installs don't`} fit on{" "}
+            {unfitWhere(current)}, going by the space {chosen.name} last reported. Unless space is
+            freed first, the Switch will stop {unfitCount === 1 ? "it" : "them"} before writing
+            anything.
+          </p>
+        </ConfirmPanel>
+      )}
       <div aria-live="polite">
         {send.isSuccess && (
           <p className="mt-2 text-sm text-muted">

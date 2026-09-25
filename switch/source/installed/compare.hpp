@@ -13,6 +13,15 @@ namespace nslib {
 /** Patch title IDs are the base ID with the low 12 bits set to 0x800. */
 std::string baseTitleIdForPatch(const std::string& patchTitleId);
 
+/** DLC title IDs are the base ID with bit 12 flipped and an index in the low 12 bits. A guess, but a good one. */
+std::string baseTitleIdForAddon(const std::string& addonTitleId);
+
+/** The game an installed title belongs to: itself, the game an update patches, or the game a DLC extends. */
+std::string applicationIdFor(const InstalledTitle& title);
+
+/** Where Move sends a title stored on `storage`: the other one, or empty when there is no SD card. */
+std::string moveTargetFor(const std::string& storage, bool hasSd);
+
 struct InstalledSummary {
     bool baseInstalled = false;
     std::string baseStorage;
