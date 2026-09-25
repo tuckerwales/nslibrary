@@ -11,6 +11,24 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+### Added
+- Save backups. The Switch app's new **Saves** tab lists every account and device save on the
+  console. Back up one save or every save at once, and restore any backup of a game into its save,
+  including one made for another user or on another console. A restore checks the archive and backs
+  up the current save first, so it can be undone. Backing up every save only uploads the ones that
+  changed. See [docs/saves.md](docs/saves.md).
+- **Saves** in the web UI lists every backup by game and save, and downloads any of them as a tar
+  archive. Backups can be pinned, given a note, or deleted, and a game's page links to its backups.
+- **Settings → Save backups** sets how many backups each save keeps (10 by default, 0 keeps all).
+  Pinned backups are always kept.
+- Device API: `GET /saves`, `POST /saves` and `GET /saves/:id/data`, advertised as the `saves`
+  capability and available over USB too. `NSLIB_SAVE_MAX_MB` caps an upload (1024 MB by default).
+- `nslib-sim saves`, `backup` and `restore` exercise the save routes from a computer.
+
+### Changed
+- The USB host reads request payloads a chunk at a time, so a long upload is not mistaken for an
+  idle Switch, and discards a payload over 1 GiB without losing its place in the stream.
+
 ## [0.4.0] - 2026-09-24
 
 ### Added

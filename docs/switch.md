@@ -12,7 +12,7 @@ pnpm test:switch
 
 or `./scripts/build-switch.sh --test`.
 
-These parse `packages/shared/golden/device-api/` and `switch/tests/golden/` (PFS0, HFS0/XCI, NCZ, CNMT, ticket, pipeline).
+These parse `packages/shared/golden/device-api/` and `switch/tests/golden/` (PFS0, HFS0/XCI, NCZ, CNMT, ticket, pipeline), rebuild `packages/shared/golden/saves/archive.tar` byte for byte, and check that every translation has the English keys.
 
 Rebuild the golden binaries after changing the fixture generator:
 
@@ -49,6 +49,8 @@ CI builds the same target in `devkitpro/devkita64` and uploads the artifact.
 4. Enter the 6-digit code.
 5. Browse **Library** (icon grid; each tile says whether that game is already on the console). Press **Y** to sort by name, most recently added, or oldest added; the choice is remembered. Open a title for its base game, updates, and DLC, then pick **SD card**, **System memory**, or **Automatic**. The storage chosen in Settings is offered first.
 6. Jobs queued from the web (**Send to Switch**) are picked up by the long-poll. Open **Queue** and press A to start a waiting job or cancel a running one.
+
+**Saves** backs up game saves to the library and restores them, on this console or another one you own; see [saves.md](saves.md).
 
 **Updates** lists library updates newer than what is installed, **Installed** groups this console's games, updates, and DLC (with firmware, Atmosphère, and free space at the top), and **Not installed** lists library base games this Switch does not have.
 

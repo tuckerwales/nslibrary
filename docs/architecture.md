@@ -84,7 +84,7 @@ numbers. Icons are stored exactly as read from NACP or NRO — there is no serve
 SQLite through better-sqlite3 and Drizzle, in WAL mode. Tables: `library_roots`, `files`,
 `container_entries`, `content_metas`, `content_records`, `applications`, `homebrew`,
 `titledb_titles`, `titledb_versions`, `devices`, `pairing_codes`, `device_titles`, `install_jobs`,
-`settings`, `admin`, `sessions`. `install_jobs` doubles as transfer history. Migrations are generated
+`save_backups`, `settings`, `admin`, `sessions`. `install_jobs` doubles as transfer history. Migrations are generated
 into `packages/server/drizzle`.
 
 Flags derived at read time: latest update missing, duplicate `(tid, version)`, superseded update,
@@ -122,13 +122,26 @@ time either way. Failed sign-ins are rate limited per client address.
 | `GET /events?cursor&wait` | long poll: `job.queued`, `job.cancel`, `catalog` |
 | `POST /jobs`, `/jobs/:id/{claim,progress,complete}` | job lifecycle; installs started on the console also land in history |
 | `GET /update`, `/update/manifest`, `/update/signature` | signed self-update, when the server has a complete set |
+| `GET /saves`, `POST /saves`, `GET /saves/:id/data` | save backups: list, upload an archive, download one to restore ([saves.md](saves.md)) |
 
 `GET /catalog?since` answers either "no changes" or a full listing (`full: true`, empty `del`); there
 is no delta encoding, because the client always refetches the whole catalog. Errors are
 `{error:{code,msg}}` with the same codes over USB.
 
-A device token covers reading the catalog and that device's own jobs. It cannot upload files, change
-settings, or read keys. Tokens are revocable.
+A device token covers reading the catalog, that device's own jobs, and save backups: it can upload a
+save archive (checked, size-limited, and stored under `<dataDir>/saves`, never in a library folder)
+and read any backup, so a save can move between your consoles. It cannot upload anything else,
+change settings, or read keys. Tokens are revocable.
+
+### Save backups
+
+The Switch packs a save into an uncompressed ustar archive written deterministically, so an unchanged
+save always has the same SHA-256; "back up every save" skips those, and the server does not store a
+second copy of identical bytes. `SaveService` streams an upload to a temporary file, checks the hash
+the console sent and that the archive is a plain tree of files and directories, then keeps it and
+prunes the save's older unpinned backups. A restore on the console downloads and checks the archive,
+backs up the current save first, then clears the save and writes the archive, committing within the
+game's journal size. The format and the API are in [saves.md](saves.md).
 
 ### Discovery
 
@@ -168,10 +181,11 @@ source/
   app/        bootstrap, Settings, ServiceGuard (nifm, socket, ncm, ns, es, avm, setsys, psm), AppletGuard
   transport/  ITransport { request(); stream(req, sink) } → HttpTransport (curl, keep-alive, Range resume), UsbTransport, Discovery
   api/        DeviceApiClient, event polling
-  ui/         Connect, Pair, tabs (Library · Updates · Queue · Installed · Settings), detail, progress, async icon cache
+  ui/         Connect, Pair, tabs (Library · Updates · Queue · Installed · Not installed · Saves · Settings), detail, progress, async icon cache
   install/    InstallEngine, ContainerReader, NcaSink, NczDecoder, TicketInstaller, MetaInstaller, AppRecord, Pipeline, CancelToken, Rollback
   installed/  installed-title scan → PUT /state
   formats/    platform-neutral pfs0/hfs0/cnmt/ncz structs, shared with switch/tests
+  saves/      save archive writer/reader (platform-neutral, host-tested) and libnx save access
   update/     signed self-update: manifest, Ed25519 verify (TweetNaCl), apply
 ```
 
