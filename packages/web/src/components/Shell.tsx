@@ -91,6 +91,7 @@ export function Shell({ username, children }: { username: string; children: Reac
           <NavItem to="/" label="Library" count={stats?.applications} />
           <NavItem to="/switch" label="On this Switch" />
           <NavItem to="/history" label="History" />
+          <NavItem to="/saves" label="Saves" />
           <NavItem to="/homebrew" label="Homebrew" count={stats?.homebrew} />
           <NavItem to="/problems" label="Problems" count={stats?.problems} alert />
           <NavItem to="/devices" label="Devices" />

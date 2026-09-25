@@ -89,6 +89,9 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         );
       }
       break;
+    case "saves.changed":
+      void client.invalidateQueries({ queryKey: queryKeys.saves });
+      break;
     case "job.updated": {
       // Progress arrives every half second; only status changes need anything refetched.
       if (!patchJob(client, event.job)) break;
@@ -123,6 +126,7 @@ export function useLiveUpdates(enabled: boolean) {
           void client.invalidateQueries({ queryKey: queryKeys.device });
           void client.invalidateQueries({ queryKey: queryKeys.jobs });
           void client.invalidateQueries({ queryKey: queryKeys.verify });
+          void client.invalidateQueries({ queryKey: queryKeys.saves });
         }
         attempts = 0;
         setConnectionState("open");

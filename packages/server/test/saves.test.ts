@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { archiveFileName } from "../src/api/save-routes";
 import { SESSION_COOKIE } from "../src/auth/auth-service";
 import { createServer, type NslibServer } from "../src/server";
-import { makeTempDir, removeDir, testConfig } from "./helpers";
+import { fakeNsp, makeTempDir, removeDir, testConfig } from "./helpers";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -349,6 +349,7 @@ describe("save backups", () => {
       applicationId: APP,
       name: "Harbor Watch",
       iconUrl: null,
+      inLibrary: false,
       userId: USER,
       userName: "Player",
       deviceName: "Living room",
@@ -382,6 +383,22 @@ describe("save backups", () => {
     expect(existsSync(join(dir, "data", "saves", APP, `${id}.tar`))).toBe(false);
     expect((await web("GET", `/saves/${id}/download`)).statusCode).toBe(404);
     expect((await web("DELETE", `/saves/${id}`)).statusCode).toBe(404);
+  });
+
+  it("names a game from the library over the name the console sent", async () => {
+    await start();
+    const library = join(dir, "library");
+    await mkdir(library, { recursive: true });
+    await writeFile(
+      join(library, `Lighthouse Keeper [${APP}][v0].nsp`),
+      fakeNsp({ tickets: [APP] }),
+    );
+    const root = server.repo.createRoot({ path: library, label: "games" });
+    await server.scanner.scanRoot(root.id);
+    const token = await pair("3f2b8c1e-9a4d-4e7b-8c21-5d6f0a1b2c3d", "Living room");
+    await upload(token, archive("one"), { name: "Console name" });
+    const [backup] = (await web("GET", "/saves")).json<SaveBackup[]>();
+    expect(backup).toMatchObject({ name: "Lighthouse Keeper", inLibrary: true });
   });
 
   it("needs a signed-in session for the web API", async () => {

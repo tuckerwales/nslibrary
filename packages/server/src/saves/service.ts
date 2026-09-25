@@ -48,7 +48,7 @@ export interface StoredSave {
 /** Names and icons for games, from the library. Missing games fall back to what the console sent. */
 export type AppNames = (
   applicationIds: string[],
-) => Map<string, { name: string; iconUrl: string | null }>;
+) => Map<string, { name: string; iconUrl: string | null; inLibrary: boolean }>;
 
 function keyOf(row: SaveBackupRow): SaveKey {
   return {
@@ -361,6 +361,7 @@ export class SaveService {
         applicationId: row.applicationId,
         name: app?.name ?? row.appName ?? row.applicationId,
         iconUrl: app?.iconUrl ?? null,
+        inLibrary: app?.inLibrary ?? false,
         type: row.saveType,
         userId: row.userId,
         userName: row.userName,

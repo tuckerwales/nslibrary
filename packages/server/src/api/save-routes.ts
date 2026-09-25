@@ -59,11 +59,11 @@ async function sendFileRange(
 export function saveAppNames(db: Db, titledb: boolean): AppNames {
   return (ids) => {
     const wanted = new Set(ids);
-    const names = new Map<string, { name: string; iconUrl: string | null }>();
+    const names = new Map<string, { name: string; iconUrl: string | null; inLibrary: boolean }>();
     if (wanted.size === 0) return names;
     for (const app of listApplications(db, { titledb })) {
       if (wanted.has(app.applicationId)) {
-        names.set(app.applicationId, { name: app.name, iconUrl: app.iconUrl });
+        names.set(app.applicationId, { name: app.name, iconUrl: app.iconUrl, inLibrary: true });
       }
     }
     const missing = ids.filter((id) => !names.has(id));
@@ -74,7 +74,7 @@ export function saveAppNames(db: Db, titledb: boolean): AppNames {
         .where(inArray(titledbTitles.titleId, missing))
         .all();
       for (const row of rows) {
-        if (row.name) names.set(row.titleId, { name: row.name, iconUrl: null });
+        if (row.name) names.set(row.titleId, { name: row.name, iconUrl: null, inLibrary: false });
       }
     }
     return names;

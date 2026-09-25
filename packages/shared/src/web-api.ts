@@ -377,6 +377,8 @@ export interface SaveBackup {
   /** The library's name for the game, else the name the console sent, else the ID. */
   name: string;
   iconUrl: string | null;
+  /** Whether the game is in the library, so its page exists. */
+  inLibrary: boolean;
   type: SaveType;
   /** Account UID on the console the backup came from. Null for device saves. */
   userId: string | null;

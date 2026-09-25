@@ -18,6 +18,7 @@ const HomebrewPage = page(() => import("./pages/HomebrewPage"), "HomebrewPage");
 const LibraryPage = page(() => import("./pages/LibraryPage"), "LibraryPage");
 const NotFoundPage = page(() => import("./pages/NotFoundPage"), "NotFoundPage");
 const ProblemsPage = page(() => import("./pages/ProblemsPage"), "ProblemsPage");
+const SavesPage = page(() => import("./pages/SavesPage"), "SavesPage");
 const SettingsPage = page(() => import("./pages/SettingsPage"), "SettingsPage");
 const SwitchLibraryPage = page(() => import("./pages/SwitchLibraryPage"), "SwitchLibraryPage");
 
@@ -54,6 +55,7 @@ export function App() {
           <Route path="/homebrew" element={<HomebrewPage />} />
           <Route path="/switch" element={<SwitchLibraryPage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/saves" element={<SavesPage />} />
           <Route path="/problems" element={<ProblemsPage />} />
           <Route path="/devices" element={<DevicesPage />} />
           <Route path="/folders" element={<FoldersPage />} />

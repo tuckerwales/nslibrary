@@ -121,6 +121,65 @@ function InstallsSection() {
   );
 }
 
+function SavesSection() {
+  const settings = useServerSettings();
+  const putSettings = usePutSettings();
+  const [keep, setKeep] = useState<string | null>(null);
+  const current = settings.data?.saveBackupsKeep;
+  const value = keep ?? (current === undefined ? "" : String(current));
+  const parsed = Number(value);
+  const valid = value.trim() !== "" && Number.isInteger(parsed) && parsed >= 0 && parsed <= 1000;
+
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!valid) return;
+    putSettings.mutate({ saveBackupsKeep: parsed }, { onSuccess: () => setKeep(null) });
+  };
+
+  return (
+    <section className="mt-12 max-w-2xl">
+      <h2 className="text-xl">Save backups</h2>
+      <p className="mt-2 text-muted">
+        Each save keeps its newest backups; older ones are removed when a new one arrives. Pinned
+        backups are always kept, on top of this number.
+      </p>
+      {settings.error && <LoadError error={settings.error} />}
+      {settings.data && (
+        <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+          <Field
+            label="Backups to keep per save"
+            hint="0 keeps every backup."
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={1000}
+            step={1}
+            required
+            value={value}
+            onChange={(event) => {
+              setKeep(event.target.value);
+              putSettings.reset();
+            }}
+            className="sm:w-56"
+          />
+          <Button
+            type="submit"
+            className="sm:mb-6"
+            disabled={!valid || putSettings.isPending || parsed === current}
+          >
+            {putSettings.isPending ? "Saving…" : "Save"}
+          </Button>
+        </form>
+      )}
+      <ErrorText>
+        {value.trim() !== "" && !valid
+          ? "Enter a whole number from 0 to 1000."
+          : putSettings.error?.message}
+      </ErrorText>
+    </section>
+  );
+}
+
 function ForwarderSection() {
   const forwarder = useForwarderStatus();
   const download = useDownloadForwarder();
@@ -321,6 +380,7 @@ export function SettingsPage() {
       </PageHeader>
       <KeysSection />
       <InstallsSection />
+      <SavesSection />
       <ForwarderSection />
       <TitledbSection />
       <AccountSection />

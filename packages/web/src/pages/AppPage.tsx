@@ -5,6 +5,7 @@ import {
   useApp,
   useCancelVerify,
   useRootPaths,
+  useSaveBackups,
   useStartVerify,
   useVerifyTask,
 } from "../api";
@@ -12,11 +13,13 @@ import { Button } from "../components/Button";
 import { ContentStrip } from "../components/ContentStrip";
 import { LoadError, Loading } from "../components/Feedback";
 import { FileName } from "../components/FileName";
+import { RelativeTime } from "../components/RelativeTime";
 import { SendToSwitch } from "../components/SendToSwitch";
 import { TitleIcon } from "../components/TitleIcon";
 import {
   FORMAT_LABEL,
   formatBytes,
+  plural,
   SOURCE_LABEL,
   updateLabel,
   usePageTitle,
@@ -56,6 +59,32 @@ function verifyProgressText(task: VerifyTask): string {
   if (task.state === "queued") return "Waiting to verify…";
   if (task.bytesTotal <= 0) return "Verifying…";
   return `Verifying ${Math.floor((task.bytesDone / task.bytesTotal) * 100)}%`;
+}
+
+/** How many save backups the server holds for this game, with a link to them. */
+function SaveBackupsSummary({ applicationId }: { applicationId: string }) {
+  const saves = useSaveBackups();
+  if (!saves.data) return null;
+  const backups = saves.data.filter((backup) => backup.applicationId === applicationId);
+  const newest = backups[0];
+  return (
+    <section className="mt-10">
+      <h2 className="text-xl">Save backups</h2>
+      {newest ? (
+        <p className="mt-2 text-muted">
+          {plural(backups.length, "backup")}, the newest{" "}
+          <RelativeTime timestamp={newest.createdAt} />.{" "}
+          <Link to={`/saves?app=${applicationId}`} className="text-accent hover:underline">
+            View saves
+          </Link>
+        </p>
+      ) : (
+        <p className="mt-2 text-muted">
+          None yet. Back up this game's save from the Saves tab of the NSLibrary app on a Switch.
+        </p>
+      )}
+    </section>
+  );
 }
 
 function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string | undefined }) {
@@ -239,6 +268,8 @@ export function AppPage() {
           </section>
         );
       })}
+
+      <SaveBackupsSummary applicationId={detail.applicationId} />
     </>
   );
 }
