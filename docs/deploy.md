@@ -24,6 +24,7 @@ The web UI is not a static site. Coolify (or any host) must run the **Node serve
 5. Persistent storage:
    - Destination `/data` — database, keys, icon cache. **Required.**
    - Destination `/library/games` (read-only) — your NSP/NSZ/XCI/NRO dumps. Add more mounts as `/library/<name>` if you want several roots.
+   - Optional: a **writable** destination such as `/library/nsz` for NSP → NSZ compression. Choose it as the output folder on the **Compression** page; because it's under `/library`, it is also attached as a library folder, so new NSZ files are listed and installable. Removing originals after compression only works on mounts that aren't read-only.
 
 6. Enable the HTTP proxy / domain as usual. WebSockets (`/api/v1/ws`) use the same host; Coolify’s Traefik proxies them.
 

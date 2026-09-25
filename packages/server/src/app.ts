@@ -5,6 +5,7 @@ import websocket from "@fastify/websocket";
 import { DEVICE_API_BASE_PATH, WEB_API_BASE_PATH } from "@nslib/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 import { registerAuthRoutes, requireSession } from "./api/auth-routes";
+import { registerCompressRoutes } from "./api/compress-routes";
 import type { AppContext } from "./api/context";
 import { registerDeviceRoutes } from "./api/device-routes";
 import { registerDeviceWebRoutes } from "./api/device-web-routes";
@@ -42,6 +43,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
         secured.addHook("onRequest", requireSession(ctx));
         await registerRootRoutes(secured, ctx);
         await registerLibraryRoutes(secured, ctx);
+        await registerCompressRoutes(secured, ctx);
         await registerKeysRoutes(secured, ctx);
         await registerDeviceWebRoutes(secured, ctx);
       });

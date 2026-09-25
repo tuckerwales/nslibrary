@@ -1,7 +1,14 @@
-import type { JobStatus, LibraryRoot, ServerEvent, VerifyTask, WebJob } from "@nslib/shared";
+import type {
+  CompressTask,
+  JobStatus,
+  LibraryRoot,
+  ServerEvent,
+  VerifyTask,
+  WebJob,
+} from "@nslib/shared";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
-import { LIBRARY_QUERY_KEYS, queryKeys, upsertVerifyTask } from "./api";
+import { LIBRARY_QUERY_KEYS, queryKeys, upsertCompressTask, upsertVerifyTask } from "./api";
 import { isActiveJobStatus } from "./jobs";
 
 const MAX_RETRY_DELAY_MS = 30_000;
@@ -89,6 +96,17 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         );
       }
       break;
+    case "compress.updated":
+      if (client.getQueryData(queryKeys.compress)) {
+        client.setQueryData<CompressTask[]>(queryKeys.compress, (tasks) =>
+          upsertCompressTask(tasks, event.task),
+        );
+      }
+      // A finished compression changes which files are left to compress.
+      if (event.task.state === "done") {
+        void client.invalidateQueries({ queryKey: queryKeys.compressCandidates });
+      }
+      break;
     case "job.updated": {
       // Progress arrives every half second; only status changes need anything refetched.
       if (!patchJob(client, event.job)) break;
@@ -123,6 +141,7 @@ export function useLiveUpdates(enabled: boolean) {
           void client.invalidateQueries({ queryKey: queryKeys.device });
           void client.invalidateQueries({ queryKey: queryKeys.jobs });
           void client.invalidateQueries({ queryKey: queryKeys.verify });
+          void client.invalidateQueries({ queryKey: queryKeys.compress });
         }
         attempts = 0;
         setConnectionState("open");

@@ -41,8 +41,9 @@ either transport, and it is the constraint to preserve when adding to the device
 
 ### Scanner
 
-- **Roots are read-only.** The server never writes into a library folder. Removing a file marks it
-  `missing_since`; it is purged after 30 days.
+- **Roots are read-only.** The server never writes into a library folder, except the compression
+  output folder you choose (which may be inside one) and, only if you turn it on, deleting an NSP
+  whose NSZ has been checked. Removing a file marks it `missing_since`; it is purged after 30 days.
 - **File identity** is `(root, rel_path, size, mtime)`. A file is re-parsed only when one of those
   changes, or when `parser_version` goes up.
 - **Watching** uses chokidar with `awaitWriteFinish`. Each root can be switched to polling for NFS
@@ -51,6 +52,40 @@ either transport, and it is the constraint to preserve when adding to the device
 - **Verification** runs in `VerifyService`, an in-process queue handling one file at a time, with
   streaming NCZ decode so a large title does not have to be materialised. It reports progress and can
   be cancelled.
+
+### Compression
+
+`CompressService` turns NSP files into NSZ in the background, one file at a time, like verification.
+It needs `prod.keys` and the file's CNMT content records, since those are what the result is checked
+against.
+
+- **What is compressed.** As in nsz, Program and PublicData NCAs become NCZ; meta, control, and
+  everything else (tickets, certs) are copied unchanged, in the original order. Rights-ID NCAs use
+  the title key from the file's common ticket; one with a personalized ticket, or an AES-XTS
+  section, is copied and the result says why.
+- **Encoding** (`formats/src/ncz-encode.ts`). The first 0x4000 bytes stay as they are, the section
+  table comes from the NCA header, and the rest is decrypted and compressed as independent 1 MiB
+  zstd blocks (`NCZBLOCK`), stored raw when zstd doesn't shrink them. Block mode keeps the Switch's
+  memory to one block, whatever the level. BKTR (AesCtrEx) sections in updates are split along
+  their subsection table so each part is decrypted with its own counter. AES-CTR is its own inverse
+  and decoders re-apply exactly the table written, so a table that can't be read falls back to the
+  base counter: the file still restores exactly and only compresses less. Bytes after the last
+  section get a plain section, since the Switch sizes the restored NCA from the table.
+- **Threads.** Blocks compress on a small pool of worker threads (`NSLIB_COMPRESS_THREADS`)
+  rather than libuv's pool, which also serves the file reads that installs stream from.
+- **Checking.** Each original NCA is hashed as it is read and must match its CNMT record, so a
+  damaged NSP is never compressed. The new file is then read back from disk and every entry
+  (restored first, for NCZ) must hash the same as the original's.
+- **Writing.** The NSZ is written as `.<name>.nsz.nslib-partial` in the output folder (hidden, so
+  the scanner ignores it), renamed once checked, and never over an existing file. Leftover partial
+  files are removed on start. If the output folder is inside an enabled library folder, that folder
+  is rescanned, and **Prefer NSZ** then makes the catalog offer the new copy.
+- **Removing the original** is off by default. When on, the NSP (every part of a split one) is
+  deleted only after the check passes, and kept, with a note, if an install from it is queued or
+  running, it changed during compression, or its folder is read-only.
+
+Tasks and results (sizes, space saved, per-entry notes) are kept in memory like verify tasks;
+settings (output folder, zstd level 1 to 22, default 18, and removing originals) are in `settings`.
 
 ### What needs keys
 
@@ -63,6 +98,7 @@ either transport, and it is the constraint to preserve when adding to the device
 | Real type, version, required firmware, content list with SHA-256s | CNMT inside the meta NCA | header key + key-area key |
 | Name, publisher, icon, DLC base-ID range | control NCA → RomFS → `control.nacp` + icon | header/KAEK, or titlekek + ticket |
 | Integrity | SHA-256 of each NCA, decompressed first if NCZ, compared against the CNMT | as CNMT |
+| NSP → NSZ compression | NCA header and section keys, then the CNMT to check the result | as CNMT, plus titlekek + ticket for rights-ID content |
 
 Crypto is Node's: `aes-128-xts` per 0x200 sector with the Nintendo tweak for NCA headers,
 `aes-128-ctr` for sections, `aes-128-ecb` for the key area.
@@ -97,10 +133,13 @@ orphan update or DLC, firmware newer than a device, not present on a given devic
 
 Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&sort&order&device…`
 and `GET /apps/:id` grouping base, updates, DLC, files and per-device state), file verification,
+compression (`GET /compress`, `GET`/`PUT /compress/settings`, `GET /compress/candidates`,
+`POST /compress` for several files, `POST /files/:id/compress` and `…/compress/cancel`),
 keys (`PUT /keys`, `GET /keys/status`), titledb config and refresh, devices (pairing code, list,
 rename, revoke), and jobs (create, reorder, cancel, list).
 
-`/ws` pushes `scan.progress`, `library.changed`, `device.online`/`offline`, and `job.updated`.
+`/ws` pushes `scan.progress`, `library.changed`, `device.online`/`offline`, `job.updated`,
+`verify.updated`, and `compress.updated`.
 
 Sessions are a 32-byte random token; only its SHA-256 is stored. Cookies are `HttpOnly`,
 `SameSite=Strict`, and `Secure` over HTTPS. Changing the password signs out every other session;

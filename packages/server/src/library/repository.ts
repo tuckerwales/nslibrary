@@ -170,6 +170,23 @@ export class LibraryRepository {
       .run();
   }
 
+  getSetting(key: string): string | null {
+    return this.db.select().from(settings).where(eq(settings.key, key)).get()?.value ?? null;
+  }
+
+  /** Stores a setting; null deletes it. */
+  putSetting(key: string, value: string | null): void {
+    if (value === null) {
+      this.db.delete(settings).where(eq(settings.key, key)).run();
+      return;
+    }
+    this.db
+      .insert(settings)
+      .values({ key, value })
+      .onConflictDoUpdate({ target: settings.key, set: { value } })
+      .run();
+  }
+
   setRootScanResult(id: number, lastScanError: string | null): void {
     this.db
       .update(libraryRoots)

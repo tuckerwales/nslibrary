@@ -19,7 +19,8 @@ import { applications, contentMetas, files, homebrew, libraryRoots } from "../db
 import { preferredFormatRank } from "./prefer";
 import { tdbApp, tdbTitle, titledbJoin } from "./titledb-join";
 
-const fileInfoColumns = {
+/** Columns of `LibraryFileInfo`, for selects that return files. */
+export const fileInfoColumns = {
   id: files.id,
   rootId: files.rootId,
   relPath: files.relPath,

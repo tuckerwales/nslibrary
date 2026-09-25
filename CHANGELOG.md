@@ -11,6 +11,22 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+### Added
+- **NSP → NSZ compression on the server.** The new **Compression** page (and a **Compress** button on
+  each NSP in a title's files) compresses titles into an output folder you choose, usually 30 to 60%
+  smaller. Program and data NCAs become block-mode NCZ, as nsz writes them, including updates' BKTR
+  sections; everything else is copied. Each original NCA must match its CNMT hash as it is read, and
+  the finished NSZ is read back and every entry compared with the original before it is kept, so a
+  damaged source or a bad write never leaves a file behind. Results show the space saved per file
+  and in total. **Compress all** queues every NSP that has no NSZ copy yet. Needs `prod.keys`.
+- Compression settings: the output folder (put it inside a library folder so new files are listed
+  and, with **Prefer NSZ**, installed), the zstd level (Fast, Standard, Smallest), and an option,
+  off by default, to delete the original NSP once its NSZ checks out.
+- `NSLIB_COMPRESS_THREADS` sets how many worker threads compression uses (default: cores − 1, at
+  most 4). They are separate from the threads that serve file reads, so installs keep streaming.
+- Web API: `GET /compress`, `GET`/`PUT /compress/settings`, `GET /compress/candidates`,
+  `POST /compress`, `POST /files/:id/compress` and `/cancel`, and `compress.updated` events.
+
 ## [0.4.0] - 2026-09-24
 
 ### Added

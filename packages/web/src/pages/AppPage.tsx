@@ -1,10 +1,14 @@
-import type { AppContent, AppFlag, LibraryFileInfo, VerifyTask } from "@nslib/shared";
+import type { AppContent, AppFlag, CompressTask, LibraryFileInfo, VerifyTask } from "@nslib/shared";
 import { Link, useParams } from "react-router";
 import {
   ApiRequestError,
+  isCompressActive,
   useApp,
+  useCancelCompress,
   useCancelVerify,
+  useCompressTask,
   useRootPaths,
+  useStartCompress,
   useStartVerify,
   useVerifyTask,
 } from "../api";
@@ -14,6 +18,7 @@ import { LoadError, Loading } from "../components/Feedback";
 import { FileName } from "../components/FileName";
 import { SendToSwitch } from "../components/SendToSwitch";
 import { TitleIcon } from "../components/TitleIcon";
+import { compressProgressText, outputFileName, savedText } from "../compress";
 import {
   FORMAT_LABEL,
   formatBytes,
@@ -58,6 +63,56 @@ function verifyProgressText(task: VerifyTask): string {
   return `Verifying ${Math.floor((task.bytesDone / task.bytesTotal) * 100)}%`;
 }
 
+/** What became of the file's latest compression, under its row. */
+function CompressStatus({ task }: { task: CompressTask }) {
+  if (isCompressActive(task)) {
+    return (
+      <p className="mt-1 text-sm text-muted" aria-live="polite">
+        {compressProgressText(task)}
+      </p>
+    );
+  }
+  if (task.state === "cancelled") {
+    return <p className="mt-1 text-sm text-muted">Compression cancelled.</p>;
+  }
+  if (task.state === "failed") {
+    return (
+      <p className="mt-1 text-sm text-danger [overflow-wrap:anywhere]">
+        Couldn't compress: {task.error}{" "}
+        {task.error?.includes("output folder") || task.error?.includes("prod.keys") ? (
+          <Link to="/compression" className="underline">
+            Compression settings
+          </Link>
+        ) : null}
+      </p>
+    );
+  }
+  const result = task.result;
+  if (!result) return null;
+  return (
+    <div className="mt-1 text-sm [overflow-wrap:anywhere]">
+      <p>
+        <span className="text-update">{savedText(result)}</span>
+        <span className="text-muted">
+          {" "}
+          as {outputFileName(result.outputPath)}.
+          {result.originalRemoved ? " The NSP was removed." : ""}
+          {result.inLibrary
+            ? ""
+            : " The output folder isn't in your library, so the NSZ isn't listed here."}
+        </span>
+      </p>
+      {result.warnings.length > 0 && (
+        <ul className="mt-0.5 space-y-0.5 text-dlc">
+          {result.warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string | undefined }) {
   // Verifies run on the server in the background, so they survive leaving this page.
   const task = useVerifyTask(file.id).data ?? null;
@@ -68,10 +123,17 @@ function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string |
   const label = VERIFY_LABEL[status];
   const failures =
     task?.state === "done" ? (task.result?.items.filter((item) => !item.ok) ?? []) : [];
+  const compressible = file.format === "nsp" && file.missingSince === null;
+  const compressTask = useCompressTask(file.id).data ?? null;
+  const startCompress = useStartCompress();
+  const cancelCompress = useCancelCompress();
+  const compressing = isCompressActive(compressTask);
   const errors = [
     task?.state === "failed" ? task.error : null,
     start.error?.message,
     cancel.error?.message,
+    startCompress.error?.message,
+    cancelCompress.error?.message,
   ].filter((message): message is string => Boolean(message));
 
   return (
@@ -85,7 +147,29 @@ function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string |
           <span className={active ? "text-muted" : label.className} aria-live="polite">
             {active ? verifyProgressText(task) : label.text}
           </span>
-          <span className="sm:justify-self-end">
+          <span className="flex flex-wrap gap-x-1 sm:justify-self-end">
+            {compressible &&
+              (compressing ? (
+                <Button
+                  variant="ghost"
+                  className="h-8 px-2"
+                  disabled={cancelCompress.isPending}
+                  aria-label={`Stop compressing: ${file.relPath}`}
+                  onClick={() => cancelCompress.mutate(file.id)}
+                >
+                  Stop compressing
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  className="h-8 px-2"
+                  disabled={startCompress.isPending}
+                  aria-label={`Compress to NSZ: ${file.relPath}`}
+                  onClick={() => startCompress.mutate(file.id)}
+                >
+                  Compress
+                </Button>
+              ))}
             {active ? (
               <Button
                 variant="ghost"
@@ -110,6 +194,7 @@ function FileRow({ file, rootPath }: { file: LibraryFileInfo; rootPath: string |
           </span>
         </span>
       </div>
+      {compressTask && <CompressStatus task={compressTask} />}
       {errors.length > 0 && (
         <ul className="mt-1 space-y-0.5 text-sm text-danger">
           {errors.map((message) => (

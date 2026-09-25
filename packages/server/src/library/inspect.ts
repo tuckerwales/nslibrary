@@ -137,7 +137,8 @@ function emptyMetaFields(): Pick<
   };
 }
 
-async function readTickets(
+/** Parses the file's tickets by title ID. Unreadable ones are reported in `warnings`. */
+export async function readTickets(
   reader: RandomAccessReader,
   entries: PartitionEntry[],
   warnings: string[],
@@ -227,7 +228,11 @@ async function ncaReaderFor(
   return new BufferReader(await decompressNczToBuffer(slice));
 }
 
-function titleKeyFor(
+/**
+ * The title key for a rights-ID NCA from a matching common ticket. Undefined, with a warning, when
+ * there is no usable ticket, and undefined without one when the NCA has no rights ID.
+ */
+export function titleKeyFor(
   keys: Keyset,
   header: Buffer,
   tickets: Map<string, TicketInfo>,

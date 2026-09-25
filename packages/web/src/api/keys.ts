@@ -20,6 +20,10 @@ export const queryKeys = {
   jobs: ["jobs"],
   /** Background verifies; kept current by `verify.updated` events. */
   verify: ["verify"],
+  /** Background compressions; kept current by `compress.updated` events. */
+  compress: ["compress"],
+  compressSettings: ["compress-settings"],
+  compressCandidates: ["compress-candidates"],
   jobList: (limit: number) => ["jobs", limit],
   pairingCode: ["pairing-code"],
 } as const;
@@ -38,4 +42,6 @@ export const LIBRARY_QUERY_KEYS = [
   queryKeys.keys,
   queryKeys.titledb,
   queryKeys.forwarder,
+  queryKeys.compressSettings,
+  queryKeys.compressCandidates,
 ];
