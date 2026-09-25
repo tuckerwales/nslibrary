@@ -21,6 +21,12 @@ struct MetaRecord {
  *  Records for other title IDs, such as sibling DLC, are kept. */
 std::vector<MetaRecord> mergeMetaRecord(std::vector<MetaRecord> records, const MetaRecord& incoming);
 
+/** Drop the record for `id` on `storage`, as when that update or DLC is uninstalled. */
+std::vector<MetaRecord> removeMetaRecord(std::vector<MetaRecord> records, uint64_t id, uint8_t storage);
+
+/** Point the record for `id` on `from` at `to`, as when its content moves between SD and NAND. */
+std::vector<MetaRecord> moveMetaRecord(std::vector<MetaRecord> records, uint64_t id, uint8_t from, uint8_t to);
+
 /** Highest application or patch version. Add-on versions do not count toward the launch version. */
 uint32_t launchVersionFor(const std::vector<MetaRecord>& records);
 

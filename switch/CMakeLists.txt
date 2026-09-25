@@ -91,6 +91,7 @@ if (PLATFORM_SWITCH)
         source/install/app_record.cpp
         source/install/es.cpp
         source/installed/scanner.cpp
+        source/installed/manage.cpp
         source/ui/detail.cpp
         source/ui/widgets.cpp
         source/ui/icon_cache.cpp
@@ -193,6 +194,7 @@ else()
         tests/hardening_test.cpp
         tests/format_test.cpp
         tests/library_sort_test.cpp
+        tests/manage_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source

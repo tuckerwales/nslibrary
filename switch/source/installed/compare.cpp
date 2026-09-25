@@ -25,6 +25,26 @@ std::string baseTitleIdForPatch(const std::string& patchTitleId) {
     return buf;
 }
 
+std::string baseTitleIdForAddon(const std::string& addonTitleId) {
+    if (addonTitleId.size() != 16) return upper(addonTitleId);
+    const uint64_t id = std::strtoull(addonTitleId.c_str(), nullptr, 16);
+    char buf[17];
+    std::snprintf(buf, sizeof(buf), "%016llX", static_cast<unsigned long long>((id & ~uint64_t(0xfff)) ^ 0x1000));
+    return buf;
+}
+
+std::string applicationIdFor(const InstalledTitle& title) {
+    if (title.type == "patch") return baseTitleIdForPatch(title.titleId);
+    if (title.type == "addon" || title.type == "aoc") return baseTitleIdForAddon(title.titleId);
+    return upper(title.titleId);
+}
+
+std::string moveTargetFor(const std::string& storage, bool hasSd) {
+    if (storage == "sd") return "nand";
+    if (storage == "nand" && hasSd) return "sd";
+    return "";
+}
+
 InstalledSummary summarizeInstalled(const std::vector<InstalledTitle>& titles, const std::string& appId) {
     InstalledSummary out;
     const std::string id = upper(appId);
