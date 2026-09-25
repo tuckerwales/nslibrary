@@ -55,6 +55,7 @@ set(NSLIB_COMMON_SRC
     source/update/ed25519.cpp
     source/update/manifest.cpp
     source/update/verify.cpp
+    source/saves/archive.cpp
 )
 
 if (PLATFORM_SWITCH)
@@ -193,6 +194,7 @@ else()
         tests/hardening_test.cpp
         tests/format_test.cpp
         tests/library_sort_test.cpp
+        tests/saves_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source

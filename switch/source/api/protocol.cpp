@@ -1,5 +1,7 @@
 #include "api/protocol.hpp"
 
+#include "api/url.hpp"
+
 namespace nslib {
 namespace {
 
@@ -296,6 +298,56 @@ Json encodeCreateJob(int64_t contentMetaId, const std::string& target) {
     o.set("contentMetaId", Json::number(contentMetaId));
     o.set("target", Json::string(target));
     return o;
+}
+
+SaveBackup parseSaveBackup(const Json& v) {
+    if (!v.isObject()) throw JsonError("save backup must be an object");
+    SaveBackup b;
+    b.id = reqInt(v["id"], "id");
+    b.app = reqString(v["app"], "app");
+    b.type = reqString(v["type"], "type");
+    if (v["user"].isString()) b.user = v["user"].asString();
+    if (v["userName"].isString()) b.userName = v["userName"].asString();
+    b.device = reqString(v["device"], "device");
+    b.mine = v["mine"].isBool() && v["mine"].asBool();
+    b.size = reqUint(v["size"], "size");
+    b.dataSize = reqUint(v["dataSize"], "dataSize");
+    b.files = uint32_t(reqUint(v["files"], "files"));
+    b.sha256 = reqString(v["sha256"], "sha256");
+    b.at = reqInt(v["at"], "at");
+    b.origin = reqString(v["origin"], "origin");
+    b.pinned = v["pinned"].isBool() && v["pinned"].asBool();
+    if (v["note"].isString()) b.note = v["note"].asString();
+    return b;
+}
+
+std::vector<SaveBackup> parseSaveList(const Json& v) {
+    std::vector<SaveBackup> out;
+    if (!v.has("backups") || !v["backups"].isArray()) throw JsonError("missing backups");
+    for (const auto& item : v["backups"].items()) out.push_back(parseSaveBackup(item));
+    return out;
+}
+
+SaveUploadResult parseSaveUpload(const Json& v) {
+    SaveUploadResult r;
+    r.backup = parseSaveBackup(v["backup"]);
+    r.dup = v["dup"].isBool() && v["dup"].asBool();
+    return r;
+}
+
+std::string saveUploadPath(const SaveUploadQuery& q) {
+    std::vector<std::pair<std::string, std::string>> params;
+    const auto add = [&](const char* key, const std::string& value) {
+        if (!value.empty()) params.emplace_back(key, value);
+    };
+    add("app", q.app);
+    add("type", q.type);
+    add("user", q.user);
+    add("userName", q.userName);
+    add("name", q.name);
+    add("origin", q.origin);
+    add("sha256", q.sha256);
+    return "/saves" + queryString(params);
 }
 
 } // namespace nslib
