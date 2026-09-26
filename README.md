@@ -7,7 +7,7 @@ Self-hosted library for **your own** Nintendo Switch dumps. Scan folders of NSP,
 
 There are no download sources, no shop scraping, and no title keys handed out. Keys (`prod.keys`) come from your own console, stay on the server, and are optional.
 
-![The web library, listing four games with their base, update, and DLC badges](docs/img/web-library.png)
+![The web library grid, showing four games as cards with their base, update, and DLC badges](docs/img/web-library.png)
 
 > **This project is for content you dumped yourself, from your own console and your own cartridges.**
 > It will not help you obtain games, keys, or firmware, and requests to add that are out of scope

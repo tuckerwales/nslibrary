@@ -20,7 +20,7 @@ export function ConnectionBanner() {
   return (
     <div role="status" aria-live="polite">
       {visible && (
-        <p className="mb-6 border-l-2 border-danger pl-3 text-sm">
+        <p className="mb-6 rounded-md border border-danger/40 bg-danger-soft px-3 py-2 text-sm">
           Lost connection to the server. Reconnecting… Changes may not show until it's back.
         </p>
       )}

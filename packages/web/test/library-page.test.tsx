@@ -6,9 +6,9 @@ import { renderWithApp, stubApi } from "./render";
 
 afterEach(() => vi.unstubAllGlobals());
 
-function setUp(url = "/") {
+function setUp(url = "/", apps = [app()]) {
   const fetch = stubApi({
-    "/apps": [app()],
+    "/apps": apps,
     "/stats": {
       applications: 1,
       files: 1,
@@ -118,5 +118,32 @@ describe("LibraryPage sort", () => {
     await screen.findByText("Example");
     expect(page.sort().value).toBe("name");
     expect(page.appRequests()).toEqual([""]);
+  });
+});
+
+describe("LibraryPage filters", () => {
+  it("counts each filter and hides the ones with nothing in them", async () => {
+    setUp("/", [
+      app({ applicationId: "0100000000010000", flags: ["duplicate"] }),
+      app({ applicationId: "0100000000020000", name: "Other", flags: ["duplicate", "no-base"] }),
+    ]);
+    const duplicates = await screen.findByRole("button", { name: /^Duplicates/ });
+    expect(duplicates.textContent).toBe("Duplicates2");
+    expect(screen.getByRole("button", { name: /^All/ }).textContent).toBe("All2");
+    expect(screen.queryByRole("button", { name: /Older updates/ })).toBeNull();
+  });
+
+  it("offers to clear a search that matches nothing", async () => {
+    const page = setUp("/?q=zzz", []);
+    fireEvent.click(await screen.findByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(page.location()).toBe("/"));
+    expect(page.search().value).toBe("");
+  });
+
+  it("jumps to the search box on /", async () => {
+    const page = setUp();
+    await screen.findByText("Example");
+    fireEvent.keyDown(document.body, { key: "/" });
+    expect(document.activeElement).toBe(page.search());
   });
 });
