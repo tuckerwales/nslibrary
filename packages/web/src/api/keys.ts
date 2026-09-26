@@ -27,6 +27,8 @@ export const queryKeys = {
   compressFolders: ["compress-folders"],
   jobList: (limit: number) => ["jobs", limit],
   pairingCode: ["pairing-code"],
+  /** Save backups; kept current by `saves.changed` events. */
+  saves: ["saves"],
 } as const;
 
 /**

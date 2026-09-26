@@ -48,6 +48,9 @@ import { DeviceEventLog } from "./events";
 export const PREFER_NSZ_KEY = "prefer_nsz";
 export const SERVER_ID_KEY = "server_id";
 export const REQUIRE_USB_PAIRING_KEY = "require_usb_pairing";
+export const SAVE_BACKUPS_KEEP_KEY = "save_backups_keep";
+/** Backups kept per save unless the setting says otherwise. */
+export const DEFAULT_SAVE_BACKUPS_KEEP = 10;
 
 const PAIR_TTL_MS = 5 * 60 * 1000;
 const PAIR_MAX_ATTEMPTS = 5;
@@ -173,11 +176,19 @@ export class DeviceApiService {
     return setting(this.#db, REQUIRE_USB_PAIRING_KEY) === "1";
   }
 
+  /** Backups kept per save; 0 keeps every one. */
+  saveBackupsKeep(): number {
+    const stored = setting(this.#db, SAVE_BACKUPS_KEEP_KEY);
+    const value = stored === null ? Number.NaN : Number(stored);
+    return Number.isInteger(value) && value >= 0 ? value : DEFAULT_SAVE_BACKUPS_KEEP;
+  }
+
   getSettings(): ServerSettings {
     return {
       preferNsz: this.preferNsz(),
       serverName: this.serverName,
       requireUsbPairing: this.requireUsbPairing(),
+      saveBackupsKeep: this.saveBackupsKeep(),
     };
   }
 
@@ -185,7 +196,11 @@ export class DeviceApiService {
     preferNsz?: boolean;
     serverName?: string;
     requireUsbPairing?: boolean;
+    saveBackupsKeep?: number;
   }): ServerSettings {
+    if (patch.saveBackupsKeep !== undefined) {
+      putSetting(this.#db, SAVE_BACKUPS_KEEP_KEY, String(patch.saveBackupsKeep));
+    }
     if (patch.preferNsz !== undefined)
       putSetting(this.#db, PREFER_NSZ_KEY, patch.preferNsz ? "1" : "0");
     if (patch.serverName !== undefined) putSetting(this.#db, "server_name", patch.serverName);

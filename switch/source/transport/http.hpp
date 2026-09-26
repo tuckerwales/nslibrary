@@ -49,6 +49,9 @@ public:
         const std::vector<std::pair<std::string, std::string>>& extraHeaders,
         const std::function<void(const uint8_t*, size_t)>& sink) override;
 
+    HttpResponse upload(const std::string& path, const std::string& contentType, uint64_t length,
+        const BodySource& body) override;
+
 private:
     std::string baseUrl_;
     std::string token_;

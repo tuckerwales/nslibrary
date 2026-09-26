@@ -70,6 +70,10 @@ green in CI.
   both, and make sure both suites pass.
 - **Tests come with the change**, in the same commit. Vitest for TypeScript, the host-native suite in
   `switch/tests` for C++.
+- **Every string the Switch app shows is translated**, error messages included. Add it to
+  `switch/resources/i18n/en-US/app.json` and to every other locale in the same commit, with the
+  same `{}` placeholders, and look it up with `brls::getStr` rather than writing English in C++.
+  The host-native suite fails when a locale is missing a key.
 
 ## Reporting bugs
 

@@ -185,8 +185,10 @@ HelloResponse Session::hello() {
         std::lock_guard<std::mutex> lock(mutex_);
         serverAppLatest_ = h.appLatest.value_or("");
         canUpdate_ = false;
+        savesCap_ = false;
         for (const auto& cap : h.caps) {
             if (cap == "update") canUpdate_ = true;
+            if (cap == "saves") savesCap_ = true;
         }
     }
     markOnline();
@@ -679,6 +681,39 @@ std::string Session::serverAppLatest() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return serverAppLatest_;
 }
+
+bool Session::supportsSaves() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return savesCap_;
+}
+
+std::vector<SaveBackup> Session::listSaveBackups(const std::string& app, bool latest) {
+    ensureClient();
+    return apiClient().listSaves(app, latest);
+}
+
+#ifdef __SWITCH__
+SaveBackupResult Session::backupSave(const ConsoleSave& save, const std::string& origin,
+    const std::string& unchangedSince, const SaveStepFn& progress)
+{
+    if (installing_) throw std::runtime_error(uiText("app/saves/busy"));
+    ensureClient();
+    if (transport_) transport_->clearAbort();
+    return backupConsoleSave(save, origin, *client_, unchangedSince, progress);
+}
+
+void Session::restoreSave(const ConsoleSave& save, const SaveBackup& backup, const SaveStepFn& progress) {
+    if (installing_) throw std::runtime_error(uiText("app/saves/busy"));
+    ensureClient();
+    if (transport_) transport_->clearAbort();
+    restoreConsoleSave(save, backup, *client_, progress);
+}
+
+void Session::abortSaveTransfer() {
+    // The next backup or restore clears it again, as the next install does.
+    if (transport_) transport_->abort();
+}
+#endif
 
 bool Session::canUpdate() const {
     std::lock_guard<std::mutex> lock(mutex_);

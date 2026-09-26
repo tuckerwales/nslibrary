@@ -101,3 +101,20 @@ TEST(installed_summaries_can_be_built_once_for_a_whole_catalog) {
         CHECK_EQ(one.patchVersion, many->patchVersion);
     }
 }
+
+TEST(format_ago_rounds_like_the_web_ui) {
+    const int64_t now = 1790000000;
+    CHECK(agoFrom(now - 10, now).unit == Ago::Unit::Now);
+    CHECK(agoFrom(now + 60, now).unit == Ago::Unit::Now);  // a clock that is behind the server
+    const Ago minutes = agoFrom(now - 90, now);
+    CHECK(minutes.unit == Ago::Unit::Minutes);
+    CHECK_EQ(minutes.count, int64_t(2));
+    const Ago hours = agoFrom(now - 3 * 3600 - 20 * 60, now);
+    CHECK(hours.unit == Ago::Unit::Hours);
+    CHECK_EQ(hours.count, int64_t(3));
+    const Ago day = agoFrom(now - 26 * 3600, now);
+    CHECK(day.unit == Ago::Unit::Days);
+    CHECK_EQ(day.count, int64_t(1));
+    CHECK(agoFrom(now - 29 * 86400, now).unit == Ago::Unit::Days);
+    CHECK(agoFrom(now - 31 * 86400, now).unit == Ago::Unit::Older);
+}

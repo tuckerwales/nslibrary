@@ -8,6 +8,7 @@ import {
   useCompressSettings,
   useCompressTask,
   useRootPaths,
+  useSaveBackups,
   useStartCompress,
   useStartVerify,
   useVerifyTask,
@@ -16,13 +17,14 @@ import {
 import { Badge, Count } from "../components/Badge";
 import { Button, ButtonLink } from "../components/Button";
 import { Callout } from "../components/Callout";
-import { Card, cardRow } from "../components/Card";
+import { Card, CardBody, cardRow } from "../components/Card";
 import { CompressHeadline, CompressOutcome, CompressProgress } from "../components/CompressStatus";
 import { ContentStrip } from "../components/ContentStrip";
 import { LoadError, Loading } from "../components/Feedback";
 import { fileLocation } from "../components/FileName";
 import { Icon } from "../components/Icon";
 import { ProgressBar } from "../components/ProgressBar";
+import { RelativeTime } from "../components/RelativeTime";
 import { SendToSwitch } from "../components/SendToSwitch";
 import { TitleIcon } from "../components/TitleIcon";
 import type { BackState } from "../components/TitleList";
@@ -115,6 +117,33 @@ function flagTargets(detail: AppDetail): Partial<Record<AppFlag, string>> {
     ...(duplicate && { duplicate: `content-${duplicate.contentMetaId}` }),
     ...(older && { "superseded-updates": `content-${older.contentMetaId}` }),
   };
+}
+
+/** How many save backups the server holds for this game, with a link to them. */
+function SaveBackupsSummary({ applicationId }: { applicationId: string }) {
+  const saves = useSaveBackups();
+  if (!saves.data) return null;
+  const backups = saves.data.filter((backup) => backup.applicationId === applicationId);
+  const newest = backups[0];
+  return (
+    <Card title="Save backups">
+      <CardBody>
+        {newest ? (
+          <p className="text-muted">
+            {plural(backups.length, "backup")}, the newest{" "}
+            <RelativeTime timestamp={newest.createdAt} />.{" "}
+            <Link to={`/saves?app=${applicationId}`} className="text-accent hover:underline">
+              View saves
+            </Link>
+          </p>
+        ) : (
+          <p className="text-muted">
+            None yet. Back up this game's save from the Saves tab of the NSLibrary app on a Switch.
+          </p>
+        )}
+      </CardBody>
+    </Card>
+  );
 }
 
 function FileRow({
@@ -493,6 +522,7 @@ export function AppPage() {
               </Card>
             );
           })}
+          <SaveBackupsSummary applicationId={detail.applicationId} />
         </div>
       </div>
     </>

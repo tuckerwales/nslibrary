@@ -22,6 +22,8 @@ const INSTALL_TARGETS = ["sd", "nand", "auto"] as const;
 const JOB_SOURCES = ["web", "switch"] as const;
 const INSTALL_PHASES = ["preflight", "ticket", "meta", "content", "commit", "record"] as const;
 const STORAGES = ["sd", "nand"] as const;
+const SAVE_TYPES = ["account", "device"] as const;
+const SAVE_ORIGINS = ["manual", "pre-restore"] as const;
 
 /** Timestamps are epoch milliseconds. */
 export const libraryRoots = sqliteTable("library_roots", {
@@ -281,9 +283,48 @@ export const installJobs = sqliteTable(
   ],
 );
 
+/**
+ * Save data archives uploaded by a Switch. The archive itself is `<dataDir>/saves/<app>/<id>.tar`.
+ * A save is (application, type, user, device): an account ID is only meaningful on its console.
+ */
+export const saveBackups = sqliteTable(
+  "save_backups",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    applicationId: text("application_id").notNull(),
+    /** The game's name as the console sent it, for games that are not in the library. */
+    appName: text("app_name"),
+    saveType: text("save_type", { enum: SAVE_TYPES }).notNull(),
+    /** Account UID, 32 uppercase hex digits. Null for device saves. */
+    userId: text("user_id"),
+    userName: text("user_name"),
+    deviceId: integer("device_id").references(() => devices.id, { onDelete: "set null" }),
+    /** Copied when the backup is made, so it still reads sensibly after the console is gone. */
+    deviceName: text("device_name").notNull(),
+    origin: text("origin", { enum: SAVE_ORIGINS }).notNull(),
+    size: integer("size").notNull(),
+    dataSize: integer("data_size").notNull(),
+    fileCount: integer("file_count").notNull(),
+    sha256: text("sha256").notNull(),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    note: text("note"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("save_backups_save_idx").on(
+      t.applicationId,
+      t.saveType,
+      t.userId,
+      t.deviceId,
+      t.createdAt,
+    ),
+  ],
+);
+
 export type RootRow = typeof libraryRoots.$inferSelect;
 export type FileRow = typeof files.$inferSelect;
 export type ContentMetaRow = typeof contentMetas.$inferSelect;
 export type ContentMetaInsert = typeof contentMetas.$inferInsert;
 export type DeviceRow = typeof devices.$inferSelect;
 export type JobRow = typeof installJobs.$inferSelect;
+export type SaveBackupRow = typeof saveBackups.$inferSelect;

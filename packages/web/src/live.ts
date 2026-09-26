@@ -117,6 +117,9 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
         );
       }
       break;
+    case "saves.changed":
+      void client.invalidateQueries({ queryKey: queryKeys.saves });
+      break;
     case "compress.updated": {
       const tasks = client.getQueryData<CompressTask[]>(queryKeys.compress);
       if (tasks) {
@@ -166,6 +169,7 @@ export function useLiveUpdates(enabled: boolean) {
           void client.invalidateQueries({ queryKey: queryKeys.device });
           void client.invalidateQueries({ queryKey: queryKeys.jobs });
           void client.invalidateQueries({ queryKey: queryKeys.verify });
+          void client.invalidateQueries({ queryKey: queryKeys.saves });
           void client.invalidateQueries({ queryKey: queryKeys.compress });
         }
         attempts = 0;

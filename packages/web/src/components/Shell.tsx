@@ -176,6 +176,7 @@ export function Shell({ username, children }: { username: string; children: Reac
     icon: "console",
   };
   const history: NavEntry = { to: "/history", label: "History", icon: "history" };
+  const saves: NavEntry = { to: "/saves", label: "Saves", icon: "saves" };
   const problems: NavEntry = {
     to: "/problems",
     label: "Problems",
@@ -205,6 +206,7 @@ export function Shell({ username, children }: { username: string; children: Reac
     library,
     onSwitch,
     history,
+    saves,
     homebrew,
     problems,
     compression,

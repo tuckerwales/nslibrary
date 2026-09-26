@@ -49,6 +49,9 @@ public:
         const std::vector<std::pair<std::string, std::string>>& extraHeaders,
         const std::function<void(const uint8_t*, size_t)>& sink) override;
 
+    HttpResponse upload(const std::string& path, const std::string& contentType, uint64_t length,
+        const BodySource& body) override;
+
 private:
     std::string token_;
     long timeoutMs_ = 30000;
@@ -72,7 +75,9 @@ private:
         std::string* jsonOut,
         const std::function<void(const uint8_t*, size_t)>* sink,
         uint64_t offset,
-        uint64_t length);
+        uint64_t length,
+        const BodySource* upload = nullptr,
+        uint64_t uploadLength = 0);
 
     void pingLoop();
 };

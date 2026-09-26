@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   type CatalogQuery,
   type CatalogResponse,
@@ -11,7 +12,33 @@ import {
   type JobProgressRequest,
   type PairRequest,
   type PairResponse,
+  type SaveListResponse,
+  type SaveOrigin,
+  type SaveType,
+  type SaveUploadResponse,
 } from "@nslib/shared";
+
+export interface SaveUploadOptions {
+  app: string;
+  type: SaveType;
+  user?: string;
+  userName?: string;
+  name?: string;
+  origin?: SaveOrigin;
+  /** Defaults to the archive's real hash; tests pass a wrong one on purpose. */
+  sha256?: string;
+}
+
+/** The query string of `POST /saves`, shared by the HTTP and USB clients. */
+export function saveUploadPath(archive: Uint8Array, options: SaveUploadOptions): string {
+  const params = new URLSearchParams({ app: options.app, type: options.type });
+  if (options.user !== undefined) params.set("user", options.user);
+  if (options.userName !== undefined) params.set("userName", options.userName);
+  if (options.name !== undefined) params.set("name", options.name);
+  if (options.origin !== undefined) params.set("origin", options.origin);
+  params.set("sha256", options.sha256 ?? createHash("sha256").update(archive).digest("hex"));
+  return `/saves?${params}`;
+}
 
 export class DeviceApiError extends Error {
   readonly status: number;
@@ -86,6 +113,22 @@ export class DeviceClient {
     return this.fetch("GET", `/files/${fileId}`, options);
   }
 
+  listSaves(query: { app?: string; latest?: boolean } = {}): Promise<SaveListResponse> {
+    const params = new URLSearchParams();
+    if (query.app) params.set("app", query.app);
+    if (query.latest) params.set("latest", "1");
+    const suffix = params.size > 0 ? `?${params}` : "";
+    return this.json("GET", `/saves${suffix}`);
+  }
+
+  uploadSave(archive: Uint8Array, options: SaveUploadOptions): Promise<SaveUploadResponse> {
+    return this.json("POST", saveUploadPath(archive, options), { raw: archive });
+  }
+
+  downloadSave(id: number, options: { range?: string } = {}): Promise<Response> {
+    return this.fetch("GET", `/saves/${id}/data`, options);
+  }
+
   getIcon(appId: string, revision?: number): Promise<Response> {
     const suffix = revision === undefined ? "" : `?v=${revision}`;
     return this.fetch("GET", `/icons/${appId}${suffix}`);
@@ -96,6 +139,7 @@ export class DeviceClient {
     path: string,
     options: {
       body?: unknown;
+      raw?: Uint8Array;
       auth?: boolean;
       empty?: boolean;
       signal?: AbortSignal;
@@ -123,6 +167,8 @@ export class DeviceClient {
     path: string,
     options: {
       body?: unknown;
+      /** A save archive, sent as application/x-tar instead of a JSON body. */
+      raw?: Uint8Array;
       auth?: boolean;
       range?: string;
       ifRange?: string;
@@ -133,13 +179,19 @@ export class DeviceClient {
     const headers: Record<string, string> = {};
     if (options.auth !== false && this.token) headers.authorization = `Bearer ${this.token}`;
     if (options.body !== undefined) headers["content-type"] = "application/json";
+    if (options.raw !== undefined) headers["content-type"] = "application/x-tar";
     if (options.range) headers.range = options.range;
     if (options.ifRange) headers["if-range"] = options.ifRange;
     if (options.ifMatch) headers["if-match"] = options.ifMatch;
     return fetch(`${this.baseUrl.replace(/\/$/, "")}${DEVICE_API_BASE_PATH}${path}`, {
       method,
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.raw !== undefined
+          ? options.raw
+          : options.body === undefined
+            ? undefined
+            : JSON.stringify(options.body),
       signal: options.signal,
     });
   }

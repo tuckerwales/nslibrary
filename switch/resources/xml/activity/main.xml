@@ -25,6 +25,10 @@
             <MissingTab id="missing" />
         </brls:Tab>
 
+        <brls:Tab label="@i18n/app/tabs/saves">
+            <SavesTab id="saves" />
+        </brls:Tab>
+
         <brls:Separator />
 
         <brls:Tab label="@i18n/app/tabs/settings">

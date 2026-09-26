@@ -88,4 +88,11 @@ describe("applyServerEvent", () => {
     expect(isInvalidated(client, queryKeys.devices)).toBe(false);
     expect(isInvalidated(client, queryKeys.jobList(50))).toBe(false);
   });
+
+  it("refetches save backups when they change", () => {
+    const client = new QueryClient();
+    client.setQueryData(queryKeys.saves, []);
+    applyServerEvent(client, { type: "saves.changed" });
+    expect(isInvalidated(client, queryKeys.saves)).toBe(true);
+  });
 });

@@ -20,6 +20,7 @@ import { openLocatedFile } from "../library/library-fs";
 import { rangeReadable } from "../library/range-stream";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
+import { registerSaveDeviceRoutes } from "./save-routes";
 
 const TitleIdParams = z.object({
   appId: z
@@ -194,6 +195,8 @@ export async function registerDeviceRoutes(api: FastifyInstance, ctx: AppContext
       ctx.devices.complete(device.id, id, parseWith(JobCompleteRequestSchema, request.body));
       return reply.status(204).send();
     });
+
+    await registerSaveDeviceRoutes(secured, ctx);
   });
 }
 

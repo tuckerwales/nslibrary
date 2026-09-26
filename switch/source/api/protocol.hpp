@@ -141,6 +141,48 @@ struct JobComplete {
     std::optional<std::string> msg;
 };
 
+/** A save backup stored on the server (`GET /saves`). */
+struct SaveBackup {
+    int64_t id = 0;
+    std::string app;
+    /** "account" or "device". */
+    std::string type;
+    /** Account UID as 32 hex digits; empty for device saves. */
+    std::string user;
+    std::string userName;
+    /** Name of the console that made it. */
+    std::string device;
+    /** True when this console made it. */
+    bool mine = false;
+    uint64_t size = 0;
+    uint64_t dataSize = 0;
+    uint32_t files = 0;
+    std::string sha256;
+    /** Epoch seconds. */
+    int64_t at = 0;
+    /** "manual" or "pre-restore". */
+    std::string origin;
+    bool pinned = false;
+    std::string note;
+};
+
+struct SaveUploadResult {
+    SaveBackup backup;
+    /** The server already had these exact bytes as the newest backup of this save. */
+    bool dup = false;
+};
+
+/** What `POST /saves` needs to know about an archive besides its bytes. */
+struct SaveUploadQuery {
+    std::string app;
+    std::string type;
+    std::string user;
+    std::string userName;
+    std::string name;
+    std::string origin = "manual";
+    std::string sha256;
+};
+
 struct DiscoveryReply {
     std::string serverId;
     std::string name;
@@ -161,6 +203,11 @@ Job parseJob(const Json& v);
 EventsResponse parseEvents(const Json& v);
 JobProgress parseJobProgress(const Json& v);
 DiscoveryReply parseDiscoveryReply(const Json& v);
+SaveBackup parseSaveBackup(const Json& v);
+std::vector<SaveBackup> parseSaveList(const Json& v);
+SaveUploadResult parseSaveUpload(const Json& v);
+/** `/saves?app=…&type=…` with every field percent-encoded; empty fields are left out. */
+std::string saveUploadPath(const SaveUploadQuery& q);
 
 Json encodeDeviceInfo(const DeviceInfo& d);
 Json encodePairRequest(const PairRequest& r);
@@ -177,5 +224,7 @@ inline EventsResponse parseEvents(const std::string& text) { return parseEvents(
 inline JobProgress parseJobProgress(const std::string& text) { return parseJobProgress(Json::parse(text)); }
 inline DiscoveryReply parseDiscoveryReply(const std::string& text) { return parseDiscoveryReply(Json::parse(text)); }
 inline PairRequest parsePairRequest(const std::string& text) { return parsePairRequest(Json::parse(text)); }
+inline std::vector<SaveBackup> parseSaveList(const std::string& text) { return parseSaveList(Json::parse(text)); }
+inline SaveUploadResult parseSaveUpload(const std::string& text) { return parseSaveUpload(Json::parse(text)); }
 
 } // namespace nslib

@@ -10,6 +10,7 @@ export * from "./nro";
 export * from "./partition";
 export * from "./reader";
 export * from "./romfs";
+export * from "./save-archive";
 export * from "./split";
 export * from "./ticket";
 export * from "./xci";

@@ -57,6 +57,8 @@ export interface ServerConfig {
   nroPath: string | null;
   /** Compiled forwarder `main` (exefs). Null uses a stub so the NSP still packs. */
   forwarderMainPath: string | null;
+  /** Largest save archive a console may upload. Defaults to 1 GiB. */
+  saveMaxBytes?: number;
   /** Worker threads zstd uses when compressing NSP to NSZ. Defaults to `defaultCompressThreads()`. */
   compressThreads?: number;
 }
@@ -149,6 +151,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       : existsSync(defaultNro)
         ? defaultNro
         : null,
+    saveMaxBytes: positiveInt("NSLIB_SAVE_MAX_MB", env.NSLIB_SAVE_MAX_MB, 1024) * 1024 * 1024,
     compressThreads: positiveInt(
       "NSLIB_COMPRESS_THREADS",
       env.NSLIB_COMPRESS_THREADS,
