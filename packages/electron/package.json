@@ -1,6 +1,6 @@
 {
   "name": "@nslib/desktop",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Desktop app for NSLibrary: the library server with a window, tray, and USB",
   "author": "NSLibrary contributors",
   "license": "Apache-2.0",

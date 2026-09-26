@@ -11,6 +11,8 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-26
+
 ### Added
 - **Select titles** in the library to send several to a Switch at once. Each title queues its base
   game, newest update, and DLC.
