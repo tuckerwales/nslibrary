@@ -9,11 +9,21 @@ import {
   useReorderJobs,
   useResumeJob,
 } from "../api";
+import { Badge, Count } from "../components/Badge";
 import { Button } from "../components/Button";
+import { Card, CardList, cardRow } from "../components/Card";
 import { LoadError, Loading } from "../components/Feedback";
 import { PageHeader } from "../components/PageHeader";
+import { ProgressBar } from "../components/ProgressBar";
 import { RelativeTime } from "../components/RelativeTime";
-import { activeJobs, finishedJobs, jobStatusLabel, jobTitle } from "../jobs";
+import { activeJobs, finishedJobs, jobPercent, jobSpeed, jobStatusLabel, jobTitle } from "../jobs";
+
+const STATUS_TONE = {
+  done: "success",
+  failed: "danger",
+  cancelled: "neutral",
+  interrupted: "warning",
+} as const;
 
 function sourceLabel(source: JobSource): string {
   return source === "switch" ? "Started on Switch" : "Sent from web";
@@ -35,22 +45,30 @@ function DeviceQueue({ name, jobs }: { name: string; jobs: WebJob[] }) {
   };
 
   return (
-    <div className="mt-4 first:mt-3">
-      <h3 className="text-lg semi-condensed">{name}</h3>
-      <ol className="mt-1 border-t border-line">
+    <div className="mt-2 border-t border-line first:mt-3">
+      <h3 className={`${cardRow} pb-0 text-lg semi-condensed`}>{name}</h3>
+      <ol className="mt-1 divide-y divide-line">
         {jobs.map((job) => {
           const queueIndex = queued.indexOf(job);
           const title = jobTitle(job);
           return (
             <li
               key={job.id}
-              className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3"
+              className={`${cardRow} flex flex-wrap items-center justify-between gap-3`}
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-semibold semi-condensed">{title}</p>
                 <p className="text-sm text-muted">
                   {sourceLabel(job.source)} · {jobStatusLabel(job)}
+                  {jobSpeed(job) && ` · ${jobSpeed(job)}`}
                 </p>
+                {job.status === "running" && (
+                  <ProgressBar
+                    className="mt-1.5 max-w-md"
+                    percent={jobPercent(job)}
+                    label={`Installing ${title}`}
+                  />
+                )}
               </div>
               <div className="flex gap-1">
                 {queued.length > 1 && queueIndex !== -1 && (
@@ -134,25 +152,34 @@ export function HistoryPage() {
       ) : (
         <>
           {active.length > 0 && (
-            <section>
-              <h2 className="text-xl">In progress</h2>
+            <Card className="mb-6" title="In progress" count={<Count value={active.length} />}>
               {[...byDevice].map(([deviceId, deviceJobs]) => (
                 <DeviceQueue key={deviceId} name={deviceName(deviceId)} jobs={deviceJobs} />
               ))}
-            </section>
+            </Card>
           )}
 
-          <section className={active.length > 0 ? "mt-10" : undefined}>
-            <h2 className="text-xl">Past installs</h2>
+          <Card title="Past installs">
             {finished.length === 0 ? (
-              <p className="mt-3 text-muted">Nothing has finished yet.</p>
+              <p className={`${cardRow} pt-1 pb-4 text-muted`}>Nothing has finished yet.</p>
             ) : (
-              <ul className="mt-3 border-t border-line">
+              <CardList>
                 {finished.map((job) => (
-                  <li key={job.id} className="border-b border-line py-3">
-                    <p className="font-semibold semi-condensed">{jobTitle(job)}</p>
+                  <li key={job.id} className={cardRow}>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="font-semibold semi-condensed">{jobTitle(job)}</p>
+                      <Badge
+                        tone={
+                          job.status in STATUS_TONE
+                            ? STATUS_TONE[job.status as keyof typeof STATUS_TONE]
+                            : "neutral"
+                        }
+                      >
+                        {jobStatusLabel(job)}
+                      </Badge>
+                    </div>
                     <p className="text-sm text-muted">
-                      {deviceName(job.deviceId)} · {sourceLabel(job.source)} · {jobStatusLabel(job)}
+                      {deviceName(job.deviceId)} · {sourceLabel(job.source)}
                       {job.completedAt ? (
                         <>
                           {" "}
@@ -185,19 +212,19 @@ export function HistoryPage() {
                     )}
                   </li>
                 ))}
-              </ul>
+              </CardList>
             )}
             {hasOlder && (
               <Button
                 variant="secondary"
-                className="mt-4"
+                className="mx-4 my-4 md:mx-5"
                 disabled={jobs.isFetching}
                 onClick={() => setLimit((current) => current + DEFAULT_JOB_LIMIT)}
               >
                 {jobs.isFetching ? "Loading…" : "Show older installs"}
               </Button>
             )}
-          </section>
+          </Card>
         </>
       )}
     </>

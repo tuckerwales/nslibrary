@@ -51,3 +51,14 @@ export function finishedJobs(jobs: WebJob[]): WebJob[] {
     .filter((job) => !isActiveJobStatus(job.status))
     .sort((a, b) => finishedAt(b) - finishedAt(a) || b.id - a.id);
 }
+
+/** How far a running install is, or null while it hasn't started sending data. */
+export function jobPercent(job: WebJob): number | null {
+  if (job.status !== "running" || job.size <= 0) return null;
+  return Math.floor((job.bytesDone / job.size) * 100);
+}
+
+/** The transfer speed of a running install, like "12.4 MB/s". */
+export function jobSpeed(job: WebJob): string | null {
+  return job.status === "running" && job.bps ? `${formatBytes(job.bps)}/s` : null;
+}

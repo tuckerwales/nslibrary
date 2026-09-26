@@ -6,6 +6,13 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>NSLibrary</title>
+    <script>
+      // Apply a theme picked in this browser before the first paint. See src/theme.ts.
+      try {
+        const theme = localStorage.getItem("nslib.theme");
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
