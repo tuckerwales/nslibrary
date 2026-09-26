@@ -2,6 +2,7 @@
 
 #include "formats/crypto.hpp"
 
+#include <borealis.hpp>
 #include <switch.h>
 
 #include <algorithm>
@@ -14,6 +15,7 @@
 #include <stdexcept>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utility>
 
 namespace nslib {
 namespace {
@@ -35,8 +37,15 @@ std::string resultText(Result rc) {
     return buf;
 }
 
-[[noreturn]] void fail(const std::string& what, Result rc) {
-    throw std::runtime_error(what + " failed: " + resultText(rc));
+/** A message from the app's strings under `app/saves/errors/`. */
+template <typename... Args>
+std::string errorText(const std::string& key, Args&&... args) {
+    return brls::getStr("app/saves/errors/" + key, std::forward<Args>(args)...);
+}
+
+/** Throws the translated message for a failed filesystem call, with its result code. */
+[[noreturn]] void fail(const std::string& message, Result rc) {
+    throw std::runtime_error(message + " (" + resultText(rc) + ")");
 }
 
 std::string upperHex16(uint64_t v) {
@@ -92,8 +101,7 @@ public:
         attr.save_data_index = save.index;
         const Result rc = fsOpenSaveDataFileSystem(&fs_, FsSaveDataSpaceId_User, &attr);
         if (R_FAILED(rc)) {
-            throw std::runtime_error("Could not open the save " + resultText(rc) +
-                ". If the game is running, close it from HOME and try again.");
+            throw std::runtime_error(errorText("open_save", resultText(rc)));
         }
     }
     ~SaveMount() { fsFsClose(&fs_); }
@@ -116,7 +124,7 @@ public:
         FsDir d;
         const std::string path = dir.empty() ? "/" : fsPath(dir);
         Result rc = fsFsOpenDirectory(fs_, path.c_str(), FsDirOpenMode_ReadDirs | FsDirOpenMode_ReadFiles, &d);
-        if (R_FAILED(rc)) fail("Listing " + path, rc);
+        if (R_FAILED(rc)) fail(errorText("list", path), rc);
         std::vector<SaveTreeEntry> out;
         std::vector<FsDirectoryEntry> entries(32);
         for (;;) {
@@ -124,7 +132,7 @@ public:
             rc = fsDirRead(&d, &n, entries.size(), entries.data());
             if (R_FAILED(rc)) {
                 fsDirClose(&d);
-                fail("Listing " + path, rc);
+                fail(errorText("list", path), rc);
             }
             if (n <= 0) break;
             for (s64 i = 0; i < n; i++) {
@@ -144,13 +152,13 @@ public:
         FsFile f;
         const std::string p = fsPath(path);
         Result rc = fsFsOpenFile(fs_, p.c_str(), FsOpenMode_Read, &f);
-        if (R_FAILED(rc)) fail("Opening " + p, rc);
+        if (R_FAILED(rc)) fail(errorText("open", p), rc);
         try {
             for (uint64_t at = 0; at < size;) {
                 const u64 want = std::min<u64>(buffer_.size(), size - at);
                 u64 got = 0;
                 rc = fsFileRead(&f, s64(at), buffer_.data(), want, FsReadOption_None, &got);
-                if (R_FAILED(rc)) fail("Reading " + p, rc);
+                if (R_FAILED(rc)) fail(errorText("read", p), rc);
                 if (got == 0) break;  // shorter than listed: writeSaveArchive reports it
                 sink(buffer_.data(), size_t(got));
                 at += got;
@@ -174,27 +182,27 @@ public:
 
     void clear() override {
         const Result rc = fsFsCleanDirectoryRecursively(fs_, "/");
-        if (R_FAILED(rc)) fail("Clearing the save", rc);
+        if (R_FAILED(rc)) fail(errorText("clear"), rc);
     }
 
     void makeDir(const std::string& path) override {
         const std::string p = fsPath(path);
         const Result rc = fsFsCreateDirectory(fs_, p.c_str());
-        if (R_FAILED(rc)) fail("Creating " + p, rc);
+        if (R_FAILED(rc)) fail(errorText("create", p), rc);
     }
 
     void beginFile(const std::string& path, uint64_t size) override {
         closeFile();
         path_ = fsPath(path);
         Result rc = fsFsCreateFile(fs_, path_.c_str(), s64(size), 0);
-        if (R_FAILED(rc)) fail("Creating " + path_, rc);
+        if (R_FAILED(rc)) fail(errorText("create", path_), rc);
         openFile();
         offset_ = 0;
     }
 
     void write(const uint8_t* data, size_t n) override {
         const Result rc = fsFileWrite(&file_, s64(offset_), data, n, FsWriteOption_None);
-        if (R_FAILED(rc)) fail("Writing " + path_, rc);
+        if (R_FAILED(rc)) fail(errorText("write", path_), rc);
         offset_ += n;
     }
 
@@ -208,7 +216,7 @@ public:
         const bool reopen = open_;
         closeFile();
         const Result rc = fsFsCommit(fs_);
-        if (R_FAILED(rc)) fail("Committing the save", rc);
+        if (R_FAILED(rc)) fail(errorText("commit"), rc);
         committed_ = true;
         if (reopen) openFile();
     }
@@ -226,7 +234,7 @@ private:
 
     void openFile() {
         const Result rc = fsFsOpenFile(fs_, path_.c_str(), FsOpenMode_Write, &file_);
-        if (R_FAILED(rc)) fail("Opening " + path_, rc);
+        if (R_FAILED(rc)) fail(errorText("open", path_), rc);
         open_ = true;
     }
 
@@ -241,9 +249,9 @@ private:
 /** A staged archive on the SD card, read by offset for listing and restoring. */
 class StagedArchive : public Reader {
 public:
-    explicit StagedArchive(const std::string& path) {
+    explicit StagedArchive(const std::string& path) : path_(path) {
         file_ = std::fopen(path.c_str(), "rb");
-        if (!file_) throw std::runtime_error("Could not open " + path);
+        if (!file_) throw std::runtime_error(errorText("sd_read", path));
         std::fseek(file_, 0, SEEK_END);
         size_ = uint64_t(std::ftell(file_));
     }
@@ -258,7 +266,7 @@ public:
     void read(uint64_t offset, void* dst, size_t n) const override {
         if (offset > size_ || n > size_ - offset) throw FormatError("TRUNCATED", "read past the end of the archive");
         if (std::fseek(file_, long(offset), SEEK_SET) != 0 || std::fread(dst, 1, n, file_) != n) {
-            throw std::runtime_error("Could not read the staged archive on the SD card");
+            throw std::runtime_error(errorText("sd_read", path_));
         }
     }
 
@@ -271,6 +279,7 @@ public:
     }
 
 private:
+    std::string path_;
     std::FILE* file_ = nullptr;
     uint64_t size_ = 0;
     uint64_t cursor_ = 0;
@@ -298,21 +307,28 @@ struct PackedSave {
 
 PackedSave packSave(const ConsoleSave& save, const std::string& path, const SaveStepFn& progress) {
     std::FILE* out = std::fopen(path.c_str(), "wb");
-    if (!out) throw std::runtime_error("Could not write to the SD card (" + path + ")");
+    if (!out) throw std::runtime_error(errorText("sd_write", path));
     PackedSave packed;
     try {
         SaveMount mount(save);
         FsSaveReader reader(mount.fs());
         packed.info = writeSaveArchive(reader, [&](const uint8_t* p, size_t n) {
-            if (std::fwrite(p, 1, n, out) != n) throw std::runtime_error("The SD card is full or read-only");
+            if (std::fwrite(p, 1, n, out) != n) throw std::runtime_error(errorText("sd_full"));
         }, [&](uint64_t done, uint64_t total) {
             if (progress) progress("app/saves/phase_reading", done, total);
         });
+    } catch (const SaveChangedError& e) {
+        std::fclose(out);
+        throw std::runtime_error(errorText("changed", e.path));
+    } catch (const FormatError& e) {
+        // A file name or tree the archive format cannot hold.
+        std::fclose(out);
+        throw std::runtime_error(errorText("unsupported", e.what()));
     } catch (...) {
         std::fclose(out);
         throw;
     }
-    if (std::fclose(out) != 0) throw std::runtime_error("The SD card is full or read-only");
+    if (std::fclose(out) != 0) throw std::runtime_error(errorText("sd_full"));
     return packed;
 }
 
@@ -352,7 +368,7 @@ bool isSameSave(const ConsoleSave& save, const SaveBackup& backup) {
 std::vector<ConsoleSave> listConsoleSaves(const std::function<void(size_t done, size_t total)>& progress) {
     FsSaveDataInfoReader reader;
     Result rc = fsOpenSaveDataInfoReader(&reader, FsSaveDataSpaceId_User);
-    if (R_FAILED(rc)) fail("Listing saves", rc);
+    if (R_FAILED(rc)) fail(errorText("list_saves"), rc);
     std::vector<FsSaveDataInfo> infos;
     std::vector<FsSaveDataInfo> page(64);
     for (;;) {
@@ -439,18 +455,18 @@ void restoreConsoleSave(const ConsoleSave& save, const SaveBackup& backup, Devic
 {
     // An account save and a device save hold different data, even for the same game.
     if (backup.app != save.appId || backup.type != save.type) {
-        throw std::runtime_error("That backup is of a different save, so it cannot be restored into this one.");
+        throw std::runtime_error(errorText("other_type"));
     }
     StagedFile staged(std::string(kSaveStagingDir) + "/restore.tar");
     {
         std::FILE* out = std::fopen(staged.path.c_str(), "wb");
-        if (!out) throw std::runtime_error("Could not write to the SD card (" + staged.path + ")");
+        if (!out) throw std::runtime_error(errorText("sd_write", staged.path));
         Sha256 hash;
         uint64_t got = 0;
         try {
             if (progress) progress("app/saves/phase_downloading", 0, backup.size);
             client.downloadSave(backup.id, backup.size, [&](const uint8_t* p, size_t n) {
-                if (std::fwrite(p, 1, n, out) != n) throw std::runtime_error("The SD card is full or read-only");
+                if (std::fwrite(p, 1, n, out) != n) throw std::runtime_error(errorText("sd_full"));
                 hash.update(p, n);
                 got += n;
                 if (progress) progress("app/saves/phase_downloading", got, backup.size);
@@ -459,23 +475,28 @@ void restoreConsoleSave(const ConsoleSave& save, const SaveBackup& backup, Devic
             std::fclose(out);
             throw;
         }
-        if (std::fclose(out) != 0) throw std::runtime_error("The SD card is full or read-only");
+        if (std::fclose(out) != 0) throw std::runtime_error(errorText("sd_full"));
         std::array<uint8_t, 32> digest{};
         hash.final(digest.data());
         if (got != backup.size || sha256Hex(digest) != backup.sha256) {
-            throw std::runtime_error("The backup arrived damaged (its SHA-256 does not match). Try again.");
+            throw std::runtime_error(errorText("damaged"));
         }
     }
 
     StagedArchive archive(staged.path);
-    const auto listing = listSaveArchive(archive);
+    SaveArchiveListing listing;
+    try {
+        listing = listSaveArchive(archive);
+    } catch (const FormatError& e) {
+        throw std::runtime_error(errorText("not_archive", e.what()));
+    }
     {
         SaveMount mount(save);
         s64 capacity = 0;
         if (R_SUCCEEDED(fsFsGetTotalSpace(mount.fs(), "/", &capacity)) && capacity > 0 &&
             listing.dataSize > uint64_t(capacity))
         {
-            throw std::runtime_error("This backup does not fit in the game's save on this console.");
+            throw std::runtime_error(errorText("too_big"));
         }
     }
 
@@ -492,9 +513,7 @@ void restoreConsoleSave(const ConsoleSave& save, const SaveBackup& backup, Devic
         // A save bigger than its journal is written in several commits. Until the first, a failure
         // leaves the old save as it was; after it, the save is incomplete and needs restoring.
         if (!writer.committed()) throw;
-        throw std::runtime_error(std::string(e.what()) +
-            "\n\nPart of the backup was already written, so the save is incomplete. Restore the backup "
-            "marked \"Before a restore\" to put it back.");
+        throw std::runtime_error(std::string(e.what()) + "\n\n" + errorText("incomplete"));
     }
 }
 

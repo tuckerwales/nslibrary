@@ -187,6 +187,27 @@
     "ago_minutes": "hace {} min",
     "ago_hours": "hace {} h",
     "ago_day": "hace 1 día",
-    "ago_days": "hace {} días"
+    "ago_days": "hace {} días",
+    "errors": {
+      "open_save": "No se pudo abrir la partida ({}). Si el juego está abierto, ciérralo desde HOME e inténtalo de nuevo.",
+      "list_saves": "No se pudieron listar las partidas de esta consola",
+      "list": "No se pudo listar {} en la partida",
+      "open": "No se pudo abrir {} en la partida",
+      "read": "No se pudo leer {} en la partida",
+      "create": "No se pudo crear {} en la partida",
+      "write": "No se pudo escribir {} en la partida",
+      "clear": "No se pudo vaciar la partida",
+      "commit": "No se pudo confirmar la partida",
+      "sd_read": "No se pudo leer {} en la tarjeta SD",
+      "sd_write": "No se pudo escribir en la tarjeta SD ({})",
+      "sd_full": "La tarjeta SD está llena o es de solo lectura",
+      "changed": "La partida cambió mientras se copiaba ({}). Cierra el juego e inténtalo de nuevo.",
+      "unsupported": "Esta partida no se puede copiar: {}",
+      "not_archive": "Esta copia no es un archivo de partida válido: {}",
+      "other_type": "Esa copia es de otro tipo de partida, así que no se puede restaurar en esta.",
+      "damaged": "La copia llegó dañada (su SHA-256 no coincide). Inténtalo de nuevo.",
+      "too_big": "Esta copia no cabe en la partida del juego en esta consola.",
+      "incomplete": "Parte de la copia ya se escribió, así que la partida está incompleta. Restaura la copia marcada «Antes de una restauración» para recuperarla."
+    }
   }
 }

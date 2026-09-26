@@ -187,6 +187,27 @@
     "ago_minutes": "vor {} Min.",
     "ago_hours": "vor {} Std.",
     "ago_day": "vor 1 Tag",
-    "ago_days": "vor {} Tagen"
+    "ago_days": "vor {} Tagen",
+    "errors": {
+      "open_save": "Der Spielstand konnte nicht geöffnet werden ({}). Läuft das Spiel, schließe es über HOME und versuche es erneut.",
+      "list_saves": "Die Spielstände auf dieser Konsole konnten nicht aufgelistet werden",
+      "list": "{} im Spielstand konnte nicht aufgelistet werden",
+      "open": "{} im Spielstand konnte nicht geöffnet werden",
+      "read": "{} im Spielstand konnte nicht gelesen werden",
+      "create": "{} im Spielstand konnte nicht angelegt werden",
+      "write": "{} im Spielstand konnte nicht geschrieben werden",
+      "clear": "Der Spielstand konnte nicht geleert werden",
+      "commit": "Der Spielstand konnte nicht übernommen werden",
+      "sd_read": "{} auf der SD-Karte konnte nicht gelesen werden",
+      "sd_write": "Auf die SD-Karte konnte nicht geschrieben werden ({})",
+      "sd_full": "Die SD-Karte ist voll oder schreibgeschützt",
+      "changed": "Der Spielstand hat sich während der Sicherung geändert ({}). Schließe das Spiel und versuche es erneut.",
+      "unsupported": "Dieser Spielstand lässt sich nicht sichern: {}",
+      "not_archive": "Diese Sicherung ist kein brauchbares Spielstand-Archiv: {}",
+      "other_type": "Diese Sicherung gehört zu einer anderen Art von Spielstand und kann nicht in diesen wiederhergestellt werden.",
+      "damaged": "Die Sicherung kam beschädigt an (ihr SHA-256 stimmt nicht). Versuche es erneut.",
+      "too_big": "Diese Sicherung passt nicht in den Spielstand des Spiels auf dieser Konsole.",
+      "incomplete": "Ein Teil der Sicherung wurde schon geschrieben, der Spielstand ist also unvollständig. Stelle die Sicherung mit der Markierung „Vor einer Wiederherstellung“ wieder her, um ihn zurückzuholen."
+    }
   }
 }

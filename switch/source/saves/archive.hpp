@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,15 @@ namespace nslib {
  * - two zero blocks at the end.
  */
 using SaveSink = std::function<void(const uint8_t*, size_t)>;
+
+/** A file's size changed while the save was being read, so the archive would be inconsistent. */
+class SaveChangedError : public std::runtime_error {
+public:
+    std::string path;
+
+    explicit SaveChangedError(const std::string& p)
+        : std::runtime_error("The save changed while it was backed up: " + p), path(p) {}
+};
 
 constexpr size_t kTarBlock = 512;
 constexpr size_t kSaveArchiveMaxPath = 255;

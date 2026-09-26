@@ -187,6 +187,27 @@
     "ago_minutes": "il y a {} min",
     "ago_hours": "il y a {} h",
     "ago_day": "il y a 1 jour",
-    "ago_days": "il y a {} jours"
+    "ago_days": "il y a {} jours",
+    "errors": {
+      "open_save": "Impossible d'ouvrir la sauvegarde ({}). Si le jeu est lancé, fermez-le depuis HOME et réessayez.",
+      "list_saves": "Impossible de lister les sauvegardes de cette console",
+      "list": "Impossible de lister {} dans la sauvegarde",
+      "open": "Impossible d'ouvrir {} dans la sauvegarde",
+      "read": "Impossible de lire {} dans la sauvegarde",
+      "create": "Impossible de créer {} dans la sauvegarde",
+      "write": "Impossible d'écrire {} dans la sauvegarde",
+      "clear": "Impossible de vider la sauvegarde",
+      "commit": "Impossible de valider la sauvegarde",
+      "sd_read": "Impossible de lire {} sur la carte SD",
+      "sd_write": "Impossible d'écrire sur la carte SD ({})",
+      "sd_full": "La carte SD est pleine ou en lecture seule",
+      "changed": "La sauvegarde a changé pendant la copie ({}). Fermez le jeu et réessayez.",
+      "unsupported": "Cette sauvegarde ne peut pas être copiée : {}",
+      "not_archive": "Cette copie n'est pas une archive de sauvegarde utilisable : {}",
+      "other_type": "Cette copie provient d'un autre type de sauvegarde et ne peut pas être restaurée dans celle-ci.",
+      "damaged": "La copie est arrivée endommagée (son SHA-256 ne correspond pas). Réessayez.",
+      "too_big": "Cette copie ne tient pas dans la sauvegarde du jeu sur cette console.",
+      "incomplete": "Une partie de la copie a déjà été écrite, la sauvegarde est donc incomplète. Restaurez la copie marquée « Avant une restauration » pour la récupérer."
+    }
   }
 }

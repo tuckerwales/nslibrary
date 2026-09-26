@@ -176,13 +176,13 @@ SaveArchiveInfo writeSaveArchive(SaveTreeReader& tree, const SaveSink& out, cons
         if (item.dir) continue;
         uint64_t got = 0;
         tree.read(item.path, item.size, [&](const uint8_t* p, size_t n) {
-            if (got + n > item.size) throw std::runtime_error("The save changed while it was backed up: " + item.path);
+            if (got + n > item.size) throw SaveChangedError(item.path);
             emit(p, n);
             got += n;
             done += n;
             if (progress) progress(done, total);
         });
-        if (got != item.size) throw std::runtime_error("The save changed while it was backed up: " + item.path);
+        if (got != item.size) throw SaveChangedError(item.path);
         const size_t pad = size_t((kTarBlock - item.size % kTarBlock) % kTarBlock);
         emit(zeros, pad);
         info.files++;

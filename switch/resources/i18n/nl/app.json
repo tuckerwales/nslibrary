@@ -187,6 +187,27 @@
     "ago_minutes": "{} min geleden",
     "ago_hours": "{} uur geleden",
     "ago_day": "1 dag geleden",
-    "ago_days": "{} dagen geleden"
+    "ago_days": "{} dagen geleden",
+    "errors": {
+      "open_save": "Kon het opslagbestand niet openen ({}). Draait de game, sluit hem dan via HOME en probeer het opnieuw.",
+      "list_saves": "Kon de opslagbestanden op deze console niet weergeven",
+      "list": "Kon {} in het opslagbestand niet weergeven",
+      "open": "Kon {} in het opslagbestand niet openen",
+      "read": "Kon {} in het opslagbestand niet lezen",
+      "create": "Kon {} in het opslagbestand niet aanmaken",
+      "write": "Kon {} in het opslagbestand niet schrijven",
+      "clear": "Kon het opslagbestand niet leegmaken",
+      "commit": "Kon het opslagbestand niet vastleggen",
+      "sd_read": "Kon {} op de SD-kaart niet lezen",
+      "sd_write": "Kon niet naar de SD-kaart schrijven ({})",
+      "sd_full": "De SD-kaart is vol of alleen-lezen",
+      "changed": "Het opslagbestand veranderde tijdens de back-up ({}). Sluit de game en probeer het opnieuw.",
+      "unsupported": "Van dit opslagbestand kan geen back-up worden gemaakt: {}",
+      "not_archive": "Deze back-up is geen bruikbaar opslagarchief: {}",
+      "other_type": "Die back-up is van een ander soort opslagbestand en kan hier niet worden teruggezet.",
+      "damaged": "De back-up kwam beschadigd aan (de SHA-256 klopt niet). Probeer het opnieuw.",
+      "too_big": "Deze back-up past niet in het opslagbestand van de game op deze console.",
+      "incomplete": "Een deel van de back-up is al geschreven, dus het opslagbestand is onvolledig. Zet de back-up met het label ‘Voor het terugzetten’ terug om het te herstellen."
+    }
   }
 }

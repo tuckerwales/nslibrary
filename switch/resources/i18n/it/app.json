@@ -187,6 +187,27 @@
     "ago_minutes": "{} min fa",
     "ago_hours": "{} h fa",
     "ago_day": "1 giorno fa",
-    "ago_days": "{} giorni fa"
+    "ago_days": "{} giorni fa",
+    "errors": {
+      "open_save": "Impossibile aprire il salvataggio ({}). Se il gioco è aperto, chiudilo da HOME e riprova.",
+      "list_saves": "Impossibile elencare i salvataggi di questa console",
+      "list": "Impossibile elencare {} nel salvataggio",
+      "open": "Impossibile aprire {} nel salvataggio",
+      "read": "Impossibile leggere {} nel salvataggio",
+      "create": "Impossibile creare {} nel salvataggio",
+      "write": "Impossibile scrivere {} nel salvataggio",
+      "clear": "Impossibile svuotare il salvataggio",
+      "commit": "Impossibile confermare il salvataggio",
+      "sd_read": "Impossibile leggere {} sulla scheda SD",
+      "sd_write": "Impossibile scrivere sulla scheda SD ({})",
+      "sd_full": "La scheda SD è piena o di sola lettura",
+      "changed": "Il salvataggio è cambiato durante la copia ({}). Chiudi il gioco e riprova.",
+      "unsupported": "Questo salvataggio non può essere copiato: {}",
+      "not_archive": "Questa copia non è un archivio di salvataggio utilizzabile: {}",
+      "other_type": "Questa copia è di un altro tipo di salvataggio, quindi non si può ripristinare in questo.",
+      "damaged": "La copia è arrivata danneggiata (il suo SHA-256 non corrisponde). Riprova.",
+      "too_big": "Questa copia non entra nel salvataggio del gioco su questa console.",
+      "incomplete": "Parte della copia è già stata scritta, quindi il salvataggio è incompleto. Ripristina la copia contrassegnata «Prima di un ripristino» per recuperarlo."
+    }
   }
 }

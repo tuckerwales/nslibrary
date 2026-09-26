@@ -187,6 +187,27 @@
     "ago_minutes": "há {} min",
     "ago_hours": "há {} h",
     "ago_day": "há 1 dia",
-    "ago_days": "há {} dias"
+    "ago_days": "há {} dias",
+    "errors": {
+      "open_save": "Não foi possível abrir o save ({}). Se o jogo estiver aberto, feche-o pelo HOME e tente de novo.",
+      "list_saves": "Não foi possível listar os saves deste console",
+      "list": "Não foi possível listar {} no save",
+      "open": "Não foi possível abrir {} no save",
+      "read": "Não foi possível ler {} no save",
+      "create": "Não foi possível criar {} no save",
+      "write": "Não foi possível gravar {} no save",
+      "clear": "Não foi possível limpar o save",
+      "commit": "Não foi possível confirmar o save",
+      "sd_read": "Não foi possível ler {} no cartão SD",
+      "sd_write": "Não foi possível gravar no cartão SD ({})",
+      "sd_full": "O cartão SD está cheio ou é somente leitura",
+      "changed": "O save mudou durante o backup ({}). Feche o jogo e tente de novo.",
+      "unsupported": "Não é possível fazer backup deste save: {}",
+      "not_archive": "Este backup não é um arquivo de save utilizável: {}",
+      "other_type": "Esse backup é de outro tipo de save, então não pode ser restaurado neste.",
+      "damaged": "O backup chegou danificado (o SHA-256 não confere). Tente de novo.",
+      "too_big": "Este backup não cabe no save do jogo neste console.",
+      "incomplete": "Parte do backup já foi gravada, então o save está incompleto. Restaure o backup marcado “Antes de uma restauração” para recuperá-lo."
+    }
   }
 }

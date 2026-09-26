@@ -187,6 +187,27 @@
     "ago_minutes": "{} min ago",
     "ago_hours": "{} hr ago",
     "ago_day": "1 day ago",
-    "ago_days": "{} days ago"
+    "ago_days": "{} days ago",
+    "errors": {
+      "open_save": "Could not open the save ({}). If the game is running, close it from HOME and try again.",
+      "list_saves": "Could not list the saves on this console",
+      "list": "Could not list {} in the save",
+      "open": "Could not open {} in the save",
+      "read": "Could not read {} in the save",
+      "create": "Could not create {} in the save",
+      "write": "Could not write {} in the save",
+      "clear": "Could not clear the save",
+      "commit": "Could not commit the save",
+      "sd_read": "Could not read {} on the SD card",
+      "sd_write": "Could not write to the SD card ({})",
+      "sd_full": "The SD card is full or read-only",
+      "changed": "The save changed while it was backed up ({}). Close the game and try again.",
+      "unsupported": "This save cannot be backed up: {}",
+      "not_archive": "This backup is not a usable save archive: {}",
+      "other_type": "That backup is of a different save, so it cannot be restored into this one.",
+      "damaged": "The backup arrived damaged (its SHA-256 does not match). Try again.",
+      "too_big": "This backup does not fit in the game's save on this console.",
+      "incomplete": "Part of the backup was already written, so the save is incomplete. Restore the backup marked “Before a restore” to put it back."
+    }
   }
 }
