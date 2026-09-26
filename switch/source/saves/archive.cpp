@@ -273,10 +273,10 @@ void restoreSaveArchive(const Reader& archive, SaveTreeWriter& save, uint64_t jo
     const SaveArchiveListing listing = listSaveArchive(archive);
     const uint64_t total = listing.dataSize;
     uint64_t done = 0;
-    if (progress) progress(0, total);
 
+    // Checked before the save is touched, so a cancel here leaves it as it was.
+    if (progress) progress(0, total);
     save.clear();
-    save.commit();
 
     std::set<std::string> made;
     const auto ensureDir = [&](const std::string& path) {
@@ -292,8 +292,10 @@ void restoreSaveArchive(const Reader& archive, SaveTreeWriter& save, uint64_t jo
         return slash == std::string::npos ? std::string() : path.substr(0, slash);
     };
 
-    const size_t chunkSize = journalBytes ? size_t(std::min<uint64_t>(kCopyChunk, journalBytes)) : kCopyChunk;
+    const uint64_t budget = journalBytes ? std::max<uint64_t>(journalBytes / 4 * 3, 1) : 0;
+    const size_t chunkSize = budget ? size_t(std::min<uint64_t>(kCopyChunk, budget)) : kCopyChunk;
     std::vector<uint8_t> chunk(chunkSize);
+    uint64_t pending = 0;
     for (const auto& e : listing.entries) {
         if (e.dir) {
             ensureDir(e.path);
@@ -302,11 +304,10 @@ void restoreSaveArchive(const Reader& archive, SaveTreeWriter& save, uint64_t jo
         const std::string parent = parentOf(e.path);
         if (!parent.empty()) ensureDir(parent);
         save.beginFile(e.path, e.size);
-        uint64_t pending = 0;
         for (uint64_t at = 0; at < e.size;) {
             const size_t n = size_t(std::min<uint64_t>(chunk.size(), e.size - at));
             archive.read(e.offset + at, chunk.data(), n);
-            if (journalBytes && pending > 0 && pending + n > journalBytes) {
+            if (budget && pending > 0 && pending + n > budget) {
                 save.commit();
                 pending = 0;
             }
@@ -317,9 +318,8 @@ void restoreSaveArchive(const Reader& archive, SaveTreeWriter& save, uint64_t jo
             if (progress) progress(done, total);
         }
         save.endFile();
-        save.commit();
+        if (!budget) save.commit();
     }
-    // Directories only (or an empty save) still need their creation committed.
     save.commit();
 }
 

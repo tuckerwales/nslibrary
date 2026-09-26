@@ -105,8 +105,9 @@ void reload() {
 
 /**
  * Runs a backup or restore behind the progress overlay, then reports how it went. B cancels while
- * reading the save or downloading; uploading and writing always finish, so neither the USB link
- * nor the save is left half done.
+ * reading the save or downloading, and a restore up until it starts writing. An upload is only
+ * stopped by the transport: over the network straight away, over USB once it has been sent, so
+ * the link stays in step. Writing always finishes, so the save is never left half done.
  */
 void runWithProgress(const std::string& title, const std::string& failTitle,
     const std::function<std::string(const SaveStepFn&)>& work)
@@ -117,7 +118,9 @@ void runWithProgress(const std::string& title, const std::string& failTitle,
         Session::instance().abortSaveTransfer();
     });
     const SaveStepFn step = [cancelled](const std::string& phase, uint64_t done, uint64_t total) {
-        const bool cancellable = phase == "app/saves/phase_reading" || phase == "app/saves/phase_downloading";
+        // Writing reports 0 once before it touches the save: the last point a cancel is safe.
+        const bool cancellable = phase == "app/saves/phase_reading" || phase == "app/saves/phase_downloading" ||
+            (phase == "app/saves/phase_writing" && done == 0);
         if (cancellable && *cancelled) throw std::runtime_error("cancelled");
         std::string line = brls::getStr(phase);
         const std::string pct = formatPercent(done, total);
@@ -286,7 +289,11 @@ brls::View* SaveDetailActivity::createContentView() {
 void SaveDetailActivity::load() {
     error_.clear();
     try {
-        backups_ = Session::instance().listSaveBackups(save_.appId, false);
+        // Any user's or console's backup of the same kind of save can go in; the other kind cannot.
+        backups_.clear();
+        for (auto& backup : Session::instance().listSaveBackups(save_.appId, false)) {
+            if (backup.type == save_.type) backups_.push_back(std::move(backup));
+        }
     } catch (const std::exception& e) {
         backups_.clear();
         error_ = e.what();

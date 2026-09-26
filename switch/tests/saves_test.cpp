@@ -5,6 +5,7 @@
 
 #include <map>
 #include <optional>
+#include <stdexcept>
 #include <set>
 
 using namespace nslib;
@@ -203,9 +204,44 @@ TEST(save_archive_restore_commits_before_the_journal_fills) {
     MemoryTree target;
     restoreSaveArchive(MemoryReader(archive), target, 4096);
     CHECK(target.tree == source.tree);
-    CHECK(target.maxPending <= 4096);
-    // clear, three mid-file commits for 10000 bytes, one per file, and the final one.
-    CHECK(target.commits >= 6);
+    // Three quarters of the journal, leaving room for directory and allocation updates.
+    CHECK(target.maxPending <= 3072);
+    // 10010 bytes in at most 3072 at a time: at least four commits, the last one at the end.
+    CHECK(target.commits >= 4);
+    CHECK_EQ(target.pending, uint64_t(0));
+}
+
+TEST(save_archive_restore_of_a_save_that_fits_the_journal_is_one_commit) {
+    MemoryTree source;
+    source.tree["a.bin"] = std::vector<uint8_t>(1000, 1);
+    source.tree["b.bin"] = std::vector<uint8_t>(1000, 2);
+    source.tree["dir"] = std::nullopt;
+    source.tree["dir/c.bin"] = std::vector<uint8_t>(500, 3);
+    const auto archive = archiveOf(source);
+    MemoryTree target;
+    restoreSaveArchive(MemoryReader(archive), target, 64 * 1024);
+    CHECK(target.tree == source.tree);
+    // Clearing and every file go in together, so a failure part way leaves the old save.
+    CHECK_EQ(target.commits, 1);
+}
+
+TEST(save_archive_restore_cancelled_at_the_start_leaves_the_save_alone) {
+    MemoryTree source;
+    source.tree["a.bin"] = std::vector<uint8_t>(100, 1);
+    const auto archive = archiveOf(source);
+    MemoryTree target;
+    target.tree["old.bin"] = std::vector<uint8_t>(10, 9);
+    bool threw = false;
+    try {
+        restoreSaveArchive(MemoryReader(archive), target, 4096, [](uint64_t done, uint64_t) {
+            if (done == 0) throw std::runtime_error("cancelled");
+        });
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+    CHECK(threw);
+    CHECK_EQ(target.clears, 0);
+    CHECK(target.tree.count("old.bin") == 1);
 }
 
 TEST(save_archive_restore_creates_missing_parent_directories) {

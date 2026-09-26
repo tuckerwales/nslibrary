@@ -110,8 +110,11 @@ SaveArchiveListing listSaveArchive(const Reader& archive);
 
 /**
  * Replaces everything in the save with the archive's contents. Validates the whole archive first,
- * so a bad one fails before the save is touched. Commits after each file, and part way through a
- * file whenever the uncommitted bytes would exceed `journalBytes` (0: only after each file).
+ * so a bad one fails before the save is touched. Clearing and writing share commits, which happen
+ * only when the uncommitted bytes would pass three quarters of `journalBytes` (the rest is left
+ * for directory and allocation updates) and once at the end. A save that fits in that budget is
+ * therefore replaced in a single commit: if anything fails, the old save is left as it was.
+ * With `journalBytes` 0 the size is unknown, and it commits after every file instead.
  */
 void restoreSaveArchive(const Reader& archive, SaveTreeWriter& save, uint64_t journalBytes,
     const SaveProgressFn& progress = {});

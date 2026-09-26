@@ -68,6 +68,17 @@ function sameSave(key: SaveKey): SQL | undefined {
   );
 }
 
+const SAVE_ORIGINS: readonly SaveBackupRow["origin"][] = ["manual", "pre-restore"];
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function saveKeyString(row: SaveBackupRow): string {
   return [row.applicationId, row.saveType, row.userId ?? "", row.deviceId ?? ""].join(":");
 }
@@ -176,7 +187,12 @@ export class SaveService {
         .limit(1)
         .get();
       if (latest && latest.sha256 === sha256) {
-        await rm(tmp, { force: true });
+        // Same bytes: keep the existing backup, putting its archive back if it went missing.
+        const path = this.archivePath(latest);
+        if (!(await exists(path))) {
+          await mkdir(join(this.dir, latest.applicationId), { recursive: true });
+          await rename(tmp, path);
+        }
         return { row: latest, dup: true };
       }
 
@@ -206,7 +222,9 @@ export class SaveService {
         this.#db.delete(saveBackups).where(eq(saveBackups.id, row.id)).run();
         throw err;
       }
-      await this.#prune(keyOf(row));
+      // A restore uploads the save it is about to replace. Pruning then could delete the very
+      // backup being restored, so only a manual backup applies the retention setting.
+      if (row.origin !== "pre-restore") await this.#prune(keyOf(row));
       this.#events.publish({ type: "saves.changed" });
       return { row, dup: false };
     } finally {
@@ -298,18 +316,26 @@ export class SaveService {
     return removed;
   }
 
+  /**
+   * Deletes the oldest unpinned backups of a save beyond the setting. Backups made before a
+   * restore are counted on their own, so trying out a few restores never pushes out manual ones.
+   */
   async #prune(key: SaveKey): Promise<number> {
     const keep = this.#keep();
     if (keep <= 0) return 0;
-    const unpinned = this.#db
-      .select()
-      .from(saveBackups)
-      .where(and(sameSave(key), eq(saveBackups.pinned, false)))
-      .orderBy(desc(saveBackups.createdAt), desc(saveBackups.id))
-      .all();
-    const excess = unpinned.slice(keep);
-    await this.#remove(excess);
-    return excess.length;
+    let removed = 0;
+    for (const origin of SAVE_ORIGINS) {
+      const unpinned = this.#db
+        .select()
+        .from(saveBackups)
+        .where(and(sameSave(key), eq(saveBackups.origin, origin), eq(saveBackups.pinned, false)))
+        .orderBy(desc(saveBackups.createdAt), desc(saveBackups.id))
+        .all();
+      const excess = unpinned.slice(keep);
+      await this.#remove(excess);
+      removed += excess.length;
+    }
+    return removed;
   }
 
   async #remove(rows: SaveBackupRow[]): Promise<void> {

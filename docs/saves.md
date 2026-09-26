@@ -12,7 +12,9 @@ this console last backed each one up.
 - **Back up every save** goes through the list and uploads the saves that changed. A save whose
   archive is byte-identical to its newest backup is skipped, so running it often is cheap.
 - Open a save to **Back up now**, or to see every backup of that game on the library, from any user
-  or console. Choose one to **Restore** it into the save you opened.
+  or console. Only backups of the same kind of save are listed: an account save takes another
+  account save, a device save another device save. Choose one to **Restore** it into the save you
+  opened.
 - **Y** reloads the list.
 
 A restore:
@@ -20,12 +22,16 @@ A restore:
 1. downloads the archive to `sdmc:/config/nslibrary/tmp/` and checks its SHA-256;
 2. checks every entry, and that the files fit in the save on this console;
 3. backs up the save as it is now, marked **Before a restore**, so the restore can be undone;
-4. clears the save and writes the archive into it, committing before the game's save journal fills.
+4. clears the save and writes the archive into it, committing only when three quarters of the
+   game's save journal would otherwise fill, and once at the end.
 
-Nothing is written to the save until steps 1 to 3 have succeeded. The game has to have created its
-save on this console first (start it once), and it must not be running: close it from HOME before
-backing up or restoring. **B** cancels while a save is being read or downloaded; an upload or a
-write always runs to the end so the USB link and the save are never left half done.
+Nothing is written to the save until steps 1 to 3 have succeeded. A save that fits in the journal
+(most do) is replaced in one commit, so a restore that fails part way leaves the old save as it
+was; a larger one is committed in parts, and the backup from step 3 puts it back. The game has to
+have created its save on this console first (start it once), and it must not be running: close it
+from HOME before backing up or restoring. **B** cancels while a save is being read or downloaded,
+and a restore up until it starts writing. An upload over the network stops straight away; over USB
+it is sent to the end first so the link stays in step. Writing always runs to the end.
 
 ## In the web UI
 
@@ -35,7 +41,9 @@ shows how many backups it has and links to them.
 
 **Settings → Save backups** sets how many backups each save keeps (10 by default, 0 keeps all). When a
 new backup arrives, the oldest unpinned ones beyond that number are deleted. Pinned backups are
-always kept, on top of the number. Lowering it applies straight away; unpinning does not delete
+always kept, on top of the number. Backups made before a restore are counted separately from the
+rest, and are only pruned when the next ordinary backup of that save arrives, so a restore never
+deletes a backup (not even the one being restored). Lowering it applies straight away; unpinning does not delete
 anything until that save's next backup.
 
 ## Storage

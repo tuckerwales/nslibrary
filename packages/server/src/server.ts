@@ -232,6 +232,8 @@ export async function createServer(
           const { DeviceUsbHandler } = await import("./usb/handler");
           usbHost = await startUsbHost({
             createHandler: () => new DeviceUsbHandler(devices, iconCacheDir, saves),
+            // Save uploads are the only large requests; hold them to NSLIB_SAVE_MAX_MB.
+            maxRequestPayload: saves.maxBytes,
             log,
           });
           log("USB host listening for a Switch (057E:3000)");

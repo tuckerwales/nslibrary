@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { buildSaveArchive } from "@nslib/formats";
@@ -332,6 +332,50 @@ describe("save backups", () => {
     expect(server.saves.list()).toHaveLength(5);
     expect((await web("GET", "/settings")).json<ServerSettings>().saveBackupsKeep).toBe(0);
     expect((await web("PUT", "/settings", { body: { saveBackupsKeep: -1 } })).statusCode).toBe(400);
+  });
+
+  it("never deletes a backup while restoring one, and counts pre-restore backups apart", async () => {
+    await start();
+    const token = await pair("3f2b8c1e-9a4d-4e7b-8c21-5d6f0a1b2c3d", "Living room");
+    await web("PUT", "/settings", { body: { saveBackupsKeep: 2 } });
+    const ids: number[] = [];
+    for (const seed of ["a", "b"]) {
+      now += 1000;
+      ids.push((await upload(token, archive(seed))).json().backup.id);
+    }
+
+    // Restoring the oldest kept backup first uploads the save it replaces.
+    for (const seed of ["c", "d", "e"]) {
+      now += 1000;
+      const res = await upload(token, archive(seed), { origin: "pre-restore" });
+      expect(res.statusCode).toBe(201);
+      ids.push(res.json().backup.id);
+    }
+    expect((await deviceGet(token, `/saves/${ids[0]}/data`)).statusCode).toBe(200);
+    expect(server.saves.list()).toHaveLength(5);
+
+    // The next manual backup prunes each kind to the setting on its own.
+    now += 1000;
+    ids.push((await upload(token, archive("f"))).json().backup.id);
+    expect(server.saves.list().map((row) => row.id)).toEqual([ids[5], ids[4], ids[3], ids[1]]);
+  });
+
+  it("puts back a missing archive when the same bytes are uploaded again", async () => {
+    await start();
+    const token = await pair("3f2b8c1e-9a4d-4e7b-8c21-5d6f0a1b2c3d", "Living room");
+    const body = archive("one");
+    const first = (await upload(token, body)).json().backup;
+    const path = join(dir, "data", "saves", APP, `${first.id}.tar`);
+    await rm(path);
+    expect((await deviceGet(token, `/saves/${first.id}/data`)).statusCode).toBe(410);
+
+    now += 1000;
+    const again = await upload(token, body);
+    expect(again.statusCode).toBe(200);
+    expect(again.json().dup).toBe(true);
+    const data = await deviceGet(token, `/saves/${first.id}/data`);
+    expect(data.statusCode).toBe(200);
+    expect(data.rawPayload.equals(body)).toBe(true);
   });
 
   it("lists, downloads, annotates and deletes backups in the web API", async () => {

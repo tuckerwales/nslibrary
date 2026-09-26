@@ -432,6 +432,10 @@ SaveBackupResult backupConsoleSave(const ConsoleSave& save, const std::string& o
 void restoreConsoleSave(const ConsoleSave& save, const SaveBackup& backup, DeviceApiClient& client,
     const SaveStepFn& progress)
 {
+    // An account save and a device save hold different data, even for the same game.
+    if (backup.app != save.appId || backup.type != save.type) {
+        throw std::runtime_error("That backup is of a different save, so it cannot be restored into this one.");
+    }
     StagedFile staged(std::string(kSaveStagingDir) + "/restore.tar");
     {
         std::FILE* out = std::fopen(staged.path.c_str(), "wb");
