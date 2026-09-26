@@ -164,7 +164,7 @@ function SavesSection() {
     <Card
       id="saves"
       title="Save backups"
-      description="Each save keeps its newest backups; older ones are removed when a new one arrives. Pinned backups are always kept, on top of this number."
+      description="Each save keeps this many of its newest backups, and older ones are removed when a new backup arrives. Backups made before a restore are counted separately, up to the same number, and are removed with the next ordinary backup. Pinned backups are always kept, on top of both."
     >
       <CardBody>
         {settings.error && <LoadError error={settings.error} />}

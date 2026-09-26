@@ -360,6 +360,32 @@ describe("save backups", () => {
     expect(server.saves.list().map((row) => row.id)).toEqual([ids[5], ids[4], ids[3], ids[1]]);
   });
 
+  it("counts a manual backup that matches a pre-restore one as manual", async () => {
+    await start();
+    const token = await pair("3f2b8c1e-9a4d-4e7b-8c21-5d6f0a1b2c3d", "Living room");
+    await web("PUT", "/settings", { body: { saveBackupsKeep: 1 } });
+    now += 1000;
+    const older = (await upload(token, archive("a"))).json().backup.id as number;
+
+    // A restore that stopped before writing leaves the save as its pre-restore backup has it.
+    now += 1000;
+    const before = (await upload(token, archive("b"), { origin: "pre-restore" })).json().backup;
+    expect(before.origin).toBe("pre-restore");
+
+    now += 1000;
+    const manual = await upload(token, archive("b"));
+    expect(manual.statusCode).toBe(200);
+    expect(manual.json()).toMatchObject({ dup: true, backup: { id: before.id, origin: "manual" } });
+    // Now the newest manual backup, it pushes the older one out under a limit of 1.
+    expect(server.saves.list().map((row) => [row.id, row.origin])).toEqual([[before.id, "manual"]]);
+    expect(server.saves.list().some((row) => row.id === older)).toBe(false);
+
+    // A pre-restore upload of the same bytes leaves a manual backup as it is.
+    now += 1000;
+    const again = await upload(token, archive("b"), { origin: "pre-restore" });
+    expect(again.json()).toMatchObject({ dup: true, backup: { id: before.id, origin: "manual" } });
+  });
+
   it("puts back a missing archive when the same bytes are uploaded again", async () => {
     await start();
     const token = await pair("3f2b8c1e-9a4d-4e7b-8c21-5d6f0a1b2c3d", "Living room");

@@ -472,8 +472,9 @@ export interface ServerSettings {
   serverName: string;
   requireUsbPairing: boolean;
   /**
-   * Backups kept for each save, newest first. Pinned backups are kept on top of these and never
-   * removed automatically. 0 keeps everything.
+   * Backups kept for each save, newest first. Backups made before a restore are counted apart,
+   * up to the same number, and pruned with the next manual backup. Pinned backups are kept on top
+   * of these and never removed automatically. 0 keeps everything.
    */
   saveBackupsKeep: number;
 }

@@ -209,13 +209,18 @@ public:
         closeFile();
         const Result rc = fsFsCommit(fs_);
         if (R_FAILED(rc)) fail("Committing the save", rc);
+        committed_ = true;
         if (reopen) openFile();
     }
+
+    /** Whether any of the restore is already committed, so a failure now leaves the save part written. */
+    bool committed() const { return committed_; }
 
 private:
     FsFileSystem* fs_;
     FsFile file_{};
     bool open_ = false;
+    bool committed_ = false;
     std::string path_;
     uint64_t offset_ = 0;
 
@@ -479,9 +484,18 @@ void restoreConsoleSave(const ConsoleSave& save, const SaveBackup& backup, Devic
 
     SaveMount mount(save);
     FsSaveWriter writer(mount.fs());
-    restoreSaveArchive(archive, writer, save.journalBytes, [&](uint64_t done, uint64_t total) {
-        if (progress) progress("app/saves/phase_writing", done, total);
-    });
+    try {
+        restoreSaveArchive(archive, writer, save.journalBytes, [&](uint64_t done, uint64_t total) {
+            if (progress) progress("app/saves/phase_writing", done, total);
+        });
+    } catch (const std::exception& e) {
+        // A save bigger than its journal is written in several commits. Until the first, a failure
+        // leaves the old save as it was; after it, the save is incomplete and needs restoring.
+        if (!writer.committed()) throw;
+        throw std::runtime_error(std::string(e.what()) +
+            "\n\nPart of the backup was already written, so the save is incomplete. Restore the backup "
+            "marked \"Before a restore\" to put it back.");
+    }
 }
 
 } // namespace nslib

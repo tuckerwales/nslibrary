@@ -28,7 +28,7 @@ released the `.nro` only.
 ### Changed
 - The USB host reads request payloads a chunk at a time, so a long upload is not mistaken for an
   idle Switch, and discards a payload over `NSLIB_SAVE_MAX_MB` without losing its place in the
-  stream.
+  stream. A save uploaded over USB streams to disk instead of being held in memory.
 
 ## [0.6.0] - 2026-09-26
 

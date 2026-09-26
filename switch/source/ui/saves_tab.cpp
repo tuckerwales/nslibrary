@@ -107,7 +107,9 @@ void reload() {
  * Runs a backup or restore behind the progress overlay, then reports how it went. B cancels while
  * reading the save or downloading, and a restore up until it starts writing. An upload is only
  * stopped by the transport: over the network straight away, over USB once it has been sent, so
- * the link stays in step. Writing always finishes, so the save is never left half done.
+ * the link stays in step. Writing cannot be cancelled once it starts. If it fails, a save that fits
+ * its journal is left as it was; a bigger one is committed in parts and can be left incomplete,
+ * which the error says, and the backup made before the restore puts it back.
  */
 void runWithProgress(const std::string& title, const std::string& failTitle,
     const std::function<std::string(const SaveStepFn&)>& work)
@@ -232,9 +234,12 @@ void backUpEverySave() {
         const auto& save = saves[i];
         const std::string name = gameName(save) + "   " + ownerName(save);
         updateProgress(name, i, saves.size());
+        // Skip the upload only when a manual backup already has these bytes. One made before a
+        // restore goes up anyway, so the server can count it as manual from now on.
         const SaveBackup* last = latestMine(save);
+        const std::string unchangedSince = last && last->origin == "manual" ? last->sha256 : "";
         try {
-            const auto result = session.backupSave(save, "manual", last ? last->sha256 : "",
+            const auto result = session.backupSave(save, "manual", unchangedSince,
                 [&](const std::string& phase, uint64_t, uint64_t) {
                     const bool cancellable = phase == "app/saves/phase_reading";
                     if (cancellable && *cancelled) throw std::runtime_error("cancelled");

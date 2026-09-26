@@ -193,6 +193,20 @@ export class SaveService {
           await mkdir(join(this.dir, latest.applicationId), { recursive: true });
           await rename(tmp, path);
         }
+        // A manual backup of a save a restore left alone (cancelled, or failed before writing)
+        // matches the backup made before that restore. Count it as manual from now on, so it is
+        // kept like the manual backup it now is rather than pruned with the pre-restore ones.
+        if (query.origin === "manual" && latest.origin === "pre-restore") {
+          const promoted = this.#db
+            .update(saveBackups)
+            .set({ origin: "manual" })
+            .where(eq(saveBackups.id, latest.id))
+            .returning()
+            .get();
+          await this.#prune(key);
+          this.#events.publish({ type: "saves.changed" });
+          return { row: promoted ?? latest, dup: true };
+        }
         return { row: latest, dup: true };
       }
 

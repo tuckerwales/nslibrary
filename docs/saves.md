@@ -43,7 +43,9 @@ shows how many backups it has and links to them.
 new backup arrives, the oldest unpinned ones beyond that number are deleted. Pinned backups are
 always kept, on top of the number. Backups made before a restore are counted separately from the
 rest, and are only pruned when the next ordinary backup of that save arrives, so a restore never
-deletes a backup (not even the one being restored). Lowering it applies straight away; unpinning does not delete
+deletes a backup (not even the one being restored). A manual backup with the same bytes as the
+newest backup made before a restore (say the restore was cancelled) is not stored twice: that backup
+is counted as manual from then on. Lowering it applies straight away; unpinning does not delete
 anything until that save's next backup.
 
 ## Storage

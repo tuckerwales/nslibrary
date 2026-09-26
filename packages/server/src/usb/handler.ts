@@ -102,7 +102,7 @@ export class DeviceUsbHandler implements UsbRequestHandler {
 
   async handle(
     req: UsbRequestJson,
-    payload: Uint8Array,
+    payload: Uint8Array | UsbStreamPayload,
     _requestId?: number,
   ): Promise<UsbHandlerResult> {
     const { path, query } = pathParts(req.p);
@@ -236,7 +236,11 @@ export class DeviceUsbHandler implements UsbRequestHandler {
       }
       if (method === "POST" && path === "/saves") {
         const q = parseWith(SaveUploadQuerySchema, Object.fromEntries(query));
-        const stored = await this.saves.store(payload, q, this.#device, payload.byteLength);
+        // A large upload is streamed off the link to disk, never held in memory.
+        const stored =
+          payload instanceof Uint8Array
+            ? await this.saves.store(payload, q, this.#device, payload.byteLength)
+            : await this.saves.store(payload.chunks, q, this.#device, payload.length);
         const [backup] = this.saves.toDevice([stored.row], this.#device.id);
         return { status: stored.dup ? 200 : 201, body: { backup, dup: stored.dup } };
       }
