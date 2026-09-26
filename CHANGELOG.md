@@ -11,6 +11,8 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-26
+
 ### Added
 - **NSP → NSZ compression on the server.** The new **Compression** page (and a **Compress** button on
   each NSP in a title's files) compresses titles into an output folder you choose, usually 30 to 60%
