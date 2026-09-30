@@ -28,3 +28,18 @@ describe("setup token", () => {
     expect(config.setupToken).not.toBe("");
   });
 });
+
+describe("save archive limit", () => {
+  it("defaults to 1 GiB", () => {
+    expect(loadConfig({ ...base }).saveMaxBytes).toBe(1024 * 1024 * 1024);
+  });
+
+  it("reads NSLIB_SAVE_MAX_MB", () => {
+    expect(loadConfig({ ...base, NSLIB_SAVE_MAX_MB: "64" }).saveMaxBytes).toBe(64 * 1024 * 1024);
+  });
+
+  it("rejects a limit that is not a positive integer", () => {
+    expect(() => loadConfig({ ...base, NSLIB_SAVE_MAX_MB: "0" })).toThrow(/NSLIB_SAVE_MAX_MB/);
+    expect(() => loadConfig({ ...base, NSLIB_SAVE_MAX_MB: "big" })).toThrow(/NSLIB_SAVE_MAX_MB/);
+  });
+});

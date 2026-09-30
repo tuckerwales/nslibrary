@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildPfs0, buildTicket, deterministicBytes, rightsIdFor } from "@nslib/fixtures";
+import { buildSaveArchive } from "@nslib/formats";
 import { createServer, type ServerConfig } from "@nslib/server";
 import {
   CatalogResponseSchema,
@@ -10,9 +11,12 @@ import {
   EventsResponseSchema,
   HelloResponseSchema,
   PairResponseSchema,
+  SaveListResponseSchema,
+  SaveUploadResponseSchema,
 } from "@nslib/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import { DeviceClient } from "../src/client";
+import { archiveFolder, extractArchive } from "../src/save-folder";
 
 const makeTempDir = () => mkdtemp(join(tmpdir(), "nslib-sim-"));
 const removeDir = (dir: string) => rm(dir, { recursive: true, force: true });
@@ -221,6 +225,109 @@ describe("device-sim contract", () => {
       });
       const delivered = await waiting;
       expect(delivered.ev.some((e) => e.t === "job.queued")).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("backs up a save folder over HTTP and restores it byte for byte", async () => {
+    dir = await makeTempDir();
+    const server = await createServer(testConfig(join(dir, "data")));
+    const baseUrl = await listenUrl(server);
+    try {
+      const cookie = await setupAdmin(baseUrl);
+      const { code } = (await (
+        await web(baseUrl, cookie, "POST", "/devices/pairing-code")
+      ).json()) as { code: string };
+      const client = new DeviceClient(baseUrl);
+      await client.pair({
+        code,
+        deviceUuid: randomUUID(),
+        name: "sim",
+        fw: "19.0.1",
+        amsVersion: "1.8.0",
+        appVersion: "0.1.0",
+      });
+
+      const save = join(dir, "save");
+      await mkdir(join(save, "slots", "empty"), { recursive: true });
+      await writeFile(join(save, "system.dat"), deterministicBytes("system", 2048));
+      await writeFile(join(save, "slots", "1.sav"), deterministicBytes("slot", 70_000));
+      const archive = await archiveFolder(save);
+
+      const stored = SaveUploadResponseSchema.parse(
+        await client.uploadSave(archive, {
+          app: "0100ABCDEF012000",
+          type: "account",
+          user: "0123456789ABCDEF0FEDCBA987654321",
+          userName: "Sim",
+        }),
+      );
+      expect(stored.dup).toBe(false);
+      expect(stored.backup.files).toBe(2);
+      // Packing the same folder again gives the same bytes, so the server keeps one copy.
+      expect(
+        (
+          await client.uploadSave(await archiveFolder(save), {
+            app: "0100ABCDEF012000",
+            type: "account",
+            user: "0123456789ABCDEF0FEDCBA987654321",
+          })
+        ).dup,
+      ).toBe(true);
+
+      const listed = SaveListResponseSchema.parse(await client.listSaves({ latest: true }));
+      expect(listed.backups.map((b) => b.id)).toEqual([stored.backup.id]);
+
+      const response = await client.downloadSave(stored.backup.id);
+      expect(response.status).toBe(200);
+      const restored = join(dir, "restored");
+      const files = await extractArchive(Buffer.from(await response.arrayBuffer()), restored);
+      expect(files).toBe(2);
+      expect(
+        (await readFile(join(restored, "slots", "1.sav"))).equals(
+          deterministicBytes("slot", 70_000),
+        ),
+      ).toBe(true);
+      expect((await readFile(join(restored, "system.dat"))).length).toBe(2048);
+      expect((await archiveFolder(restored)).equals(archive)).toBe(true);
+
+      const downloaded = await web(baseUrl, cookie, "GET", `/saves/${stored.backup.id}/download`);
+      expect(Buffer.from(await downloaded.arrayBuffer()).equals(archive)).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("refuses an oversized save over a live socket and keeps serving", async () => {
+    dir = await makeTempDir();
+    const server = await createServer({
+      ...testConfig(join(dir, "data")),
+      saveMaxBytes: 1024 * 1024,
+    });
+    const baseUrl = await listenUrl(server);
+    try {
+      const cookie = await setupAdmin(baseUrl);
+      const { code } = (await (
+        await web(baseUrl, cookie, "POST", "/devices/pairing-code")
+      ).json()) as { code: string };
+      const client = new DeviceClient(baseUrl);
+      await client.pair({
+        code,
+        deviceUuid: randomUUID(),
+        name: "sim",
+        fw: "19.0.1",
+        amsVersion: "1.8.0",
+        appVersion: "0.1.0",
+      });
+      // Refused from its Content-Length, before the 20 MB body is read.
+      const big = buildSaveArchive([{ path: "big.bin", data: Buffer.alloc(20 * 1024 * 1024) }]);
+      await expect(
+        client.uploadSave(big, { app: "0100ABCDEF012000", type: "device" }),
+      ).rejects.toMatchObject({ code: "PAYLOAD_TOO_LARGE", status: 413 });
+      const small = buildSaveArchive([{ path: "small.bin", data: Buffer.alloc(10) }]);
+      const stored = await client.uploadSave(small, { app: "0100ABCDEF012000", type: "device" });
+      expect(stored.dup).toBe(false);
     } finally {
       await server.close();
     }

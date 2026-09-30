@@ -11,6 +11,10 @@ import {
   JobProgressRequestSchema,
   PairRequestSchema,
   PairResponseSchema,
+  SaveListQuerySchema,
+  SaveListResponseSchema,
+  SaveUploadQuerySchema,
+  SaveUploadResponseSchema,
 } from "../src/index";
 
 const goldenDir = join(import.meta.dirname, "..", "golden", "device-api");
@@ -28,6 +32,8 @@ const cases: [string, z.ZodType][] = [
   ["events-response.json", EventsResponseSchema],
   ["job-progress-request.json", JobProgressRequestSchema],
   ["error-body.json", ErrorBodySchema],
+  ["save-list-response.json", SaveListResponseSchema],
+  ["save-upload-response.json", SaveUploadResponseSchema],
 ];
 
 describe("device API golden files", () => {
@@ -53,5 +59,39 @@ describe("device API validation", () => {
   it("rejects unknown event types", () => {
     const value = { cursor: "1", ev: [{ t: "job.exploded", id: 1 }] };
     expect(EventsResponseSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+describe("save backup validation", () => {
+  const upload = {
+    app: "0100ABCDEF010000",
+    type: "account",
+    user: "0123456789ABCDEF0FEDCBA987654321",
+    sha256: "a".repeat(64),
+  };
+
+  it("defaults the origin to manual", () => {
+    expect(SaveUploadQuerySchema.parse(upload).origin).toBe("manual");
+  });
+
+  it("requires a user for account saves and forbids one for device saves", () => {
+    expect(SaveUploadQuerySchema.safeParse({ ...upload, user: undefined }).success).toBe(false);
+    expect(SaveUploadQuerySchema.safeParse({ ...upload, type: "device" }).success).toBe(false);
+    expect(
+      SaveUploadQuerySchema.safeParse({ ...upload, type: "device", user: undefined }).success,
+    ).toBe(true);
+  });
+
+  it("rejects lowercase account IDs and uppercase hashes", () => {
+    expect(
+      SaveUploadQuerySchema.safeParse({ ...upload, user: upload.user.toLowerCase() }).success,
+    ).toBe(false);
+    expect(SaveUploadQuerySchema.safeParse({ ...upload, sha256: "A".repeat(64) }).success).toBe(
+      false,
+    );
+  });
+
+  it("uppercases the app filter of a listing", () => {
+    expect(SaveListQuerySchema.parse({ app: "0100abcdef010000" }).app).toBe("0100ABCDEF010000");
   });
 });

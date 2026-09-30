@@ -181,6 +181,9 @@ importers:
 
   packages/device-sim:
     dependencies:
+      '@nslib/formats':
+        specifier: workspace:*
+        version: link:../formats
       '@nslib/shared':
         specifier: workspace:*
         version: link:../shared

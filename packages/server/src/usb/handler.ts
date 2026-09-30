@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { open, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
   CatalogQuerySchema,
@@ -10,6 +10,8 @@ import {
   JobCompleteRequestSchema,
   JobProgressRequestSchema,
   PairRequestSchema,
+  SaveListQuerySchema,
+  SaveUploadQuerySchema,
   type UsbRequestJson,
 } from "@nslib/shared";
 import type { UsbHandlerResult, UsbRequestHandler, UsbStreamPayload } from "@nslib/usb-host";
@@ -19,6 +21,7 @@ import { etagFor, etagsMatch, parseRangeHeader } from "../device/range";
 import type { DeviceApiService } from "../device/service";
 import type { LocatedLibraryFile } from "../library/library-fs";
 import { openLocatedFile } from "../library/library-fs";
+import type { SaveService } from "../saves/service";
 
 function headerOf(req: UsbRequestJson, name: string): string | undefined {
   if (!req.h) return undefined;
@@ -60,6 +63,27 @@ function rangeStream(located: LocatedLibraryFile, start: number, length: number)
   };
 }
 
+/** Streams part of a save archive, like `rangeStream` does for library files. */
+function archiveStream(path: string, start: number, length: number): UsbStreamPayload {
+  return {
+    length,
+    chunks: (async function* () {
+      const handle = await open(path, "r");
+      try {
+        for (let done = 0; done < length; ) {
+          const buffer = Buffer.allocUnsafe(Math.min(STREAM_CHUNK, length - done));
+          const { bytesRead } = await handle.read(buffer, 0, buffer.length, start + done);
+          if (bytesRead === 0) throw new Error("The save archive got shorter while it was sent");
+          done += bytesRead;
+          yield new Uint8Array(buffer.buffer, buffer.byteOffset, bytesRead);
+        }
+      } finally {
+        await handle.close();
+      }
+    })(),
+  };
+}
+
 export class DeviceUsbHandler implements UsbRequestHandler {
   #device: DeviceRow | null = null;
   #token: string | undefined;
@@ -67,6 +91,7 @@ export class DeviceUsbHandler implements UsbRequestHandler {
   constructor(
     private readonly devices: DeviceApiService,
     private readonly iconDir: string,
+    private readonly saves: SaveService,
   ) {}
 
   onDetach(): void {
@@ -77,7 +102,7 @@ export class DeviceUsbHandler implements UsbRequestHandler {
 
   async handle(
     req: UsbRequestJson,
-    _payload: Uint8Array,
+    payload: Uint8Array | UsbStreamPayload,
     _requestId?: number,
   ): Promise<UsbHandlerResult> {
     const { path, query } = pathParts(req.p);
@@ -201,6 +226,32 @@ export class DeviceUsbHandler implements UsbRequestHandler {
         );
         return { status: 204 };
       }
+      if (method === "GET" && path === "/saves") {
+        const q = parseWith(SaveListQuerySchema, {
+          app: query.get("app") ?? undefined,
+          latest: query.get("latest") ?? undefined,
+        });
+        const rows = this.saves.list({ applicationId: q.app, latest: q.latest === "1" });
+        return { status: 200, body: { backups: this.saves.toDevice(rows, this.#device.id) } };
+      }
+      if (method === "POST" && path === "/saves") {
+        const q = parseWith(SaveUploadQuerySchema, Object.fromEntries(query));
+        // A large upload is streamed off the link to disk, never held in memory.
+        const stored =
+          payload instanceof Uint8Array
+            ? await this.saves.store(payload, q, this.#device, payload.byteLength)
+            : await this.saves.store(payload.chunks, q, this.#device, payload.length);
+        const [backup] = this.saves.toDevice([stored.row], this.#device.id);
+        return { status: stored.dup ? 200 : 201, body: { backup, dup: stored.dup } };
+      }
+      const saveData = /^\/saves\/(\d+)\/data$/.exec(path);
+      if (method === "GET" && saveData?.[1]) {
+        return this.#saveArchive(
+          Number(saveData[1]),
+          headerOf(req, "range"),
+          headerOf(req, "if-range"),
+        );
+      }
       throw new ApiError("NOT_FOUND", `No USB route for ${method} ${path}`);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -236,6 +287,37 @@ export class DeviceUsbHandler implements UsbRequestHandler {
       status: 200,
       headers: { "content-type": "image/jpeg" },
       payload,
+    };
+  }
+
+  async #saveArchive(
+    id: number,
+    rangeHeader: string | undefined,
+    ifRange: string | undefined,
+  ): Promise<UsbHandlerResult> {
+    const located = await this.saves.locate(id);
+    const etag = `"${located.row.sha256}"`;
+    const useRange = !ifRange || etagsMatch(ifRange, etag);
+    const parsed = useRange ? parseRangeHeader(rangeHeader, located.size) : "all";
+    if (parsed === "unsatisfiable") {
+      return {
+        status: ERROR_HTTP_STATUS.RANGE_NOT_SATISFIABLE,
+        headers: { "content-range": `bytes */${located.size}` },
+        body: {
+          error: { code: "RANGE_NOT_SATISFIABLE", msg: "Requested range is outside the archive" },
+        },
+      };
+    }
+    const range = parsed === "all" ? { start: 0, end: located.size - 1 } : parsed;
+    const length = located.size === 0 ? 0 : range.end - range.start + 1;
+    const headers: Record<string, string> = { etag, "accept-ranges": "bytes" };
+    if (parsed !== "all") {
+      headers["content-range"] = `bytes ${range.start}-${range.end}/${located.size}`;
+    }
+    return {
+      status: parsed === "all" ? 200 : 206,
+      headers,
+      payload: length === 0 ? new Uint8Array(0) : archiveStream(located.path, range.start, length),
     };
   }
 

@@ -55,6 +55,7 @@ set(NSLIB_COMMON_SRC
     source/update/ed25519.cpp
     source/update/manifest.cpp
     source/update/verify.cpp
+    source/saves/archive.cpp
 )
 
 if (PLATFORM_SWITCH)
@@ -101,6 +102,8 @@ if (PLATFORM_SWITCH)
         source/ui/queue_tab.cpp
         source/ui/installed_tab.cpp
         source/ui/missing_tab.cpp
+        source/ui/saves_tab.cpp
+        source/saves/console.cpp
         source/ui/settings_tab.cpp
         source/ui/progress.cpp
         source/ui/navigation.cpp
@@ -193,6 +196,8 @@ else()
         tests/hardening_test.cpp
         tests/format_test.cpp
         tests/library_sort_test.cpp
+        tests/saves_test.cpp
+        tests/i18n_test.cpp
     )
     target_include_directories(nslib-switch-tests PRIVATE
         source
@@ -202,6 +207,7 @@ else()
     target_compile_definitions(nslib-switch-tests PRIVATE
         GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../packages/shared/golden"
         FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/golden"
+        I18N_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources/i18n"
         NSLIB_VERSION="${NSLIB_VERSION}"
         NSLIB_GITHUB_REPO="tuckerwales/nslibrary"
     )

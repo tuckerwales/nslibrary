@@ -18,6 +18,7 @@ import { CompressService } from "./library/compress-service";
 import { LibraryRepository } from "./library/repository";
 import { LibraryScanner } from "./library/scanner";
 import { VerifyService } from "./library/verify-service";
+import { SaveService } from "./saves/service";
 import { applyDemoSeed, attachLibraryMounts } from "./seed/bootstrap";
 import { TitledbService } from "./titledb/service";
 
@@ -39,6 +40,7 @@ export interface NslibServer {
   auth: AuthService;
   devices: DeviceApiService;
   verify: VerifyService;
+  saves: SaveService;
   compress: CompressService;
   discovery: DiscoveryServer | null;
   mdns: MdnsResponder | null;
@@ -95,6 +97,15 @@ export async function createServer(
     tls: Boolean(config.tlsKey && config.tlsCert),
     titledbEnabled: () => titledb.enabled(),
   });
+  const saves = new SaveService({
+    db,
+    events,
+    now,
+    dataDir: config.dataDir,
+    keep: () => devices.saveBackupsKeep(),
+    maxBytes: config.saveMaxBytes,
+  });
+  await saves.init();
   const discovery =
     config.discoveryPort === null
       ? null
@@ -134,6 +145,7 @@ export async function createServer(
     titledb,
     devices,
     verify,
+    saves,
     compress,
     iconDir,
     log,
@@ -180,6 +192,7 @@ export async function createServer(
     auth,
     devices,
     verify,
+    saves,
     compress,
     discovery,
     mdns,
@@ -218,7 +231,9 @@ export async function createServer(
           const { startUsbHost } = await import("@nslib/usb-host/host");
           const { DeviceUsbHandler } = await import("./usb/handler");
           usbHost = await startUsbHost({
-            createHandler: () => new DeviceUsbHandler(devices, iconCacheDir),
+            createHandler: () => new DeviceUsbHandler(devices, iconCacheDir, saves),
+            // Save uploads are the only large requests; hold them to NSLIB_SAVE_MAX_MB.
+            maxRequestPayload: saves.maxBytes,
             log,
           });
           log("USB host listening for a Switch (057E:3000)");

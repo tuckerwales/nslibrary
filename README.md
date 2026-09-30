@@ -3,7 +3,7 @@
 [![CI](https://github.com/tuckerwales/nslibrary/actions/workflows/ci.yml/badge.svg)](https://github.com/tuckerwales/nslibrary/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Self-hosted library for **your own** Nintendo Switch dumps. Scan folders of NSP, NSZ, XCI, XCZ, and homebrew NRO files, fill in metadata, spot missing or duplicate content, and send titles to a modded Switch over LAN.
+Self-hosted library for **your own** Nintendo Switch dumps. Scan folders of NSP, NSZ, XCI, XCZ, and homebrew NRO files, fill in metadata, spot missing or duplicate content, send titles to a modded Switch over LAN, and back up its game saves.
 
 There are no download sources, no shop scraping, and no title keys handed out. Keys (`prod.keys`) come from your own console, stay on the server, and are optional.
 
@@ -20,6 +20,7 @@ There are no download sources, no shop scraping, and no title keys handed out. K
 - **Metadata** — Container listings and tickets need no keys. Names, icons, firmware requirements, and NCA hashes need `prod.keys` dumped from your console. Optional titledb (a URL or file you supply, refreshed daily if it's a URL) fills in names, which game DLC belongs to, and latest-version numbers only.
 - **NSP → NSZ compression**: the server compresses titles into an output folder you choose, usually 30 to 60% smaller. Each NSZ is read back and checked against the title's CNMT hashes before it's kept, and the page reports the space saved. With **Prefer NSZ** on, the Switch installs the compressed copy. Needs `prod.keys`.
 - **Device API** — A paired Switch browses the catalog and claims install jobs. The console always initiates; “Send to Switch” queues work for it to pick up.
+- **Save backups**: the Switch app backs up game saves to the server and restores them, on the same console or another you own. Only changed saves are uploaded, each save keeps its newest backups (pin the ones to keep forever), and the web UI downloads any backup as a tar. See [docs/saves.md](docs/saves.md).
 - **Discovery** — UDP `NSLIB?1` on port 8466, plus mDNS `_nslibrary._tcp` so the server shows up in Bonjour/Avahi browsers. You can always type an IP by hand.
 - **USB** — A Switch plugged into the computer running NSLibrary (Electron, or Docker on Linux with device passthrough) uses the same device API inside `NSLU` frames. Transfers time out so cancel and unplug can interrupt a job.
 - **Desktop app** — Electron wraps the same server: tray, native folder picker, USB, auto sign-in on this machine.
@@ -126,7 +127,7 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 |---|---|---|
 | `NSLIB_HOST` | `0.0.0.0` | Bind address |
 | `NSLIB_PORT` / `PORT` | `8465` | HTTP (web UI, `/api/v1`, `/api/device/v1`) |
-| `NSLIB_DATA_DIR` | `data` | SQLite, keys, icon cache. Docker: `/data` |
+| `NSLIB_DATA_DIR` | `data` | SQLite, keys, icon cache, save backups. Docker: `/data` |
 | `NSLIB_WEB_DIR` | `packages/server/public` or `packages/web/dist` | Built UI; unset serves API only |
 | `NSLIB_TRUST_PROXY` | off | Set `true` behind Coolify / Traefik |
 | `NSLIB_POLLING` | off | Poll library folders (NFS/SMB) instead of inotify |
@@ -142,6 +143,7 @@ See [docs/switch.md](docs/switch.md) for pairing, USB, `nxlink -s`, and NSP/NSZ/
 | `NSLIB_LOG_LEVEL` | `info` | Fastify log level |
 | `NSLIB_TLS_KEY` / `NSLIB_TLS_CERT` | — | PEM files for optional HTTPS (LAN without a reverse proxy) |
 | `NSLIB_NRO_PATH` | `data/update/nslibrary.nro` if present | A signed release mirrored here, so consoles without internet can update (needs `update.json` and `update.json.sig` beside it) |
+| `NSLIB_SAVE_MAX_MB` | `1024` | Largest save archive a Switch may upload. Backups live in `<dataDir>/saves` |
 | `NSLIB_FORWARDER_MAIN` | `data/forwarder/main` if present | ExeFS `main` for the HOME-menu NSP |
 
 The server never writes into library folders. Missing files are marked, then purged after 30 days.
@@ -174,6 +176,7 @@ Without keys the library still lists files from containers, tickets, and filenam
 - [Deploy](docs/deploy.md) — Docker image, Coolify, volumes
 - [Device API](docs/device-api.md) — pairing, catalog, jobs, Range downloads
 - [USB protocol](docs/usb-protocol.md) — frame layout (same messages as HTTP)
+- [Save backups](docs/saves.md): backing up and restoring saves, the archive format, and its API
 - [Keys](docs/keys.md) — `prod.keys` and filename mode
 - [Switch updates](docs/updates.md) — one channel of signed `.nro` releases, fetched from GitHub or mirrored on your server
 

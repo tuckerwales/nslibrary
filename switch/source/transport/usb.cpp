@@ -180,6 +180,21 @@ int UsbTransport::stream(
     return status;
 }
 
+HttpResponse UsbTransport::upload(const std::string& path, const std::string& contentType, uint64_t length,
+    const BodySource& body)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (abort_) throw StreamFatal("cancelled");
+    uint16_t status = 0;
+    std::string jsonOut;
+    exchangeLocked("POST", path, nullptr, {{"content-type", contentType}}, &status, &jsonOut, nullptr, 0, 0, &body,
+        length);
+    HttpResponse res;
+    res.status = status;
+    res.body = std::move(jsonOut);
+    return res;
+}
+
 uint32_t UsbTransport::exchangeLocked(
     const std::string& method,
     const std::string& path,
@@ -189,7 +204,9 @@ uint32_t UsbTransport::exchangeLocked(
     std::string* jsonOut,
     const std::function<void(const uint8_t*, size_t)>* sink,
     uint64_t offset,
-    uint64_t length)
+    uint64_t length,
+    const BodySource* upload,
+    uint64_t uploadLength)
 {
 #ifdef __SWITCH__
     Json req = Json::object();
@@ -205,9 +222,32 @@ uint32_t UsbTransport::exchangeLocked(
     FrameHeader hdr;
     hdr.kind = FrameKind::Request;
     hdr.requestId = nextId_++;
-    const auto frame = encodeFrame(hdr, reinterpret_cast<const uint8_t*>(jsonText.data()), jsonText.size(), nullptr, 0);
+    auto frame = encodeFrame(hdr, reinterpret_cast<const uint8_t*>(jsonText.data()), jsonText.size(), nullptr, 0);
+    if (upload) {
+        // The header announces the body's length; the body follows in chunks, never all in memory.
+        hdr.jsonLength = uint32_t(jsonText.size());
+        hdr.payloadLength = uploadLength;
+        const auto header = encodeFrameHeader(hdr);
+        std::copy(header.begin(), header.end(), frame.begin());
+    }
     writeAll(frame.data(), frame.size(), timeoutMs_, readyTimeoutMs_);
     lastTrafficMs_ = nowMs();
+    if (upload) {
+        // Once the header is out the host expects every byte, so a failure here can only drop the link.
+        for (uint64_t sent = 0; sent < uploadLength;) {
+            const size_t want = size_t(std::min<uint64_t>(uploadLength - sent, kPayloadBuffer));
+            size_t filled = 0;
+            while (filled < want) {
+                const size_t n = (*upload)(buffer_ + filled, want - filled);
+                if (n == 0) throw std::runtime_error("The upload ended before its announced length");
+                filled += n;
+            }
+            writeAll(buffer_, filled, timeoutMs_, readyTimeoutMs_);
+            sent += filled;
+            lastTrafficMs_ = nowMs();
+            pumpProgressUi(false, false);
+        }
+    }
 
     std::vector<uint8_t> respHdr(kUsbFrameHeaderSize);
     readAll(respHdr.data(), respHdr.size(), timeoutMs_, readyTimeoutMs_);
@@ -275,6 +315,8 @@ uint32_t UsbTransport::exchangeLocked(
     (void)sink;
     (void)offset;
     (void)length;
+    (void)upload;
+    (void)uploadLength;
     throw std::runtime_error("USB transport requires a Switch");
 #endif
 }

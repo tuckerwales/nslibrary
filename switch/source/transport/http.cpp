@@ -5,10 +5,12 @@
 #include "transport/tls_pin.hpp"
 #include "ui/progress.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <borealis.hpp>
 #include <chrono>
 #include <curl/curl.h>
+#include <exception>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <thread>
@@ -103,6 +105,37 @@ size_t writeStream(char* ptr, size_t size, size_t nmemb, void* userdata) {
     } catch (...) {
         return 0;
     }
+}
+
+struct UploadState {
+    const BodySource* body = nullptr;
+    uint64_t left = 0;
+    std::exception_ptr error;
+    std::atomic<bool>* abort = nullptr;
+};
+
+size_t readUpload(char* buffer, size_t size, size_t nitems, void* userdata) {
+    auto* st = static_cast<UploadState*>(userdata);
+    if (st->abort && st->abort->load()) return CURL_READFUNC_ABORT;
+    const size_t want = size_t(std::min<uint64_t>(uint64_t(size) * nitems, st->left));
+    if (!want) return 0;
+    try {
+        const size_t n = (*st->body)(reinterpret_cast<uint8_t*>(buffer), want);
+        if (n == 0 || n > want) throw std::runtime_error("The upload ended before its announced length");
+        st->left -= n;
+        return n;
+    } catch (...) {
+        st->error = std::current_exception();
+        return CURL_READFUNC_ABORT;
+    }
+}
+
+int xferinfoUpload(void* userdata, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
+    auto* st = static_cast<UploadState*>(userdata);
+    if (st && st->abort && st->abort->load()) return 1;
+    // Same as xferinfoPumpOnly: no tick, it could need this transport's mutex.
+    pumpProgressUi(false, false);
+    return 0;
 }
 
 curl_slist* appendHeaders(curl_slist* list, const std::string& token,
@@ -307,6 +340,58 @@ int HttpTransport::stream(
             return int(st.status);
         },
         5, waitBeforeRetry);
+}
+
+HttpResponse HttpTransport::upload(const std::string& path, const std::string& contentType, uint64_t length,
+    const BodySource& body)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (abort_) throw StreamFatal("cancelled");
+    const std::string url = joinUrl(baseUrl_, std::string(kDeviceApiBasePath) + path);
+    HttpResponse out;
+    UploadState st;
+    st.body = &body;
+    st.left = length;
+    st.abort = &abort_;
+    applyCommon(url);
+    curl_easy_setopt(curl_, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl_, CURLOPT_READFUNCTION, readUpload);
+    curl_easy_setopt(curl_, CURLOPT_READDATA, &st);
+    curl_easy_setopt(curl_, CURLOPT_POSTFIELDSIZE_LARGE, curl_off_t(length));
+    curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 0L);
+    // Abort an upload that stalls below 1 KB/s for 30 s instead of hanging forever.
+    curl_easy_setopt(curl_, CURLOPT_LOW_SPEED_LIMIT, 1024L);
+    curl_easy_setopt(curl_, CURLOPT_LOW_SPEED_TIME, 30L);
+    curl_easy_setopt(curl_, CURLOPT_SOCKOPTFUNCTION, sockoptLargeBuffers);
+    curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, writeBody);
+    curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &out.body);
+    curl_easy_setopt(curl_, CURLOPT_HEADERFUNCTION, writeHeaders);
+    curl_easy_setopt(curl_, CURLOPT_HEADERDATA, &out.headers);
+    curl_easy_setopt(curl_, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl_, CURLOPT_XFERINFOFUNCTION, xferinfoUpload);
+    curl_easy_setopt(curl_, CURLOPT_XFERINFODATA, &st);
+    curl_slist* hdr = appendHeaders(nullptr, token_, {{"Content-Type", contentType}}, false);
+    // Send the body straight away rather than waiting for a 100 Continue.
+    hdr = curl_slist_append(hdr, "Expect:");
+    curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, hdr);
+    brls::Logger::info("HTTP upload {} len={}", path, length);
+    const CURLcode rc = curl_easy_perform(curl_);
+    curl_easy_getinfo(curl_, CURLINFO_RESPONSE_CODE, &out.status);
+    curl_slist_free_all(hdr);
+    if (st.error) std::rethrow_exception(st.error);
+    if (abort_) throw StreamFatal("cancelled");
+    // A server can refuse before reading the whole body (too large, bad query). Its JSON says why
+    // better than curl's "failed sending data" does.
+    if (rc != CURLE_OK && out.status >= 400 && !out.body.empty()) {
+        brls::Logger::error("HTTP upload {} refused: {}", path, out.status);
+        return out;
+    }
+    if (rc != CURLE_OK) {
+        brls::Logger::error("HTTP upload {} curl {}", path, curl_easy_strerror(rc));
+        throw std::runtime_error("HTTP POST " + path + ": " + curlMessage(rc));
+    }
+    brls::Logger::info("HTTP upload {} -> {}", path, out.status);
+    return out;
 }
 
 } // namespace nslib

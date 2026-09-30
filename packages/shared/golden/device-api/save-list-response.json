@@ -1,0 +1,38 @@
+{
+  "backups": [
+    {
+      "id": 12,
+      "app": "0100ABCDEF010000",
+      "type": "account",
+      "user": "0123456789ABCDEF0FEDCBA987654321",
+      "userName": "Player",
+      "device": "Living room",
+      "mine": true,
+      "size": 11264,
+      "dataSize": 1062,
+      "files": 7,
+      "sha256": "3f0c2c3bbfe3a3b3d6c1bb6a5e2b0f6f7c9b0e1e4a2d5c8b7a6f5e4d3c2b1a09",
+      "at": 1790000000,
+      "origin": "manual",
+      "pinned": false,
+      "note": null
+    },
+    {
+      "id": 9,
+      "app": "0100ABCDEF010000",
+      "type": "device",
+      "user": null,
+      "userName": null,
+      "device": "Travel",
+      "mine": false,
+      "size": 1024,
+      "dataSize": 0,
+      "files": 0,
+      "sha256": "5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+      "at": 1789990000,
+      "origin": "pre-restore",
+      "pinned": true,
+      "note": "Before the final boss"
+    }
+  ]
+}
