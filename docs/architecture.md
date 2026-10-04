@@ -142,9 +142,9 @@ compression (`GET /compress`, `GET`/`PUT /compress/settings`, `GET /compress/fol
 `GET /compress/candidates`, `POST /compress` for several files, `POST /compress/clear`, and
 `POST /files/:id/compress`, `…/compress/cancel` and `…/compress/remove-original`),
 keys (`PUT /keys`, `GET /keys/status`), titledb config and refresh, devices (pairing code, list,
-rename, revoke), and jobs (create, reorder, cancel, list).
+rename, revoke, and a space check for a batch of installs), and jobs (create, reorder, cancel, list).
 
-`/ws` pushes `scan.progress`, `library.changed`, `device.online`/`offline`, `job.updated`,
+`/ws` pushes `scan.progress`, `library.changed`, `device.online`/`offline`/`updated`, `job.updated`,
 `verify.updated`, and `compress.updated`.
 
 Sessions are a 32-byte random token; only its SHA-256 is stored. Cookies are `HttpOnly`,

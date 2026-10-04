@@ -82,4 +82,28 @@ bool clearRequiredSystemVersion(uint8_t metaType, std::vector<uint8_t>& blob) {
     return true;
 }
 
+std::vector<ContentInfo> storedContentInfos(const std::vector<uint8_t>& blob) {
+    if (blob.size() < sizeof(ContentMetaHeader)) return {};
+    ContentMetaHeader header{};
+    std::memcpy(&header, blob.data(), sizeof(header));
+    const size_t start = sizeof(header) + header.extendedHeaderSize;
+    const size_t end = start + size_t(header.contentCount) * sizeof(ContentInfo);
+    if (blob.size() < end) return {};
+    std::vector<ContentInfo> out(header.contentCount);
+    if (!out.empty()) std::memcpy(out.data(), blob.data() + start, out.size() * sizeof(ContentInfo));
+    return out;
+}
+
+std::optional<uint64_t> storedApplicationId(uint8_t metaType, const std::vector<uint8_t>& blob) {
+    // A game's extended header starts with its patch id instead.
+    if (metaType != uint8_t(CnmtType::Patch) && metaType != uint8_t(CnmtType::AddOnContent)) return std::nullopt;
+    if (blob.size() < sizeof(ContentMetaHeader) + 8) return std::nullopt;
+    ContentMetaHeader header{};
+    std::memcpy(&header, blob.data(), sizeof(header));
+    if (header.extendedHeaderSize < 8) return std::nullopt;
+    uint64_t id = 0;
+    std::memcpy(&id, blob.data() + sizeof(header), sizeof(id));
+    return id;
+}
+
 } // namespace nslib

@@ -34,6 +34,10 @@ inline void contentInfoSetSize(ContentInfo& info, uint64_t size) {
     info.sizeHigh = uint8_t(size >> 32);
 }
 
+inline uint64_t contentInfoSize(const ContentInfo& info) {
+    return uint64_t(info.sizeLow) | (uint64_t(info.sizeHigh) << 32);
+}
+
 /**
  * Build the blob passed to `ncmContentMetaDatabaseSet`: header, extended header,
  * `NcmContentInfo[]` (packaged records plus the meta NCA itself), optional digest.
@@ -53,5 +57,14 @@ std::optional<uint32_t> storedRequiredSystemVersion(uint8_t metaType, const std:
 
 /** Zero that field in place. True when the blob changed and needs writing back. */
 bool clearRequiredSystemVersion(uint8_t metaType, std::vector<uint8_t>& blob);
+
+/**
+ * Every content a stored title owns, meta NCA included, from a blob read back with
+ * `ncmContentMetaDatabaseGet`. Empty when the blob is too short for the count it claims.
+ */
+std::vector<ContentInfo> storedContentInfos(const std::vector<uint8_t>& blob);
+
+/** The game a stored update or DLC belongs to. Games themselves, and short blobs, give nullopt. */
+std::optional<uint64_t> storedApplicationId(uint8_t metaType, const std::vector<uint8_t>& blob);
 
 } // namespace nslib

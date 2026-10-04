@@ -12,6 +12,20 @@ std::vector<MetaRecord> mergeMetaRecord(std::vector<MetaRecord> records, const M
     return records;
 }
 
+std::vector<MetaRecord> removeMetaRecord(std::vector<MetaRecord> records, uint64_t id, uint8_t storage) {
+    records.erase(std::remove_if(records.begin(), records.end(),
+                      [&](const MetaRecord& r) { return r.id == id && r.storage == storage; }),
+        records.end());
+    return records;
+}
+
+std::vector<MetaRecord> moveMetaRecord(std::vector<MetaRecord> records, uint64_t id, uint8_t from, uint8_t to) {
+    for (auto& r : records) {
+        if (r.id == id && r.storage == from) r.storage = to;
+    }
+    return records;
+}
+
 uint32_t launchVersionFor(const std::vector<MetaRecord>& records) {
     uint32_t version = 0;
     for (const auto& r : records) {

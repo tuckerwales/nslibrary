@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <borealis.hpp>
 #include <cstring>
+#include <functional>
 #include <vector>
 
 namespace nslib {
@@ -73,13 +74,18 @@ ContentStorageRecord fromMeta(const MetaRecord& m, const std::vector<ContentStor
     const NcmContentMetaKey& incoming)
 {
     ContentStorageRecord out{};
-    // Keep the untouched key bytes (install_type, padding) for records we did not change.
+    // Keep the untouched key bytes (install_type, padding) for records we did not change, and for
+    // one that only moved storage.
+    const auto sameKey = [&](const ContentStorageRecord& r) {
+        return r.key.id == m.id && r.key.version == m.version && r.key.type == m.type;
+    };
     for (const auto& r : original) {
-        if (r.key.id == m.id && r.key.version == m.version && r.key.type == m.type && r.storageId == m.storage) {
-            return r;
-        }
+        if (sameKey(r) && r.storageId == m.storage) return r;
     }
     out.key = incoming;
+    for (const auto& r : original) {
+        if (sameKey(r)) out.key = r.key;
+    }
     out.storageId = m.storage;
     return out;
 }
@@ -103,7 +109,16 @@ void appRecordExit() {
     g_open = false;
 }
 
-Result appRecordCommit(u64 applicationId, NcmStorageId storage, const NcmContentMetaKey& key) {
+namespace {
+
+/**
+ * Replace the record for `applicationId` with `change` applied to it. Records the change leaves
+ * alone keep their original key bytes; a changed one takes `key`. On failure the old record is put
+ * back so a game is never left without one.
+ */
+Result rewriteRecords(u64 applicationId, const NcmContentMetaKey& key,
+    const std::function<std::vector<MetaRecord>(std::vector<MetaRecord>)>& change, std::vector<MetaRecord>* result)
+{
     Result rc = appRecordInit();
     if (R_FAILED(rc)) return rc;
 
@@ -114,38 +129,83 @@ Result appRecordCommit(u64 applicationId, NcmStorageId storage, const NcmContent
     std::vector<MetaRecord> meta;
     meta.reserve(existing.size() + 1);
     for (const auto& r : existing) meta.push_back(toMeta(r));
-
-    MetaRecord incoming;
-    incoming.id = key.id;
-    incoming.version = key.version;
-    incoming.type = key.type;
-    incoming.storage = u8(storage);
-    const auto merged = mergeMetaRecord(std::move(meta), incoming);
+    const auto changed = change(std::move(meta));
 
     std::vector<ContentStorageRecord> records;
-    records.reserve(merged.size());
-    for (const auto& m : merged) records.push_back(fromMeta(m, existing, key));
+    records.reserve(changed.size());
+    for (const auto& m : changed) records.push_back(fromMeta(m, existing, key));
 
     if (!existing.empty()) {
         rc = deleteRecord(applicationId);
         if (R_FAILED(rc)) return rc;
     }
 
-    rc = pushRecords(applicationId, records.data(), u32(records.size()));
-    if (R_FAILED(rc)) {
-        // Put the previous records back so a failed push does not hide the game.
-        if (!existing.empty()) pushRecords(applicationId, existing.data(), u32(existing.size()));
-        return rc;
-    }
-
-    if (key.type == NcmContentMetaType_Patch || key.type == NcmContentMetaType_Application) {
-        rc = avmInitialize();
-        if (R_SUCCEEDED(rc)) {
-            avmPushLaunchVersion(applicationId, launchVersionFor(merged));
-            avmExit();
+    if (!records.empty()) {
+        rc = pushRecords(applicationId, records.data(), u32(records.size()));
+        if (R_FAILED(rc)) {
+            // Put the previous records back so a failed push does not hide the game.
+            if (!existing.empty()) pushRecords(applicationId, existing.data(), u32(existing.size()));
+            return rc;
         }
     }
+    if (result) *result = changed;
     return 0;
+}
+
+void pushLaunchVersion(u64 applicationId, const std::vector<MetaRecord>& records) {
+    if (R_SUCCEEDED(avmInitialize())) {
+        avmPushLaunchVersion(applicationId, launchVersionFor(records));
+        avmExit();
+    }
+}
+
+} // namespace
+
+Result appRecordCommit(u64 applicationId, NcmStorageId storage, const NcmContentMetaKey& key) {
+    MetaRecord incoming;
+    incoming.id = key.id;
+    incoming.version = key.version;
+    incoming.type = key.type;
+    incoming.storage = u8(storage);
+    std::vector<MetaRecord> merged;
+    const Result rc = rewriteRecords(applicationId, key,
+        [&](std::vector<MetaRecord> records) { return mergeMetaRecord(std::move(records), incoming); }, &merged);
+    if (R_FAILED(rc)) return rc;
+
+    if (key.type == NcmContentMetaType_Patch || key.type == NcmContentMetaType_Application) {
+        pushLaunchVersion(applicationId, merged);
+    }
+    return 0;
+}
+
+Result appRecordList(u64 applicationId, std::vector<RecordedMeta>& out) {
+    out.clear();
+    Result rc = appRecordInit();
+    if (R_FAILED(rc)) return rc;
+    std::vector<ContentStorageRecord> records;
+    rc = listRecords(applicationId, records);
+    if (R_FAILED(rc)) return rc;
+    for (const auto& r : records) out.push_back({r.key, NcmStorageId(r.storageId)});
+    return 0;
+}
+
+Result appRecordRemove(u64 applicationId, const NcmContentMetaKey& key, NcmStorageId storage) {
+    std::vector<MetaRecord> left;
+    const Result rc = rewriteRecords(applicationId, key,
+        [&](std::vector<MetaRecord> records) { return removeMetaRecord(std::move(records), key.id, u8(storage)); },
+        &left);
+    if (R_FAILED(rc)) return rc;
+    // HOME would otherwise keep asking for the update that was just removed.
+    if (key.type == NcmContentMetaType_Patch) pushLaunchVersion(applicationId, left);
+    return 0;
+}
+
+Result appRecordMove(u64 applicationId, const NcmContentMetaKey& key, NcmStorageId from, NcmStorageId to) {
+    return rewriteRecords(applicationId, key,
+        [&](std::vector<MetaRecord> records) {
+            return moveMetaRecord(std::move(records), key.id, u8(from), u8(to));
+        },
+        nullptr);
 }
 
 namespace {

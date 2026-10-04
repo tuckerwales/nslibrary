@@ -12,6 +12,17 @@ released the `.nro` only.
 ## [Unreleased]
 
 ### Added
+- **Manage storage on the Switch.** Select a game, update, or DLC in **Installed** to see how much
+  space it uses, then **Uninstall** it or **Move** it between the SD card and system memory.
+  Uninstalling a game removes its updates and DLC too and keeps save data; uninstalling an update
+  or DLC removes just that and fixes up HOME's record. A move copies first and only deletes the
+  original once HOME points at the copy, so cancelling or a failure leaves the title where it was.
+- **"Will it fit?" in the web UI.** **Send to Switch** shows what the selected content would take
+  from the SD card or system memory, after the installs already queued for that Switch, and asks
+  before sending anything that won't fit. **Devices** shows each Switch's free space and what its
+  queue will use.
+- Web API: `POST /devices/:id/space-check`, and a `device.updated` event when a Switch reports new
+  free space or installed titles.
 - Save backups. The Switch app's new **Saves** tab lists every account and device save on the
   console. Back up one save or every save at once, and restore any backup of the same kind of
   save (account or device), including one made for another user or on another console. A restore
