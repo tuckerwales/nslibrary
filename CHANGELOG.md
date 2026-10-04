@@ -11,6 +11,8 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-04
+
 ### Added
 - **Manage storage on the Switch.** Select a game, update, or DLC in **Installed** to see how much
   space it uses, then **Uninstall** it or **Move** it between the SD card and system memory.
