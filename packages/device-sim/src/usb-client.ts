@@ -5,12 +5,14 @@ import {
   type HelloResponse,
   type PairRequest,
   type PairResponse,
+  type SaveListResponse,
+  type SaveUploadResponse,
   USB_FRAME_HEADER_SIZE,
   type UsbRequestJson,
   type UsbResponseJson,
 } from "@nslib/shared";
 import type { ByteChannel } from "@nslib/usb-host/duplex";
-import { DeviceApiError } from "./client";
+import { DeviceApiError, type SaveUploadOptions, saveUploadPath } from "./client";
 
 export interface UsbExchange {
   status: number;
@@ -48,6 +50,21 @@ export class UsbDeviceClient {
 
   hello(): Promise<HelloResponse> {
     return this.exchange("GET", "/hello").then((r) => r.json.b as HelloResponse);
+  }
+
+  listSaves(query: { app?: string; latest?: boolean } = {}): Promise<SaveListResponse> {
+    const params = new URLSearchParams();
+    if (query.app) params.set("app", query.app);
+    if (query.latest) params.set("latest", "1");
+    const suffix = params.size > 0 ? `?${params}` : "";
+    return this.exchange("GET", `/saves${suffix}`).then((r) => r.json.b as SaveListResponse);
+  }
+
+  async uploadSave(archive: Uint8Array, options: SaveUploadOptions): Promise<SaveUploadResponse> {
+    const res = await this.exchange("POST", saveUploadPath(archive, options), {
+      payload: archive,
+    });
+    return res.json.b as SaveUploadResponse;
   }
 
   async ping(): Promise<void> {

@@ -16,6 +16,8 @@ export const ERROR_CODES = [
   "FILE_CHANGED",
   "JOB_NOT_FOUND",
   "JOB_INVALID_STATE",
+  "PAYLOAD_TOO_LARGE",
+  "SAVE_INVALID",
   "INTERNAL",
 ] as const;
 
@@ -38,5 +40,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   FILE_CHANGED: 412,
   JOB_NOT_FOUND: 404,
   JOB_INVALID_STATE: 409,
+  PAYLOAD_TOO_LARGE: 413,
+  SAVE_INVALID: 422,
   INTERNAL: 500,
 };

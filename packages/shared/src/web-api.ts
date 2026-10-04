@@ -6,6 +6,8 @@ import {
   type InstallTarget,
   InstallTargetSchema,
   type JobStatus,
+  type SaveOrigin,
+  type SaveType,
 } from "./device-api";
 import type { ContentMetaType } from "./title-id";
 
@@ -92,6 +94,20 @@ export const ServerSettingsSchema = z.object({
   preferNsz: z.boolean().optional(),
   serverName: z.string().trim().min(1).max(64).optional(),
   requireUsbPairing: z.boolean().optional(),
+  saveBackupsKeep: z.number().int().min(0).max(1000).optional(),
+});
+
+export const UpdateSaveBackupRequestSchema = z.object({
+  pinned: z.boolean().optional(),
+  note: z.string().trim().max(200).nullable().optional(),
+});
+
+export const SaveBackupQuerySchema = z.object({
+  app: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{16}$/, "Expected a 16-digit title ID")
+    .transform((id) => id.toUpperCase())
+    .optional(),
 });
 
 export type SetupRequest = z.infer<typeof SetupRequestSchema>;
@@ -108,6 +124,8 @@ export type RenameDeviceRequest = z.infer<typeof RenameDeviceRequestSchema>;
 export type CreateJobsRequest = z.infer<typeof CreateJobsRequestSchema>;
 export type ReorderJobsRequest = z.infer<typeof ReorderJobsRequestSchema>;
 export type ServerSettingsPatch = z.infer<typeof ServerSettingsSchema>;
+export type UpdateSaveBackupRequest = z.infer<typeof UpdateSaveBackupRequestSchema>;
+export type SaveBackupQuery = z.infer<typeof SaveBackupQuerySchema>;
 
 export interface KeyStatus {
   configured: boolean;
@@ -453,6 +471,40 @@ export interface ServerSettings {
   preferNsz: boolean;
   serverName: string;
   requireUsbPairing: boolean;
+  /**
+   * Backups kept for each save, newest first. Backups made before a restore are counted apart,
+   * up to the same number, and pruned with the next manual backup. Pinned backups are kept on top
+   * of these and never removed automatically. 0 keeps everything.
+   */
+  saveBackupsKeep: number;
+}
+
+/** A save data backup made by a Switch, stored on the server. */
+export interface SaveBackup {
+  id: number;
+  applicationId: string;
+  /** The library's name for the game, else the name the console sent, else the ID. */
+  name: string;
+  iconUrl: string | null;
+  /** Whether the game is in the library, so its page exists. */
+  inLibrary: boolean;
+  type: SaveType;
+  /** Account UID on the console the backup came from. Null for device saves. */
+  userId: string | null;
+  userName: string | null;
+  /** Null once that console has been removed. */
+  deviceId: number | null;
+  deviceName: string;
+  /** Archive size in bytes. */
+  size: number;
+  /** Sum of the file sizes inside the archive. */
+  dataSize: number;
+  fileCount: number;
+  sha256: string;
+  origin: SaveOrigin;
+  pinned: boolean;
+  note: string | null;
+  createdAt: number;
 }
 
 export interface ForwarderStatus {
@@ -481,4 +533,5 @@ export type ServerEvent =
   | { type: "device.offline"; deviceId: number }
   | { type: "job.updated"; job: WebJob }
   | { type: "verify.updated"; task: VerifyTask }
+  | { type: "saves.changed" }
   | { type: "compress.updated"; task: CompressTask };

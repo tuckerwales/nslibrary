@@ -46,9 +46,13 @@ The server therefore generates a setup token on first boot and prints it to the 
 cannot read the log cannot claim the server. Set `NSLIB_SETUP_TOKEN` to choose your own. See
 [docs/deploy.md](docs/deploy.md).
 
-**A paired Switch is trusted with the catalog.** Pairing hands a device a bearer token that can read
-the full library and claim install jobs. It cannot upload files, change settings, read `prod.keys`,
-or reach the web API. Pairing codes are rate limited per address.
+**A paired Switch is trusted with the catalog and your saves.** Pairing hands a device a bearer token
+that can read the full library, claim install jobs, and upload and download save backups (every
+console's, so a save can move between them). Uploads are checked as plain save archives, capped by
+`NSLIB_SAVE_MAX_MB`, and stored under `<dataDir>/saves`; retention bounds how many backups each save
+keeps, but not how many saves a device can create, so revoke a device you no longer trust. A token
+cannot upload anything else, change settings, read `prod.keys`, or reach the web API. Pairing codes
+are rate limited per address.
 
 **Keys never leave the server.** `prod.keys` is stored at `<dataDir>/keys/prod.keys` with mode
 `0600`. The API reports which key *names* are present and never returns, logs, or transmits key

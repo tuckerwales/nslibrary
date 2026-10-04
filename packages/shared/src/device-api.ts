@@ -189,7 +189,83 @@ export const EventsQuerySchema = z.object({
   wait: z.coerce.number().int().min(0).max(30).optional(),
 });
 
-export const DEVICE_CAPABILITIES = ["ncz-block", "icons", "events", "resume"] as const;
+/**
+ * Save data backups. A save is identified by its game, its type, and for account saves the user
+ * account it belongs to. Account IDs are only meaningful on the console that made them.
+ */
+export const SaveTypeSchema = z.enum(["account", "device"]);
+/** Why a backup was made: from the Saves tab, or just before a restore replaced the save. */
+export const SaveOriginSchema = z.enum(["manual", "pre-restore"]);
+/** An account UID as 32 uppercase hex digits: `uid[0]` then `uid[1]`, each as 16 digits. */
+export const AccountIdSchema = z
+  .string()
+  .regex(/^[0-9A-F]{32}$/, "account ID must be 32 uppercase hex digits");
+export const Sha256HexSchema = z
+  .string()
+  .regex(/^[0-9a-f]{64}$/, "SHA-256 must be 64 lowercase hex digits");
+
+/** Query of `POST /saves`; the body is the save archive (a tar, see `docs/saves.md`). */
+export const SaveUploadQuerySchema = z
+  .object({
+    app: titleId,
+    type: SaveTypeSchema,
+    /** Required for account saves, absent for device saves. */
+    user: AccountIdSchema.optional(),
+    /** The account's nickname, shown in the web UI. */
+    userName: z.string().max(64).optional(),
+    /** The game's name as the console knows it, for games that are not in the library. */
+    name: z.string().max(256).optional(),
+    origin: SaveOriginSchema.default("manual"),
+    /** SHA-256 of the whole archive, checked by the server. */
+    sha256: Sha256HexSchema,
+  })
+  .refine((q) => (q.type === "account") === (q.user !== undefined), {
+    message: "user is required for account saves and not allowed for device saves",
+    path: ["user"],
+  });
+
+export const SaveListQuerySchema = z.object({
+  app: z
+    .string()
+    .regex(/^[0-9A-Fa-f]{16}$/, "Expected a 16-digit title ID")
+    .transform((id) => id.toUpperCase())
+    .optional(),
+  /** "1": only the newest backup of each save. */
+  latest: z.enum(["0", "1"]).optional(),
+});
+
+export const DeviceSaveBackupSchema = z.object({
+  id: rowId,
+  app: titleId,
+  type: SaveTypeSchema,
+  user: AccountIdSchema.nullable(),
+  userName: z.string().nullable(),
+  /** Name of the console that made the backup. */
+  device: z.string(),
+  /** True when the requesting console made it. */
+  mine: z.boolean(),
+  /** Archive size in bytes. */
+  size: byteCount,
+  /** Sum of the file sizes inside the archive. */
+  dataSize: byteCount,
+  files: z.number().int().nonnegative(),
+  sha256: Sha256HexSchema,
+  /** When the backup was made, in epoch seconds. */
+  at: z.number().int().nonnegative(),
+  origin: SaveOriginSchema,
+  pinned: z.boolean(),
+  note: z.string().nullable(),
+});
+
+export const SaveListResponseSchema = z.object({ backups: z.array(DeviceSaveBackupSchema) });
+
+export const SaveUploadResponseSchema = z.object({
+  backup: DeviceSaveBackupSchema,
+  /** True when the newest backup of this save already had these exact bytes; nothing was stored. */
+  dup: z.boolean(),
+});
+
+export const DEVICE_CAPABILITIES = ["ncz-block", "icons", "events", "resume", "saves"] as const;
 
 export type ContainerFormat = z.infer<typeof ContainerFormatSchema>;
 export type Storage = z.infer<typeof StorageSchema>;
@@ -219,3 +295,10 @@ export type JobCompleteRequest = z.infer<typeof JobCompleteRequestSchema>;
 export type DiscoveryReply = z.infer<typeof DiscoveryReplySchema>;
 export type CatalogQuery = z.infer<typeof CatalogQuerySchema>;
 export type EventsQuery = z.infer<typeof EventsQuerySchema>;
+export type SaveType = z.infer<typeof SaveTypeSchema>;
+export type SaveOrigin = z.infer<typeof SaveOriginSchema>;
+export type SaveUploadQuery = z.infer<typeof SaveUploadQuerySchema>;
+export type SaveListQuery = z.infer<typeof SaveListQuerySchema>;
+export type DeviceSaveBackup = z.infer<typeof DeviceSaveBackupSchema>;
+export type SaveListResponse = z.infer<typeof SaveListResponseSchema>;
+export type SaveUploadResponse = z.infer<typeof SaveUploadResponseSchema>;

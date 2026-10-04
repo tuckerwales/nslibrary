@@ -43,6 +43,13 @@ public:
     std::vector<uint8_t> getUpdateManifest();
     std::vector<uint8_t> getUpdateSignature();
 
+    /** Save backups kept on the server; `app` empty for every game, `latest` for the newest of each save. */
+    std::vector<SaveBackup> listSaves(const std::string& app, bool latest);
+    /** Uploads a save archive of `length` bytes read from `body`. */
+    SaveUploadResult uploadSave(const SaveUploadQuery& query, uint64_t length, const BodySource& body);
+    /** Downloads a stored archive, resuming if the connection drops. */
+    void downloadSave(int64_t id, uint64_t length, const std::function<void(const uint8_t*, size_t)>& sink);
+
     /** Connect timeout for quick background calls (events, icons, progress). */
     static constexpr long kQuickConnectMs = 3000;
 

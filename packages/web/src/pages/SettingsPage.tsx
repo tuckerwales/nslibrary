@@ -145,6 +145,66 @@ function InstallsSection() {
   );
 }
 
+function SavesSection() {
+  const settings = useServerSettings();
+  const putSettings = usePutSettings();
+  const [keep, setKeep] = useState<string | null>(null);
+  const current = settings.data?.saveBackupsKeep;
+  const value = keep ?? (current === undefined ? "" : String(current));
+  const parsed = Number(value);
+  const valid = value.trim() !== "" && Number.isInteger(parsed) && parsed >= 0 && parsed <= 1000;
+
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!valid) return;
+    putSettings.mutate({ saveBackupsKeep: parsed }, { onSuccess: () => setKeep(null) });
+  };
+
+  return (
+    <Card
+      id="saves"
+      title="Save backups"
+      description="Each save keeps this many of its newest backups, and older ones are removed when a new backup arrives. Backups made before a restore are counted separately, up to the same number, and are removed with the next ordinary backup. Pinned backups are always kept, on top of both."
+    >
+      <CardBody>
+        {settings.error && <LoadError error={settings.error} />}
+        {settings.data && (
+          <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <Field
+              label="Backups to keep per save"
+              hint="0 keeps every backup."
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={1000}
+              step={1}
+              required
+              value={value}
+              onChange={(event) => {
+                setKeep(event.target.value);
+                putSettings.reset();
+              }}
+              className="sm:w-56"
+            />
+            <Button
+              type="submit"
+              className="sm:mb-6"
+              disabled={!valid || putSettings.isPending || parsed === current}
+            >
+              {putSettings.isPending ? "Saving…" : "Save"}
+            </Button>
+          </form>
+        )}
+        <ErrorText>
+          {value.trim() !== "" && !valid
+            ? "Enter a whole number from 0 to 1000."
+            : putSettings.error?.message}
+        </ErrorText>
+      </CardBody>
+    </Card>
+  );
+}
+
 function ForwarderSection() {
   const forwarder = useForwarderStatus();
   const download = useDownloadForwarder();
@@ -353,6 +413,7 @@ function AccountSection() {
 const SECTIONS = [
   { id: "keys", label: "Console keys" },
   { id: "installs", label: "Installs" },
+  { id: "saves", label: "Save backups" },
   { id: "forwarder", label: "HOME menu forwarder" },
   { id: "titledb", label: "Title database" },
   { id: "account", label: "Account" },
@@ -385,6 +446,7 @@ export function SettingsPage() {
         <div className="flex min-w-0 flex-col gap-6">
           <KeysSection />
           <InstallsSection />
+          <SavesSection />
           <ForwarderSection />
           <TitledbSection />
           <AccountSection />
