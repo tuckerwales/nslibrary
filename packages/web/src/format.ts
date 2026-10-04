@@ -46,13 +46,24 @@ export const SOURCE_LABEL: Record<MetadataSource, string> = {
   nacp: "From app info",
 };
 
-/** How a file's integrity check result reads, and its text colour. */
-export const VERIFY_LABEL: Record<VerifyStatus, { text: string; className: string }> = {
-  unverified: { text: "Not verified", className: "text-muted" },
-  ok: { text: "Verified", className: "text-update" },
-  partial: { text: "Partly verified", className: "text-dlc" },
-  bad: { text: "Damaged", className: "text-danger" },
+/** How a file's integrity check result reads, and the badge tone it's shown in. */
+export const VERIFY_LABEL: Record<
+  VerifyStatus,
+  { text: string; tone: "neutral" | "success" | "warning" | "danger" }
+> = {
+  unverified: { text: "Not verified", tone: "neutral" },
+  ok: { text: "Verified", tone: "success" },
+  partial: { text: "Partly verified", tone: "warning" },
+  bad: { text: "Damaged", tone: "danger" },
 };
+
+/** A packed system version (major.minor.micro in the top bits) as firmware, like "12.1.0". */
+export function firmwareLabel(version: number): string {
+  const major = Math.floor(version / 2 ** 26) & 0x3f;
+  const minor = Math.floor(version / 2 ** 20) & 0x3f;
+  const micro = Math.floor(version / 2 ** 16) & 0xf;
+  return `${major}.${minor}.${micro}`;
+}
 
 export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
   return `${count.toLocaleString()} ${count === 1 ? singular : pluralForm}`;

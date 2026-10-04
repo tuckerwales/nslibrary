@@ -1,11 +1,15 @@
 import type { LibraryRoot, ScanProgress } from "@nslib/shared";
 import { type FormEvent, useId, useState } from "react";
 import { useAddRoot, useRemoveRoot, useRoots, useScanRoot, useUpdateRoot } from "../api";
+import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { Card, CardBody } from "../components/Card";
 import { ConfirmPanel } from "../components/ConfirmPanel";
 import { ErrorText, LoadError, Loading } from "../components/Feedback";
 import { inputClass, Switch } from "../components/Field";
+import { Icon } from "../components/Icon";
 import { PageHeader } from "../components/PageHeader";
+import { ProgressBar } from "../components/ProgressBar";
 import { RelativeTime } from "../components/RelativeTime";
 import { formatBytes, plural } from "../format";
 
@@ -21,27 +25,18 @@ function ScanStatus({ scan, path }: { scan: ScanProgress; path: string }) {
   const determinate = scan.state === "parsing" && scan.total > 0;
   const percent = determinate ? Math.round((scan.done / scan.total) * 100) : 0;
   return (
-    <div className="mt-3 max-w-md">
+    <div className={scan.state === "idle" ? "" : "mt-3 max-w-md"}>
       {/* Always rendered so screen readers announce when a scan starts. */}
       <p id={labelId} className="text-sm" aria-live="polite">
         {scanMessage(scan)}
       </p>
       {scan.state !== "idle" && (
-        <div
-          className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line"
-          role="progressbar"
-          aria-label={`Scanning ${path}`}
-          aria-describedby={labelId}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={determinate ? percent : undefined}
-        >
-          {determinate ? (
-            <div className="h-full rounded-full bg-accent" style={{ width: `${percent}%` }} />
-          ) : (
-            <div className="scan-sweep h-full w-2/5 rounded-full bg-accent" />
-          )}
-        </div>
+        <ProgressBar
+          className="mt-1.5"
+          percent={determinate ? percent : null}
+          label={`Scanning ${path}`}
+          describedBy={labelId}
+        />
       )}
     </div>
   );
@@ -49,9 +44,7 @@ function ScanStatus({ scan, path }: { scan: ScanProgress; path: string }) {
 
 function Summary({ root }: { root: LibraryRoot }) {
   if (!root.enabled) return <>Not included in the library.</>;
-  const parts = [`${plural(root.fileCount, "file")}, ${formatBytes(root.totalSize)}`];
-  if (root.missingCount > 0) parts.push(`${root.missingCount} missing`);
-  const counts = parts.join(", ");
+  const counts = `${plural(root.fileCount, "file")}, ${formatBytes(root.totalSize)}`;
   return root.lastScanAt ? (
     <>
       {counts}. Last scanned <RelativeTime timestamp={root.lastScanAt} />.
@@ -69,13 +62,23 @@ function FolderRow({ root }: { root: LibraryRoot }) {
   const scanning = root.scan.state !== "idle";
 
   return (
-    <li className="border-b border-line py-5">
+    <li className="rounded-lg border border-line bg-panel p-4 shadow-card md:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-lg break-all semi-condensed">{root.path}</h2>
-          <p className="text-sm text-muted">
-            <Summary root={root} />
-          </p>
+        <div className="flex min-w-0 gap-3">
+          <span className="mt-0.5 text-muted">
+            <Icon name="folder" size={20} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="flex flex-wrap items-center gap-2 text-lg break-all semi-condensed">
+              {root.path}
+              {root.missingCount > 0 && root.enabled && (
+                <Badge tone="warning">{root.missingCount} missing</Badge>
+              )}
+            </h2>
+            <p className="text-sm text-muted">
+              <Summary root={root} />
+            </p>
+          </div>
         </div>
         <div className="flex gap-1">
           <Button
@@ -97,7 +100,7 @@ function FolderRow({ root }: { root: LibraryRoot }) {
         <p className="mt-2 text-sm text-danger">{root.lastScanError}</p>
       )}
 
-      <div className="mt-4 flex flex-col gap-3 md:flex-row md:gap-10">
+      <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 md:flex-row md:gap-10">
         <Switch
           label="Include in library"
           checked={root.enabled}
@@ -148,47 +151,51 @@ export function FoldersPage() {
         </p>
       </PageHeader>
 
-      <form onSubmit={submit} className="max-w-2xl">
-        <label htmlFor="folder-path" className="block text-sm font-semibold">
-          Add a folder
-        </label>
-        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-          <input
-            id="folder-path"
-            className={inputClass}
-            placeholder="/library/games"
-            required
-            aria-describedby="folder-path-hint"
-            value={path}
-            onChange={(e) => {
-              setPath(e.target.value);
-              if (add.error) add.reset();
-            }}
-          />
-          {canPick && (
-            <Button
-              variant="secondary"
-              className="h-10"
-              onClick={() => {
-                void window.nslib?.pickFolder().then((picked) => {
-                  if (picked) setPath(picked);
-                });
-              }}
-            >
-              Browse…
-            </Button>
-          )}
-          <Button type="submit" className="h-10" disabled={add.isPending}>
-            {add.isPending ? "Adding…" : "Add folder"}
-          </Button>
-        </div>
-        <p id="folder-path-hint" className="mt-1 text-sm text-muted">
-          {canPick
-            ? "Pick a folder on this computer, or type its full path."
-            : "Use the full path as the server sees it."}
-        </p>
-        <ErrorText>{add.error?.message}</ErrorText>
-      </form>
+      <Card className="max-w-3xl">
+        <CardBody>
+          <form onSubmit={submit}>
+            <label htmlFor="folder-path" className="block text-sm font-semibold">
+              Add a folder
+            </label>
+            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+              <input
+                id="folder-path"
+                className={inputClass}
+                placeholder="/library/games"
+                required
+                aria-describedby="folder-path-hint"
+                value={path}
+                onChange={(e) => {
+                  setPath(e.target.value);
+                  if (add.error) add.reset();
+                }}
+              />
+              {canPick && (
+                <Button
+                  variant="secondary"
+                  className="h-10"
+                  onClick={() => {
+                    void window.nslib?.pickFolder().then((picked) => {
+                      if (picked) setPath(picked);
+                    });
+                  }}
+                >
+                  Browse…
+                </Button>
+              )}
+              <Button type="submit" className="h-10" disabled={add.isPending}>
+                {add.isPending ? "Adding…" : "Add folder"}
+              </Button>
+            </div>
+            <p id="folder-path-hint" className="mt-1 text-sm text-muted">
+              {canPick
+                ? "Pick a folder on this computer, or type its full path."
+                : "Use the full path as the server sees it."}
+            </p>
+            <ErrorText>{add.error?.message}</ErrorText>
+          </form>
+        </CardBody>
+      </Card>
 
       <div className="mt-8">
         {roots.error ? (
@@ -196,7 +203,7 @@ export function FoldersPage() {
         ) : !roots.data ? (
           <Loading />
         ) : roots.data.length > 0 ? (
-          <ul className="border-t border-line">
+          <ul className="flex flex-col gap-4">
             {roots.data.map((root) => (
               <FolderRow key={root.id} root={root} />
             ))}

@@ -23,6 +23,60 @@ released the `.nro` only.
   queue will use.
 - Web API: `POST /devices/:id/space-check`, and a `device.updated` event when a Switch reports new
   free space or installed titles.
+- Save backups. The Switch app's new **Saves** tab lists every account and device save on the
+  console. Back up one save or every save at once, and restore any backup of the same kind of
+  save (account or device), including one made for another user or on another console. A restore
+  checks the archive and backs up the current save first, so it can be undone. Backing up every
+  save only uploads the ones that changed. See [docs/saves.md](docs/saves.md).
+- **Saves** in the web UI lists every backup by game and save, and downloads any of them as a tar
+  archive. Backups can be pinned, given a note, or deleted, and a game's page links to its backups.
+- **Settings → Save backups** sets how many backups each save keeps (10 by default, 0 keeps all).
+  Pinned backups are always kept, and a restore never deletes a backup.
+- Device API: `GET /saves`, `POST /saves` and `GET /saves/:id/data`, advertised as the `saves`
+  capability and available over USB too. `NSLIB_SAVE_MAX_MB` caps an upload (1024 MB by default).
+- `nslib-sim saves`, `backup` and `restore` exercise the save routes from a computer.
+
+### Changed
+- The USB host reads request payloads a chunk at a time, so a long upload is not mistaken for an
+  idle Switch, and discards a payload over `NSLIB_SAVE_MAX_MB` without losing its place in the
+  stream. A save uploaded over USB streams to disk instead of being held in memory.
+
+## [0.6.0] - 2026-09-26
+
+### Added
+- **Select titles** in the library to send several to a Switch at once. Each title queues its base
+  game, newest update, and DLC.
+- Library filters show how many titles each one matches, and filters with nothing in them are
+  hidden. A filtered view says how many of the library it shows, with **Clear filters**.
+- The library search has a clear button, and `/` jumps to it from anywhere on the page.
+- A title page lists its size, file count, and required firmware, and has **Verify all files**.
+  Duplicate copies and older updates are marked on their rows, and each note about them has a
+  **Show** button that scrolls to them.
+- A light, dark, or system theme, picked in the sidebar (or **More** on phones) and remembered in
+  this browser.
+- Installs in progress show a progress bar and transfer speed on **History** and **Devices**.
+  Devices show an online dot.
+
+### Changed
+- On phones, the sideways-scrolling nav is replaced by a tab bar along the bottom (Library, Switch,
+  History, Problems) with the other pages under **More**.
+- A title page's back link returns to the list it was opened from, with its search, filter, and
+  order, and names that page. **Send to Switch** sits beside the title's files on wide screens.
+- File rows on a title page share one layout, so formats, sizes, and buttons line up, and the
+  verify status is a badge.
+- File paths are shown relative to their library folder, with the full path on hover.
+- Settings, Compression, Problems, Devices, Folders, and History group their sections into cards.
+  Settings has an index of its sections and uses secondary buttons throughout.
+- Disabled buttons drop their fill so they read as unavailable. Compression hides per-file
+  **Compress** buttons until setup is done.
+- The missing-keys hint says when the demo library's synthetic keys are loaded.
+- Problems shows when a file went missing as a relative time, and an all-clear when there's
+  nothing to fix.
+- The sign-in and setup screens show the logo, in a card.
+
+## [0.5.0] - 2026-09-26
+
+### Added
 - **NSP → NSZ compression on the server.** The new **Compression** page (and a **Compress** button on
   each NSP in a title's files) compresses titles into an output folder you choose, usually 30 to 60%
   smaller. Program and data NCAs become block-mode NCZ, as nsz writes them, including updates' BKTR
@@ -43,6 +97,9 @@ released the `.nro` only.
 - Web API: `GET /compress`, `GET`/`PUT /compress/settings`, `GET /compress/folders`,
   `GET /compress/candidates`, `POST /compress`, `POST /compress/clear`,
   `POST /files/:id/compress`, `/cancel` and `/remove-original`, and `compress.updated` events.
+### Changed
+- **Devices** lists active Switches first and tucks revoked ones into a collapsed "N revoked
+  Switches" section, so old pairings no longer push the live ones down the page.
 
 ## [0.4.0] - 2026-09-24
 

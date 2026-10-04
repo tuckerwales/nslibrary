@@ -17,9 +17,12 @@ void servicesInit() {
     esInitialize();
     splInitialize();
     psmInitialize();
+    // User nicknames for the Saves tab.
+    accountInitialize(AccountServiceType_Application);
 }
 
 void servicesExit() {
+    accountExit();
     psmExit();
     splExit();
     esExit();

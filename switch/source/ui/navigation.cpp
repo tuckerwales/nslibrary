@@ -3,6 +3,7 @@
 #include "app/session.hpp"
 #include "ui/connect.hpp"
 #include "ui/pair.hpp"
+#include "ui/saves.hpp"
 
 #include <borealis.hpp>
 
@@ -194,7 +195,8 @@ void refreshVisibleTabs() {
         if (rebuildIn<QueueTab>(activity, "queue")) continue;
         if (rebuildIn<UpdatesTab>(activity, "updates")) continue;
         if (rebuildIn<InstalledTab>(activity, "installed")) continue;
-        rebuildIn<MissingTab>(activity, "missing");
+        if (rebuildIn<MissingTab>(activity, "missing")) continue;
+        rebuildIn<SavesTab>(activity, "saves");
     }
 }
 

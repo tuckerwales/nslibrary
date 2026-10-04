@@ -18,7 +18,9 @@ import {
   useStartCompress,
   useStartCompressMany,
 } from "../api";
+import { Count } from "../components/Badge";
 import { Button, ButtonLink } from "../components/Button";
+import { Card, CardBody, CardList, cardRow } from "../components/Card";
 import { CompressHeadline, CompressOutcome, CompressProgress } from "../components/CompressStatus";
 import { ErrorText, LoadError, Loading } from "../components/Feedback";
 import { inputClass, Switch } from "../components/Field";
@@ -39,9 +41,16 @@ function HowItWorks() {
   return (
     <ol className="grid max-w-3xl gap-3 sm:grid-cols-3">
       {steps.map(([title, text], index) => (
-        <li key={title} className="rounded-md border border-line bg-panel p-3">
-          <p className="text-sm font-semibold">
-            <span className="text-muted">{index + 1}.</span> {title}
+        <li key={title} className="rounded-lg border border-line bg-panel p-3 shadow-card">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <span
+              aria-hidden="true"
+              className="inline-grid size-5 place-items-center rounded-full bg-accent/15 text-xs text-accent"
+            >
+              {index + 1}
+            </span>
+            <span className="sr-only">{index + 1}.</span>
+            {title}
           </p>
           <p className="mt-0.5 text-sm text-muted">{text}</p>
         </li>
@@ -93,9 +102,9 @@ function FolderChooser({ current, onSaved }: { current: string | null; onSaved?:
           {options.map((option) => (
             <label
               key={option.path}
-              className={`flex items-start gap-3 rounded-md border p-3 ${
-                selected === option.path ? "border-accent" : "border-line"
-              } ${option.writable ? "cursor-pointer" : "opacity-60"}`}
+              className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                selected === option.path ? "border-accent bg-accent/5" : "border-line"
+              } ${option.writable ? "cursor-pointer hover:border-muted" : "opacity-60"}`}
             >
               <input
                 type="radio"
@@ -129,8 +138,8 @@ function FolderChooser({ current, onSaved }: { current: string | null; onSaved?:
             </label>
           ))}
           <label
-            className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${
-              selected === OTHER ? "border-accent" : "border-line"
+            className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors hover:border-muted ${
+              selected === OTHER ? "border-accent bg-accent/5" : "border-line"
             }`}
           >
             <input
@@ -201,7 +210,7 @@ function StepItem({
   children: ReactNode;
 }) {
   return (
-    <li className="border-t border-line py-4">
+    <li className={`${cardRow} py-4`}>
       <h3 className="flex items-baseline gap-2 text-lg">
         <span
           aria-hidden="true"
@@ -222,10 +231,12 @@ function StepItem({
 function SetupSteps({ settings }: { settings: CompressSettings }) {
   const folderReady = settings.outputDir !== null && settings.problem === null;
   return (
-    <section className="mt-8 max-w-3xl">
-      <h2 className="text-xl">Get set up</h2>
-      <p className="mt-1 text-muted">Two things to do once, then you can start compressing.</p>
-      <ol className="mt-3">
+    <Card
+      className="mt-6 max-w-3xl"
+      title="Get set up"
+      description="Two things to do once, then you can start compressing."
+    >
+      <CardList as="ol">
         <StepItem number={1} done={settings.keysReady} title="Add your console keys">
           {settings.keysReady ? (
             <p className="text-sm text-muted">Your prod.keys are loaded.</p>
@@ -251,8 +262,8 @@ function SetupSteps({ settings }: { settings: CompressSettings }) {
           </p>
           <FolderChooser current={settings.outputDir} />
         </StepItem>
-      </ol>
-    </section>
+      </CardList>
+    </Card>
   );
 }
 
@@ -264,7 +275,7 @@ function SettingsSummary({ settings }: { settings: CompressSettings }) {
   const knownLevel = COMPRESS_LEVELS.some((option) => option.level === settings.level);
 
   return (
-    <section className="mt-8 max-w-3xl rounded-md border border-line bg-panel p-4">
+    <section className="mt-6 max-w-3xl rounded-lg border border-line bg-panel p-4 shadow-card md:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold">
@@ -342,24 +353,24 @@ function ActiveSection({ tasks }: { tasks: CompressTask[] }) {
     .sort((a, b) => Number(b.state === "running") - Number(a.state === "running"));
   const waiting = ordered.filter((task) => task.state === "queued").length;
   return (
-    <section className="mt-10">
-      <h2 className="text-xl">Compressing now</h2>
-      <p className="mt-1 text-muted">
-        {waiting > 0 ? `${plural(waiting, "more file")} waiting. ` : ""}
-        This carries on in the background, so you can leave this page.
-      </p>
-      <ul className="mt-3 border-t border-line">
+    <Card
+      className="mt-6"
+      title="Compressing now"
+      count={<Count value={active.length} />}
+      description={`${waiting > 0 ? `${plural(waiting, "more file")} waiting. ` : ""}This carries on in the background, so you can leave this page.`}
+    >
+      <CardList>
         {ordered.map((task) => (
-          <li key={task.fileId} className="border-b border-line py-3">
+          <li key={task.fileId} className={cardRow}>
             <p className="font-semibold [overflow-wrap:anywhere]">{task.name}</p>
-            <div className="text-sm text-muted">
-              <FileName file={task} />
+            <div className="text-sm">
+              <FileName file={task} compact />
             </div>
             <CompressProgress task={task} compact={task.state === "queued"} />
           </li>
         ))}
-      </ul>
-    </section>
+      </CardList>
+    </Card>
   );
 }
 
@@ -369,38 +380,43 @@ function FinishedSection({ tasks }: { tasks: CompressTask[] }) {
   if (finished.length === 0) return null;
   const { freed, pending } = savingsSummary(finished);
   return (
-    <section className="mt-10">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-xl">Finished</h2>
+    <Card
+      className="mt-6"
+      title="Finished"
+      count={<Count value={finished.length} />}
+      description={
+        (freed > 0 || pending > 0) && (
+          <p>
+            {freed > 0 && `${formatBytes(freed)} saved. `}
+            {pending > 0 &&
+              `Deleting the NSP files that are still on disk would save ${formatBytes(pending)} more.`}
+          </p>
+        )
+      }
+      actions={
         <Button variant="ghost" disabled={clear.isPending} onClick={() => clear.mutate()}>
           Clear this list
         </Button>
-      </div>
-      {(freed > 0 || pending > 0) && (
-        <p className="mt-1 text-muted">
-          {freed > 0 && `${formatBytes(freed)} saved. `}
-          {pending > 0 &&
-            `Deleting the NSP files that are still on disk would save ${formatBytes(pending)} more.`}
-        </p>
-      )}
-      <ul className="mt-3 border-t border-line">
+      }
+    >
+      <CardList>
         {finished.map((task) => (
-          <li key={task.fileId} className="border-b border-line py-3">
+          <li key={task.fileId} className={cardRow}>
             <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
               <p className="font-semibold [overflow-wrap:anywhere]">{task.name}</p>
               <CompressHeadline task={task} />
             </div>
-            <div className="text-sm text-muted">
-              <FileName file={task} />
+            <div className="text-sm">
+              <FileName file={task} compact />
             </div>
             <CompressOutcome task={task} />
           </li>
         ))}
-      </ul>
-      <p className="mt-2 text-sm text-muted">
+      </CardList>
+      <p className={`${cardRow} border-t border-line text-sm text-muted`}>
         This list is kept until the server restarts. The NSZ files stay either way.
       </p>
-    </section>
+    </Card>
   );
 }
 
@@ -423,24 +439,27 @@ function CandidateRow({
 }) {
   const start = useStartCompress();
   return (
-    <li className="border-b border-line py-3">
+    <li className={cardRow}>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="min-w-0">
           <p className="font-semibold [overflow-wrap:anywhere]">{candidateLabel(candidate)}</p>
-          <div className="text-sm text-muted">
-            <FileName file={candidate.file} rootPath={rootPath} />
+          <div className="text-sm">
+            <FileName file={candidate.file} rootPath={rootPath} compact />
           </div>
         </div>
         <span className="flex shrink-0 items-center gap-3 text-sm">
           <span className="text-muted">{formatBytes(candidate.file.size)}</span>
-          <Button
-            variant="secondary"
-            disabled={!ready || start.isPending}
-            aria-label={`Compress ${candidateLabel(candidate)}`}
-            onClick={() => start.mutate(candidate.file.id)}
-          >
-            Compress
-          </Button>
+          {/* Until setup is done, the note above the list explains why nothing can start. */}
+          {ready && (
+            <Button
+              variant="secondary"
+              disabled={start.isPending}
+              aria-label={`Compress ${candidateLabel(candidate)}`}
+              onClick={() => start.mutate(candidate.file.id)}
+            >
+              Compress
+            </Button>
+          )}
         </span>
       </div>
       <ErrorText>{start.error?.message}</ErrorText>
@@ -474,12 +493,9 @@ function CandidatesSection({
   };
 
   return (
-    <section className="mt-10">
-      <h2 className="text-xl">
-        Ready to compress <span className="text-muted">({waiting.length})</span>
-      </h2>
+    <Card className="mt-6" title="Ready to compress" count={<Count value={waiting.length} />}>
       {waiting.length === 0 ? (
-        <p className="mt-1 max-w-[65ch] text-muted">
+        <p className={`${cardRow} max-w-[65ch] pt-1 pb-4 text-muted`}>
           {!keysReady
             ? "Once your keys are added, the NSP files you can compress are listed here."
             : all.length > 0
@@ -488,34 +504,38 @@ function CandidatesSection({
         </p>
       ) : (
         <>
-          <p className="mt-1 max-w-[65ch] text-muted">
-            {plural(waiting.length, "NSP file")} without an NSZ copy, {formatBytes(size)} in all.
-            Compressing them usually saves {estimatedSavingText(size)}.
-          </p>
-          {ready ? (
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Button
-                disabled={startMany.isPending}
-                onClick={() => startMany.mutate(waiting.map((candidate) => candidate.file.id))}
-              >
-                {waiting.length === 1 ? "Compress it" : `Compress all ${waiting.length}`}
-              </Button>
-              <span className="text-sm text-muted">Or pick them one by one below.</span>
-            </div>
-          ) : (
-            <p className="mt-3 text-sm font-semibold">Finish the setup above to start.</p>
-          )}
-          <ErrorText>{startMany.error?.message}</ErrorText>
-          {skipped.length > 0 && (
-            <ul className="mt-2 space-y-0.5 text-sm text-danger">
-              {skipped.map((item) => (
-                <li key={item.fileId}>
-                  {nameOf(item.fileId)} wasn't queued: {item.reason}
-                </li>
-              ))}
-            </ul>
-          )}
-          <ul className="mt-4 border-t border-line">
+          <CardBody className="pt-1 pb-0 md:pb-0">
+            <p className="max-w-[65ch] text-muted">
+              {plural(waiting.length, "NSP file")} without an NSZ copy, {formatBytes(size)} in all.
+              Compressing them usually saves {estimatedSavingText(size)}.
+            </p>
+            {ready ? (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button
+                  disabled={startMany.isPending}
+                  onClick={() => startMany.mutate(waiting.map((candidate) => candidate.file.id))}
+                >
+                  {waiting.length === 1 ? "Compress it" : `Compress all ${waiting.length}`}
+                </Button>
+                <span className="text-sm text-muted">Or pick them one by one below.</span>
+              </div>
+            ) : (
+              <p className="mt-3 inline-block rounded-md bg-dlc/10 px-3 py-1.5 text-sm font-semibold text-dlc">
+                Finish the setup above to start.
+              </p>
+            )}
+            <ErrorText>{startMany.error?.message}</ErrorText>
+            {skipped.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-sm text-danger">
+                {skipped.map((item) => (
+                  <li key={item.fileId}>
+                    {nameOf(item.fileId)} wasn't queued: {item.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+          <CardList className="mt-4">
             {waiting.map((candidate) => (
               <CandidateRow
                 key={candidate.file.id}
@@ -524,10 +544,10 @@ function CandidatesSection({
                 ready={ready}
               />
             ))}
-          </ul>
+          </CardList>
         </>
       )}
-    </section>
+    </Card>
   );
 }
 

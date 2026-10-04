@@ -22,7 +22,7 @@ The web UI is not a static site. Coolify (or any host) must run the **Node serve
    Coolify’s `PORT` is honoured if set; otherwise the app listens on 8465. Prefer the reverse proxy for TLS; in-process HTTPS is for a direct LAN bind.
 
 5. Persistent storage:
-   - Destination `/data` — database, keys, icon cache. **Required.**
+   - Destination `/data` — database, keys, icon cache, save backups. **Required.**
    - Destination `/library/games` (read-only) — your NSP/NSZ/XCI/NRO dumps. Add more mounts as `/library/<name>` if you want several roots.
    - Optional: a **writable** destination such as `/library/nsz` for NSP → NSZ compression. Because it's under `/library`, it is attached as a library folder, and the **Compression** page offers it (and an `NSZ` folder inside it) as a place to save NSZ files. Deleting NSP files after compression only works on mounts that aren't read-only.
 

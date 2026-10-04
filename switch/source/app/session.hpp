@@ -6,6 +6,7 @@
 #include "transport/ITransport.hpp"
 
 #ifdef __SWITCH__
+#include "saves/console.hpp"
 #include "update/apply.hpp"
 #endif
 
@@ -69,6 +70,18 @@ public:
     bool isInstalling() const { return installing_; }
     std::string serverAppLatest() const;
     bool canUpdate() const;
+    /** The server stores save backups (it lists `saves` in hello's capabilities). */
+    bool supportsSaves() const;
+    /** Save backups on the server; `app` empty for every game, `latest` for the newest of each save. */
+    std::vector<SaveBackup> listSaveBackups(const std::string& app, bool latest);
+#ifdef __SWITCH__
+    /** Backs up one save. Runs on the UI thread like installs; refuses while an install is running. */
+    SaveBackupResult backupSave(const ConsoleSave& save, const std::string& origin,
+        const std::string& unchangedSince = {}, const SaveStepFn& progress = {});
+    void restoreSave(const ConsoleSave& save, const SaveBackup& backup, const SaveStepFn& progress = {});
+    /** Stops a save download or HTTP upload in flight; the operation then fails with "cancelled". */
+    void abortSaveTransfer();
+#endif
 #ifdef __SWITCH__
     /**
      * Ask the library server for its copy of the app. Its `update.json` must carry the release
@@ -104,6 +117,7 @@ private:
     int64_t catalogRev_ = 0;
     std::string serverAppLatest_;
     bool canUpdate_ = false;
+    bool savesCap_ = false;
     std::string status_;
     JobProgress progress_;
     std::atomic<bool> installing_{false};

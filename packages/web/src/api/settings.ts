@@ -92,6 +92,10 @@ export function usePutSettings() {
       client.setQueryData(queryKeys.settings, settings);
       // App details show which file "Send to Switch" installs, which follows this setting.
       if (body.preferNsz !== undefined) void client.invalidateQueries({ queryKey: queryKeys.app });
+      // A lower limit removes older backups straight away.
+      if (body.saveBackupsKeep !== undefined) {
+        void client.invalidateQueries({ queryKey: queryKeys.saves });
+      }
     },
   });
 }

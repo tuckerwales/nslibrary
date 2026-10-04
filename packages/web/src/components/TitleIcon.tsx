@@ -54,7 +54,7 @@ export function TitleIcon({
         className={`title-tile grid ${shape} place-items-center rounded-md font-bold condensed [container-type:inline-size]`}
         style={{ "--hue": hueFor(seed) } as CSSProperties}
       >
-        <span className="text-[40cqi] leading-none">{initials(name)}</span>
+        <span className="text-[32cqi] leading-none">{initials(name)}</span>
       </span>
     );
   }

@@ -14,6 +14,7 @@ import { formatBytes } from "../format";
 import { Button } from "./Button";
 import { ConfirmPanel } from "./ConfirmPanel";
 import { ErrorText } from "./Feedback";
+import { ProgressBar } from "./ProgressBar";
 
 /** Step, progress bar, and time left for a queued or running compression. */
 export function CompressProgress({
@@ -45,20 +46,11 @@ export function CompressProgress({
         </Button>
       </div>
       {task.state === "running" && (
-        <div
-          className="mt-1.5 h-1.5 max-w-xl overflow-hidden rounded-full bg-line"
-          role="progressbar"
-          aria-label={`${task.name}: ${stepLabel(task)}`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percent ?? undefined}
-        >
-          {percent === null ? (
-            <div className="scan-sweep h-full w-2/5 rounded-full bg-accent" />
-          ) : (
-            <div className="h-full rounded-full bg-accent" style={{ width: `${percent}%` }} />
-          )}
-        </div>
+        <ProgressBar
+          className="mt-1.5 max-w-xl"
+          percent={percent}
+          label={`${task.name}: ${stepLabel(task)}`}
+        />
       )}
       {!compact && (
         <p className="mt-1 text-sm text-muted">

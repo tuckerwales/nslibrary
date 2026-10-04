@@ -15,7 +15,7 @@ A fake Switch for tests and debugging is `packages/device-sim` (`nslib-sim`).
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | `POST` | `/pair` | no | Exchange a pairing code for a token |
-| `GET` | `/hello` | yes | Server id, protocol version, `catalogRev`, capabilities. When the server has a signed Switch app, `caps` includes `update` and `appLatest` is its version |
+| `GET` | `/hello` | yes | Server id, protocol version, `catalogRev`, capabilities. When the server has a signed Switch app, `caps` includes `update` and `appLatest` is its version. `saves` means the routes below for save backups exist |
 | `PUT` | `/state` | yes | Firmware, AMS, free space, installed-title snapshot |
 | `GET` | `/catalog?since&cursor&limit` | yes | Compact catalog. If `since` is the current revision, the body is an empty delta (`full: false`). Otherwise a paginated full listing (`full: true`) |
 | `GET` | `/icons/:appId?v=` | yes | 128px-class JPEG, immutable |
@@ -28,6 +28,9 @@ A fake Switch for tests and debugging is `packages/device-sim` (`nslib-sim`).
 | `POST` | `/jobs/:id/claim` | yes | Claim a queued or interrupted job for this device |
 | `POST` | `/jobs/:id/progress` | yes | ≤1 Hz. Moves the job to `running` |
 | `POST` | `/jobs/:id/complete` | yes | `{ok, result?, msg?}` |
+| `GET` | `/saves?app&latest` | yes | Save backups, newest first. See [saves.md](saves.md) |
+| `POST` | `/saves?app&type&user&…&sha256` | yes | Upload a save archive (`application/x-tar` body). `201`, or `200` with `dup: true` when the newest backup of that save has the same bytes |
+| `GET` | `/saves/:id/data` | yes | A stored archive, with `Range` and `If-Range` |
 
 Errors are `{error:{code,msg}}` with the same codes over USB.
 

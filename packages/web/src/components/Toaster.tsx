@@ -6,7 +6,7 @@ export function Toaster() {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-end gap-2 sm:left-auto sm:w-96"
+      className="pointer-events-none fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 md:bottom-4 flex flex-col items-end gap-2 sm:left-auto sm:w-96"
     >
       {toasts.map((toast) => (
         <div

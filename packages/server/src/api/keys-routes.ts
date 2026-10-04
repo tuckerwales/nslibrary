@@ -69,7 +69,10 @@ export async function registerKeysRoutes(api: FastifyInstance, ctx: AppContext):
 
   api.put("/settings", async (request): Promise<ServerSettings> => {
     const body = parseWith(ServerSettingsSchema, request.body);
-    return ctx.devices.updateSettings(body);
+    const updated = ctx.devices.updateSettings(body);
+    // A lower limit applies to the backups already kept, not just the next ones.
+    if (body.saveBackupsKeep !== undefined) await ctx.saves.pruneAll();
+    return updated;
   });
 
   api.get("/forwarder", async (): Promise<ForwarderStatus> => {

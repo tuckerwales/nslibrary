@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useApps, useDevice, useDevices } from "../api";
 import { compareWithDevice } from "../compare";
+import { Count } from "../components/Badge";
 import { LoadError, Loading } from "../components/Feedback";
 import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
@@ -83,7 +84,10 @@ function CompareSections({ device, apps }: { device: DeviceDetail; apps: AppSumm
   return (
     <>
       <section className="mt-10">
-        <h2 className="text-xl">Updates</h2>
+        <h2 className="flex items-center gap-2 text-xl">
+          Updates
+          {updates.length > 0 && <Count value={updates.length} />}
+        </h2>
         <p className="mt-1 text-muted">
           Newer updates in the library than this Switch has installed.
         </p>
@@ -103,7 +107,10 @@ function CompareSections({ device, apps }: { device: DeviceDetail; apps: AppSumm
       </section>
 
       <section className="mt-10">
-        <h2 className="text-xl">Not on this Switch</h2>
+        <h2 className="flex items-center gap-2 text-xl">
+          Not on this Switch
+          {missing.length > 0 && <Count value={missing.length} />}
+        </h2>
         <p className="mt-1 text-muted">
           Base games in the library that are not in the last snapshot from this console.
         </p>

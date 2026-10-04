@@ -13,11 +13,13 @@
   --dlc: #8f5a0c;
   --danger: #b3261e;
   --danger-soft: #f7e4e2;
+  --shadow: 0 1px 2px rgb(23 32 44 / 0.06);
   color-scheme: light;
 }
 
+/* Dark follows the system unless a theme was picked; the picked one wins either way. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --ground: #11161d;
     --panel: #19202a;
     --ink: #e3e8ee;
@@ -29,8 +31,25 @@
     --dlc: #e0a33a;
     --danger: #f2776c;
     --danger-soft: #3a1f1d;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --ground: #11161d;
+  --panel: #19202a;
+  --ink: #e3e8ee;
+  --muted: #93a0ae;
+  --line: #2b3441;
+  --accent: #8aa2ff;
+  --accent-ink: #0d1330;
+  --update: #43b8ab;
+  --dlc: #e0a33a;
+  --danger: #f2776c;
+  --danger-soft: #3a1f1d;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -45,6 +64,7 @@
   --color-dlc: var(--dlc);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  --shadow-card: var(--shadow);
 }
 
 @theme {
@@ -99,17 +119,23 @@
   }
 }
 
-/* Placeholder tile for titles without an icon; hue comes from the title ID. */
+/* Placeholder tile for titles without an icon; hue comes from the title ID. Kept soft so real
+   cover art stands out next to it. */
 .title-tile {
-  background: oklch(0.87 0.045 var(--hue));
-  color: oklch(0.36 0.08 var(--hue));
+  background: oklch(0.9 0.03 var(--hue));
+  color: oklch(0.45 0.07 var(--hue));
 }
 
 @media (prefers-color-scheme: dark) {
-  .title-tile {
-    background: oklch(0.33 0.05 var(--hue));
-    color: oklch(0.86 0.06 var(--hue));
+  :root:not([data-theme="light"]) .title-tile {
+    background: oklch(0.3 0.035 var(--hue));
+    color: oklch(0.8 0.05 var(--hue));
   }
+}
+
+:root[data-theme="dark"] .title-tile {
+  background: oklch(0.3 0.035 var(--hue));
+  color: oklch(0.8 0.05 var(--hue));
 }
 
 @keyframes scan-sweep {
@@ -136,12 +162,7 @@
   }
 }
 
-/* The mobile nav scrolls sideways; fade its edge so it's clear more items are off-screen. */
-@media (max-width: 47.999rem) {
-  .nav-scroll {
-    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
-    scrollbar-width: none;
-    /* Room for the last item to scroll clear of the fade. */
-    padding-right: 2rem;
-  }
+/* The search box has its own clear button, the same in every browser. */
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
 }

@@ -1,4 +1,4 @@
-import type { AppSummary, DeviceDetail, WebJob } from "@nslib/shared";
+import type { AppSummary, DeviceDetail, SaveBackup, WebJob } from "@nslib/shared";
 
 export function app(overrides: Partial<AppSummary> = {}): AppSummary {
   return {
@@ -62,6 +62,30 @@ export function job(overrides: Partial<WebJob> = {}): WebJob {
     createdAt: 1000,
     updatedAt: 1000,
     completedAt: null,
+    ...overrides,
+  };
+}
+
+export function saveBackup(overrides: Partial<SaveBackup> = {}): SaveBackup {
+  return {
+    id: 1,
+    applicationId: "0100000000010000",
+    name: "Example",
+    iconUrl: null,
+    inLibrary: true,
+    type: "account",
+    userId: "0123456789ABCDEF0FEDCBA987654321",
+    userName: "Player",
+    deviceId: 1,
+    deviceName: "Living room",
+    size: 11264,
+    dataSize: 5120,
+    fileCount: 3,
+    sha256: "a".repeat(64),
+    origin: "manual",
+    pinned: false,
+    note: null,
+    createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
     ...overrides,
   };
 }

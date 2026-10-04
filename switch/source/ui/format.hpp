@@ -35,6 +35,13 @@ std::string formatFirmware(uint32_t systemVersion);
  */
 std::string cleanTitleName(const std::string& name);
 
+/** How long ago something happened, rounded the way the web UI rounds it. */
+struct Ago {
+    enum class Unit { Now, Minutes, Hours, Days, Older } unit = Unit::Now;
+    int64_t count = 0;
+};
+Ago agoFrom(int64_t thenSeconds, int64_t nowSeconds);
+
 /**
  * i18n keys for the identifiers the server speaks. Each returns an empty string for a value this
  * client does not know, so callers can fall back to whatever the server sent.

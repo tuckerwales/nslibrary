@@ -1,9 +1,9 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useLogin, useSetup } from "../api";
 import { Button } from "../components/Button";
-import { ContentStrip } from "../components/ContentStrip";
 import { ErrorText } from "../components/Feedback";
 import { Field } from "../components/Field";
+import { Logo } from "../components/Logo";
 import { usePageTitle } from "../format";
 
 function AuthLayout({
@@ -19,15 +19,16 @@ function AuthLayout({
   return (
     <div className="grid min-h-dvh place-items-center px-4 py-10">
       <main className="w-full max-w-sm">
-        <p className="text-3xl leading-none font-bold condensed">NSLibrary</p>
-        <div className="mt-3" aria-hidden="true">
-          <ContentStrip
-            app={{ hasBase: true, updateVersions: [196608], addonCount: 2, flags: [] }}
-          />
+        <div className="flex items-center gap-2.5">
+          <Logo size={40} />
+          <p className="text-3xl leading-none font-bold condensed">NSLibrary</p>
         </div>
-        <h1 className="mt-10 text-xl">{title}</h1>
-        <p className="mt-1 text-muted">{description}</p>
-        {children}
+        <p className="mt-2 text-muted">Your own Switch library, on your own network.</p>
+        <div className="mt-8 rounded-lg border border-line bg-panel p-6 shadow-card">
+          <h1 className="text-xl">{title}</h1>
+          <p className="mt-1 text-sm text-muted">{description}</p>
+          {children}
+        </div>
       </main>
     </div>
   );

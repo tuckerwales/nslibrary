@@ -62,11 +62,16 @@ export function useApps(q: string, flag: AppFlag | null, librarySort: LibrarySor
   });
 }
 
-export function useApp(applicationId: string) {
-  return useQuery({
+/** One title's details, as query options so several can be fetched at once. */
+export function appDetailQuery(applicationId: string) {
+  return {
     queryKey: queryKeys.appDetail(applicationId),
     queryFn: () => request<AppDetail>("GET", `/apps/${encodeURIComponent(applicationId)}`),
-  });
+  };
+}
+
+export function useApp(applicationId: string) {
+  return useQuery(appDetailQuery(applicationId));
 }
 
 export function useHomebrew() {
@@ -133,6 +138,14 @@ export function useScanRoot() {
 /** Puts a task in the cached list, replacing that file's previous one. */
 export function upsertVerifyTask(tasks: VerifyTask[] | undefined, task: VerifyTask): VerifyTask[] {
   return [task, ...(tasks ?? []).filter((existing) => existing.fileId !== task.fileId)];
+}
+
+/** Every recent background verify. */
+export function useVerifyTasks() {
+  return useQuery({
+    queryKey: queryKeys.verify,
+    queryFn: () => request<VerifyTask[]>("GET", "/verify"),
+  });
 }
 
 /** The latest background verify for a file, if any. All rows share one request. */
