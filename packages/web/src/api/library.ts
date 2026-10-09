@@ -1,6 +1,6 @@
 import type {
   AppDetail,
-  AppFlag,
+  AppFilters,
   AppSort,
   AppSummary,
   CreateRootRequest,
@@ -36,6 +36,19 @@ export const LIBRARY_SORTS = {
   name: { sort: "name", order: "asc" },
   "added-desc": { sort: "added", order: "desc" },
   "added-asc": { sort: "added", order: "asc" },
+  "size-desc": { sort: "size", order: "desc" },
+  "size-asc": { sort: "size", order: "asc" },
+  "released-desc": { sort: "released", order: "desc" },
+  "released-asc": { sort: "released", order: "asc" },
+  "firmware-desc": { sort: "firmware", order: "desc" },
+  "firmware-asc": { sort: "firmware", order: "asc" },
+  "updated-desc": { sort: "updated", order: "desc" },
+  "updated-asc": { sort: "updated", order: "asc" },
+  "rating-asc": { sort: "rating", order: "asc" },
+  "rating-desc": { sort: "rating", order: "desc" },
+  "players-desc": { sort: "players", order: "desc" },
+  publisher: { sort: "publisher", order: "asc" },
+  id: { sort: "id", order: "asc" },
 } as const satisfies Record<string, { sort: AppSort; order: SortOrder }>;
 
 export type LibrarySort = keyof typeof LIBRARY_SORTS;
@@ -44,11 +57,15 @@ export function isLibrarySort(value: string | null): value is LibrarySort {
   return value !== null && Object.hasOwn(LIBRARY_SORTS, value);
 }
 
-export function useApps(q: string, flag: AppFlag | null, librarySort: LibrarySort = "name") {
+/**
+ * The library, filtered and in a web UI order. Each filter goes on the wire as it is in
+ * `AppFiltersSchema`; name order is the server's default, so only other orders are sent.
+ */
+export function useApps(filters: AppFilters = {}, librarySort: LibrarySort = "name") {
   const params = new URLSearchParams();
-  if (q) params.set("q", q);
-  if (flag) params.set("flag", flag);
-  // The server's default is name order, so only other orders go on the wire.
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
   if (librarySort !== "name") {
     const { sort, order } = LIBRARY_SORTS[librarySort];
     params.set("sort", sort);
@@ -56,7 +73,7 @@ export function useApps(q: string, flag: AppFlag | null, librarySort: LibrarySor
   }
   const query = params.size > 0 ? `?${params}` : "";
   return useQuery({
-    queryKey: queryKeys.appList(q, flag, librarySort),
+    queryKey: queryKeys.appList(filters, librarySort),
     queryFn: () => request<AppSummary[]>("GET", `/apps${query}`),
     placeholderData: keepPreviousData,
   });

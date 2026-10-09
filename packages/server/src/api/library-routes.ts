@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { APP_SORTS, VerifyRequestSchema, type VerifyTask } from "@nslib/shared";
+import { AppListQuerySchema, VerifyRequestSchema, type VerifyTask } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { SESSION_COOKIE } from "../auth/auth-service";
@@ -14,22 +14,6 @@ import {
 } from "../library/queries";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
-
-const AppListQuerySchema = z.object({
-  q: z.string().max(200).optional(),
-  flag: z
-    .enum([
-      "no-base",
-      "duplicate",
-      "superseded-updates",
-      "guessed-dlc-base",
-      "unknown-version",
-      "update-available",
-    ])
-    .optional(),
-  sort: z.enum(APP_SORTS).optional(),
-  order: z.enum(["asc", "desc"]).optional(),
-});
 
 const AppParamsSchema = z.object({
   applicationId: z
@@ -53,12 +37,14 @@ export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContex
     }),
   );
 
-  api.get("/apps", async (request) =>
-    listApplications(ctx.db, {
-      ...parseWith(AppListQuerySchema, request.query),
+  api.get("/apps", async (request) => {
+    const { device, installed, ...query } = parseWith(AppListQuerySchema, request.query);
+    return listApplications(ctx.db, {
+      ...query,
+      ...(device !== undefined && { device: { id: device, installed: installed === "true" } }),
       titledb: ctx.titledb.enabled(),
-    }),
-  );
+    });
+  });
 
   api.get("/apps/:applicationId", async (request) => {
     const { applicationId } = parseWith(AppParamsSchema, request.params);

@@ -2,6 +2,7 @@
 import {
   type AppContent,
   type AppDetail,
+  type AppFilters,
   type AppFlag,
   type AppSort,
   type AppSummary,
@@ -13,9 +14,16 @@ import {
   type SortOrder,
   WEB_API_BASE_PATH,
 } from "@nslib/shared";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
-import { applications, contentMetas, files, homebrew, libraryRoots } from "../db/schema";
+import {
+  applications,
+  contentMetas,
+  deviceTitles,
+  files,
+  homebrew,
+  libraryRoots,
+} from "../db/schema";
 import { preferredFormatRank } from "./prefer";
 import { tdbApp, tdbTitle, titledbJoin } from "./titledb-join";
 
@@ -66,6 +74,12 @@ function loadContentRows(db: Db, options: LoadOptions = {}) {
       appPublisher: tdb.appPublisher,
       appIconKey: applications.iconKey,
       latestKnownVersion: tdb.latestKnownVersion,
+      releaseDate: tdb.releaseDate,
+      lastUpdateDate: tdb.lastUpdateDate,
+      languages: tdb.languages,
+      regions: tdb.regions,
+      rating: tdb.rating,
+      players: tdb.players,
     })
     .from(contentMetas)
     .innerJoin(files, eq(files.id, contentMetas.fileId))
@@ -97,6 +111,17 @@ function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {
     else groups.set(k, [item]);
   }
   return groups;
+}
+
+/** A stored JSON array of codes; anything unexpected reads as none. */
+function codes(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const parsed: unknown = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.filter((code) => typeof code === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 function uniqueFiles(rows: ContentRow[]): LibraryFileInfo[] {
@@ -157,27 +182,111 @@ function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
     totalSize: allFiles.reduce((sum, file) => sum + file.size, 0),
     // When the game entered the library: its earliest file, so a later update does not move it.
     addedAt: rows.reduce((min, r) => Math.min(min, r.firstSeenAt), first?.firstSeenAt ?? 0),
+    releaseDate: first?.releaseDate ?? null,
+    lastUpdateDate: first?.lastUpdateDate ?? null,
+    languages: codes(first?.languages ?? null),
+    regions: codes(first?.regions ?? null),
+    rating: first?.rating ?? null,
+    players: first?.players ?? null,
+    // The newest update usually asks the most of the console, so this is what playing it needs.
+    requiredSystemVersion: rows.reduce<number | null>(
+      (max, r) =>
+        r.requiredSystemVersion === null ? max : Math.max(max ?? 0, r.requiredSystemVersion),
+      null,
+    ),
     flags,
   };
 }
 
-export interface ListApplicationsOptions {
-  q?: string;
-  flag?: AppFlag;
+export interface ListApplicationsOptions extends Omit<AppFilters, "device" | "installed"> {
   sort?: AppSort;
   order?: SortOrder;
+  /** Only games that are (`installed: true`) or aren't (`false`) on this Switch. */
+  device?: { id: number; installed: boolean };
   titledb?: boolean;
 }
 
 const byName = (a: AppSummary, b: AppSummary) =>
   nameCollator.compare(a.name, b.name) || a.applicationId.localeCompare(b.applicationId);
 
-/** Orders by the chosen key; ties (a first scan dates every file the same) fall back to name. */
+type SortKey = (app: AppSummary) => number | string | null;
+
+const SORT_KEYS: Record<Exclude<AppSort, "name">, SortKey> = {
+  added: (app) => app.addedAt,
+  size: (app) => app.totalSize,
+  released: (app) => app.releaseDate,
+  firmware: (app) => app.requiredSystemVersion,
+  publisher: (app) => app.publisher,
+  updated: (app) => app.lastUpdateDate,
+  id: (app) => app.applicationId,
+  rating: (app) => app.rating,
+  players: (app) => app.players,
+};
+
+/** Whether `value` is known and within `[min, max]`; true when neither bound is given. */
+function inRange(value: number | null, min: number | undefined, max: number | undefined): boolean {
+  if (min === undefined && max === undefined) return true;
+  return (
+    value !== null && (min === undefined || value >= min) && (max === undefined || value <= max)
+  );
+}
+
+/** The filters that look at a game's summary: everything but search and the Switch filter. */
+function matchesFilters(app: AppSummary, filters: ListApplicationsOptions): boolean {
+  const { publisher, language, region } = filters;
+  return (
+    (!filters.flag || app.flags.includes(filters.flag)) &&
+    (!publisher ||
+      (app.publisher !== null && nameCollator.compare(app.publisher, publisher) === 0)) &&
+    (!language || app.languages.includes(language.toLowerCase())) &&
+    (!region || app.regions.includes(region.toUpperCase())) &&
+    inRange(app.players, filters.minPlayers, undefined) &&
+    inRange(app.rating, undefined, filters.maxRating) &&
+    inRange(app.totalSize, filters.minSize, filters.maxSize) &&
+    inRange(app.releaseDate, filters.releasedFrom, filters.releasedTo) &&
+    inRange(app.lastUpdateDate, filters.updatedFrom, filters.updatedTo) &&
+    inRange(app.requiredSystemVersion, undefined, filters.maxFirmware)
+  );
+}
+
+/** Numbers by value, IDs (fixed-width hex) as they are, and publishers like names. */
+function compareKeys(sort: AppSort, a: number | string, b: number | string): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  if (sort === "id") return a < b ? -1 : a > b ? 1 : 0;
+  return nameCollator.compare(String(a), String(b));
+}
+
+/**
+ * Orders by the chosen key. Games without a value come last whichever way it runs, and ties (a
+ * first scan dates every file the same) fall back to name.
+ */
 function appComparator(sort: AppSort, order: SortOrder) {
   const direction = order === "desc" ? -1 : 1;
-  if (sort === "added")
-    return (a: AppSummary, b: AppSummary) => direction * (a.addedAt - b.addedAt) || byName(a, b);
-  return (a: AppSummary, b: AppSummary) => direction * byName(a, b);
+  if (sort === "name") return (a: AppSummary, b: AppSummary) => direction * byName(a, b);
+  const key = SORT_KEYS[sort];
+  return (a: AppSummary, b: AppSummary) => {
+    const ka = key(a);
+    const kb = key(b);
+    if (ka === null || kb === null)
+      return (ka === null ? 1 : 0) - (kb === null ? 1 : 0) || byName(a, b);
+    return direction * compareKeys(sort, ka, kb) || byName(a, b);
+  };
+}
+
+/** Applications with the base game or an update on a Switch, as it last reported. */
+function installedApplications(db: Db, deviceId: number): Set<string> {
+  const rows = db
+    .select({ applicationId: deviceTitles.applicationId })
+    .from(deviceTitles)
+    .where(
+      and(
+        eq(deviceTitles.deviceId, deviceId),
+        // DLC alone doesn't make a game playable, so like the Switch page it doesn't count.
+        inArray(deviceTitles.type, ["application", "patch"]),
+      ),
+    )
+    .all();
+  return new Set(rows.map((row) => row.applicationId));
 }
 
 function summarizeAll(db: Db, titledb: boolean): AppSummary[] {
@@ -189,8 +298,11 @@ export function listApplications(db: Db, options: ListApplicationsOptions = {}):
   const rows = loadContentRows(db, { titledb: options.titledb });
   const byApp = groupBy(rows, (row) => row.applicationId);
   const needle = options.q?.trim().toLowerCase();
+  const device = options.device;
+  const installed = device && installedApplications(db, device.id);
 
   return [...byApp]
+    .filter(([id]) => !device || installed?.has(id) === device.installed)
     .filter(([id, appRows]) => {
       if (!needle) return true;
       const upper = needle.toUpperCase();
@@ -203,7 +315,7 @@ export function listApplications(db: Db, options: ListApplicationsOptions = {}):
       );
     })
     .map(([id, appRows]) => summarize(id, appRows))
-    .filter((app) => !options.flag || app.flags.includes(options.flag))
+    .filter((app) => matchesFilters(app, options))
     .sort(appComparator(options.sort ?? "name", options.order ?? "asc"));
 }
 

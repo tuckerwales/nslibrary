@@ -65,6 +65,18 @@ export function firmwareLabel(version: number): string {
   return `${major}.${minor}.${micro}`;
 }
 
+/** A titledb release date (YYYYMMDD, like 20170303) as a local date. */
+export function releaseDateLabel(date: number): string {
+  const year = Math.floor(date / 10000);
+  const month = Math.floor(date / 100) % 100;
+  const day = date % 100;
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
   return `${count.toLocaleString()} ${count === 1 ? singular : pluralForm}`;
 }

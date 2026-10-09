@@ -13,6 +13,13 @@ export function app(overrides: Partial<AppSummary> = {}): AppSummary {
     fileCount: 1,
     totalSize: 1024,
     addedAt: 1_758_700_800_000,
+    releaseDate: null,
+    lastUpdateDate: null,
+    languages: [],
+    regions: [],
+    rating: null,
+    players: null,
+    requiredSystemVersion: null,
     flags: [],
     ...overrides,
   };
