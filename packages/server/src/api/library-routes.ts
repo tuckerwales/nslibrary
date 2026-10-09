@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { APP_SORTS, VerifyRequestSchema, type VerifyTask } from "@nslib/shared";
+import { AppListQuerySchema, VerifyRequestSchema, type VerifyTask } from "@nslib/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { SESSION_COOKIE } from "../auth/auth-service";
@@ -14,25 +14,6 @@ import {
 } from "../library/queries";
 import type { AppContext } from "./context";
 import { ApiError, parseWith } from "./errors";
-
-const AppListQuerySchema = z.object({
-  q: z.string().max(200).optional(),
-  flag: z
-    .enum([
-      "no-base",
-      "duplicate",
-      "superseded-updates",
-      "guessed-dlc-base",
-      "unknown-version",
-      "update-available",
-    ])
-    .optional(),
-  sort: z.enum(APP_SORTS).optional(),
-  order: z.enum(["asc", "desc"]).optional(),
-  /** With `installed`, keeps only games that are (`true`) or aren't (`false`) on this Switch. */
-  device: z.coerce.number().int().positive().optional(),
-  installed: z.enum(["true", "false"]).optional(),
-});
 
 const AppParamsSchema = z.object({
   applicationId: z
@@ -58,9 +39,6 @@ export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContex
 
   api.get("/apps", async (request) => {
     const { device, installed, ...query } = parseWith(AppListQuerySchema, request.query);
-    if ((device === undefined) !== (installed === undefined)) {
-      throw new ApiError("BAD_REQUEST", "Give both device and installed, or neither");
-    }
     return listApplications(ctx.db, {
       ...query,
       ...(device !== undefined && { device: { id: device, installed: installed === "true" } }),

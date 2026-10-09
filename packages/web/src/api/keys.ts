@@ -1,15 +1,12 @@
+import type { AppFilters } from "@nslib/shared";
+
 /** Every query key, so invalidations can't drift from the queries they target. */
 export const queryKeys = {
   auth: ["auth"],
   stats: ["stats"],
   apps: ["apps"],
-  /** Lists filtered by a Switch carry its ID fifth, so its reports can refresh just those. */
-  appList: (
-    q: string,
-    flag: string | null,
-    sort = "name",
-    device: { deviceId: number; installed: boolean } | null = null,
-  ) => ["apps", q, flag, sort, device?.deviceId ?? null, device?.installed ?? null],
+  /** Filters third, so a Switch's reports can refresh just the lists filtered by it. */
+  appList: (filters: AppFilters = {}, sort = "name") => ["apps", sort, filters],
   app: ["app"],
   appDetail: (applicationId: string) => ["app", applicationId],
   homebrew: ["homebrew"],

@@ -2,6 +2,7 @@
 import {
   type AppContent,
   type AppDetail,
+  type AppFilters,
   type AppFlag,
   type AppSort,
   type AppSummary,
@@ -74,6 +75,11 @@ function loadContentRows(db: Db, options: LoadOptions = {}) {
       appIconKey: applications.iconKey,
       latestKnownVersion: tdb.latestKnownVersion,
       releaseDate: tdb.releaseDate,
+      lastUpdateDate: tdb.lastUpdateDate,
+      languages: tdb.languages,
+      regions: tdb.regions,
+      rating: tdb.rating,
+      players: tdb.players,
     })
     .from(contentMetas)
     .innerJoin(files, eq(files.id, contentMetas.fileId))
@@ -105,6 +111,17 @@ function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {
     else groups.set(k, [item]);
   }
   return groups;
+}
+
+/** A stored JSON array of codes; anything unexpected reads as none. */
+function codes(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const parsed: unknown = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.filter((code) => typeof code === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 function uniqueFiles(rows: ContentRow[]): LibraryFileInfo[] {
@@ -166,6 +183,11 @@ function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
     // When the game entered the library: its earliest file, so a later update does not move it.
     addedAt: rows.reduce((min, r) => Math.min(min, r.firstSeenAt), first?.firstSeenAt ?? 0),
     releaseDate: first?.releaseDate ?? null,
+    lastUpdateDate: first?.lastUpdateDate ?? null,
+    languages: codes(first?.languages ?? null),
+    regions: codes(first?.regions ?? null),
+    rating: first?.rating ?? null,
+    players: first?.players ?? null,
     // The newest update usually asks the most of the console, so this is what playing it needs.
     requiredSystemVersion: rows.reduce<number | null>(
       (max, r) =>
@@ -176,9 +198,7 @@ function summarize(applicationId: string, rows: ContentRow[]): AppSummary {
   };
 }
 
-export interface ListApplicationsOptions {
-  q?: string;
-  flag?: AppFlag;
+export interface ListApplicationsOptions extends Omit<AppFilters, "device" | "installed"> {
   sort?: AppSort;
   order?: SortOrder;
   /** Only games that are (`installed: true`) or aren't (`false`) on this Switch. */
@@ -197,10 +217,42 @@ const SORT_KEYS: Record<Exclude<AppSort, "name">, SortKey> = {
   released: (app) => app.releaseDate,
   firmware: (app) => app.requiredSystemVersion,
   publisher: (app) => app.publisher,
+  updated: (app) => app.lastUpdateDate,
+  id: (app) => app.applicationId,
+  rating: (app) => app.rating,
+  players: (app) => app.players,
 };
 
-function compareKeys(a: number | string, b: number | string): number {
+/** Whether `value` is known and within `[min, max]`; true when neither bound is given. */
+function inRange(value: number | null, min: number | undefined, max: number | undefined): boolean {
+  if (min === undefined && max === undefined) return true;
+  return (
+    value !== null && (min === undefined || value >= min) && (max === undefined || value <= max)
+  );
+}
+
+/** The filters that look at a game's summary: everything but search and the Switch filter. */
+function matchesFilters(app: AppSummary, filters: ListApplicationsOptions): boolean {
+  const { publisher, language, region } = filters;
+  return (
+    (!filters.flag || app.flags.includes(filters.flag)) &&
+    (!publisher ||
+      (app.publisher !== null && nameCollator.compare(app.publisher, publisher) === 0)) &&
+    (!language || app.languages.includes(language.toLowerCase())) &&
+    (!region || app.regions.includes(region.toUpperCase())) &&
+    inRange(app.players, filters.minPlayers, undefined) &&
+    inRange(app.rating, undefined, filters.maxRating) &&
+    inRange(app.totalSize, filters.minSize, filters.maxSize) &&
+    inRange(app.releaseDate, filters.releasedFrom, filters.releasedTo) &&
+    inRange(app.lastUpdateDate, filters.updatedFrom, filters.updatedTo) &&
+    inRange(app.requiredSystemVersion, undefined, filters.maxFirmware)
+  );
+}
+
+/** Numbers by value, IDs (fixed-width hex) as they are, and publishers like names. */
+function compareKeys(sort: AppSort, a: number | string, b: number | string): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
+  if (sort === "id") return a < b ? -1 : a > b ? 1 : 0;
   return nameCollator.compare(String(a), String(b));
 }
 
@@ -217,7 +269,7 @@ function appComparator(sort: AppSort, order: SortOrder) {
     const kb = key(b);
     if (ka === null || kb === null)
       return (ka === null ? 1 : 0) - (kb === null ? 1 : 0) || byName(a, b);
-    return direction * compareKeys(ka, kb) || byName(a, b);
+    return direction * compareKeys(sort, ka, kb) || byName(a, b);
   };
 }
 
@@ -263,7 +315,7 @@ export function listApplications(db: Db, options: ListApplicationsOptions = {}):
       );
     })
     .map(([id, appRows]) => summarize(id, appRows))
-    .filter((app) => !options.flag || app.flags.includes(options.flag))
+    .filter((app) => matchesFilters(app, options))
     .sort(appComparator(options.sort ?? "name", options.order ?? "asc"));
 }
 

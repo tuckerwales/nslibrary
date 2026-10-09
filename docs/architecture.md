@@ -117,8 +117,11 @@ flagged as a guess.
 
 **titledb** is optional and off by default; you supply a URL or a file, refreshed daily if it is a
 URL. It is applied when the library is read (`library/titledb-join.ts`) rather than copied into the
-`applications` table, and contributes only names, which game a DLC belongs to, and latest-version
-numbers. Icons are stored exactly as read from NACP or NRO — there is no server-side resizing.
+`applications` table, and contributes only names, which game a DLC belongs to, latest-version
+numbers, and details the library can be sorted and filtered by (release date, languages, regions,
+age rating, players). An optional second source, a versions list (`{ "<title ID>": { "<version>":
+"YYYY-MM-DD" } }`, like blawar's `versions.json`), dates each update for the last-updated sort and
+filter. Icons are stored exactly as read from NACP or NRO — there is no server-side resizing.
 
 ### Storage
 
@@ -136,7 +139,7 @@ orphan update or DLC, firmware newer than a device, not present on a given devic
 
 ### Web API (`/api/v1`, cookie session)
 
-Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&flag&sort&order&device&installed`
+Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&flag&sort&order&device&installed&publisher&language&region&minPlayers&maxRating&minSize&maxSize&releasedFrom&releasedTo&updatedFrom&updatedTo&maxFirmware`, schema `AppListQuerySchema`
 and `GET /apps/:id` grouping base, updates, DLC, files and per-device state), file verification,
 compression (`GET /compress`, `GET`/`PUT /compress/settings`, `GET /compress/folders`,
 `GET /compress/candidates`, `POST /compress` for several files, `POST /compress/clear`, and

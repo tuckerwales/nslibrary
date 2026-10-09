@@ -1,4 +1,5 @@
 import type {
+  AppFilters,
   CompressTask,
   JobStatus,
   LibraryRoot,
@@ -116,7 +117,8 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       // Library lists filtered by what this Switch has installed.
       void client.invalidateQueries({
         queryKey: queryKeys.apps,
-        predicate: (query) => query.queryKey[4] === event.deviceId,
+        predicate: (query) =>
+          (query.queryKey[2] as AppFilters | undefined)?.device === event.deviceId,
       });
       break;
     case "verify.updated":

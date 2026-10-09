@@ -12,14 +12,23 @@ released the `.nro` only.
 ## [Unreleased]
 
 ### Added
-- **More ways to sort the library.** Order games by size, release date, or the firmware they need,
-  or group them by publisher. Games with no value for the chosen order (no titledb release date,
-  firmware not readable without keys) come last either way. Release dates come from titledb, so
-  refresh it once to fill them in.
+- **Sort the library more ways.** Size, release date, last update, the firmware a game needs, age
+  rating, number of players, publisher, and title ID join name and date added. Games with no value
+  for the chosen order come last either way.
+- **More filters.** Narrow the library by publisher, language, region, players, age rating, size,
+  release year, last-update year, and the firmware it needs. The choices come from what's in your
+  library, all of them combine with search and the other filters, and they're kept in the URL.
 - **Filter the library by what's on a Switch.** Show only the games a paired Switch has installed,
-  or only the ones it doesn't, alongside search and the other filters.
-- Web API: `GET /apps` takes `sort=size|released|firmware|publisher` and `device=<id>&installed=true|false`.
-  `AppSummary` gains `releaseDate` and `requiredSystemVersion`.
+  or only the ones it doesn't.
+- **Update dates from a versions list.** Settings → Title database takes an optional second URL
+  or file, like blawar's `versions.json`, giving each update's release date.
+- Web API: `GET /apps` takes the new sorts and filters (`AppListQuerySchema` in `@nslib/shared`).
+  `AppSummary` gains `releaseDate`, `lastUpdateDate`, `requiredSystemVersion`, `languages`,
+  `regions`, `rating`, and `players`. `PUT /titledb` takes `versionsSource`.
+
+### Fixed
+- A titledb entry with a `null` field (common in blawar's files) was skipped entirely. Now just
+  that field is ignored.
 
 ## [0.7.0] - 2026-10-04
 

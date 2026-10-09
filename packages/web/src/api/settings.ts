@@ -31,13 +31,13 @@ export function useTitledb() {
   });
 }
 
-/** Saves the title database source, then refreshes from it. */
+/** Saves the title database sources, then refreshes from them. */
 export function useSaveTitledb() {
   const invalidate = useInvalidateLibrary();
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (source: string | null) => {
-      await request<TitledbStatus>("PUT", "/titledb", { source });
+    mutationFn: async (sources: { source: string | null; versionsSource: string | null }) => {
+      await request<TitledbStatus>("PUT", "/titledb", sources);
       return request<TitledbStatus>("POST", "/titledb/refresh");
     },
     onSuccess: (status) => {

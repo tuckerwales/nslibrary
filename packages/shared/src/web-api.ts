@@ -51,6 +51,8 @@ export const PutKeysRequestSchema = z.object({
 export const TitledbConfigSchema = z.object({
   enabled: z.boolean().optional(),
   source: z.string().trim().max(4096).nullable().optional(),
+  /** Optional versions.json (title ID → version → date) for when each update came out. */
+  versionsSource: z.string().trim().max(4096).nullable().optional(),
 });
 
 export const VerifyRequestSchema = z.object({
@@ -147,7 +149,10 @@ export interface KeyStatus {
 export interface TitledbStatus {
   enabled: boolean;
   source: string | null;
+  versionsSource: string | null;
   titleCount: number;
+  /** Versions with a release date, from `versionsSource`. */
+  datedVersionCount: number;
   lastRefreshAt: number | null;
   lastError: string | null;
 }
@@ -318,13 +323,85 @@ export type AppFlag =
   /** Titledb lists a newer update than any file in the library. */
   | "update-available";
 
+export const APP_FLAGS = [
+  "no-base",
+  "duplicate",
+  "superseded-updates",
+  "guessed-dlc-base",
+  "unknown-version",
+  "update-available",
+] as const satisfies readonly AppFlag[];
+
 /**
  * Library orderings for `GET /apps`. Ties fall back to name, then application ID. Games without a
  * value for the key (no release date, unknown firmware, no publisher) come last in either order.
  */
-export const APP_SORTS = ["name", "added", "size", "released", "firmware", "publisher"] as const;
+export const APP_SORTS = [
+  "name",
+  "added",
+  "size",
+  "released",
+  "updated",
+  "firmware",
+  "publisher",
+  "id",
+  "rating",
+  "players",
+] as const;
 export type AppSort = (typeof APP_SORTS)[number];
 export type SortOrder = "asc" | "desc";
+
+/** A titledb date, YYYYMMDD. */
+const DateNumberSchema = z.coerce
+  .number()
+  .int()
+  .min(10000101, "Expected a date as YYYYMMDD")
+  .max(99991231, "Expected a date as YYYYMMDD");
+const CountSchema = z.coerce.number().int().nonnegative();
+
+/**
+ * Filters for `GET /apps`, each optional and all applied together. A range or value filter leaves
+ * out games without that value, since there is no telling whether they match.
+ */
+export const AppFiltersSchema = z.object({
+  q: z.string().max(200).optional(),
+  flag: z.enum(APP_FLAGS).optional(),
+  /** With `installed`, only games that are (`true`) or aren't (`false`) on this Switch. */
+  device: z.coerce.number().int().positive().optional(),
+  installed: z.enum(["true", "false"]).optional(),
+  /** Exact publisher, ignoring case. */
+  publisher: z.string().trim().min(1).max(200).optional(),
+  /** A language titledb lists, like `en` or `ja`. */
+  language: z.string().trim().min(1).max(16).optional(),
+  /** A region titledb lists, like `US`. */
+  region: z.string().trim().min(1).max(16).optional(),
+  /** Games for at least this many players. */
+  minPlayers: CountSchema.optional(),
+  /** Games with an age rating of at most this. */
+  maxRating: CountSchema.optional(),
+  /** Total bytes of the game's files. */
+  minSize: CountSchema.optional(),
+  maxSize: CountSchema.optional(),
+  /** First release date, inclusive. */
+  releasedFrom: DateNumberSchema.optional(),
+  releasedTo: DateNumberSchema.optional(),
+  /** Date of the newest update titledb knows of, inclusive. */
+  updatedFrom: DateNumberSchema.optional(),
+  updatedTo: DateNumberSchema.optional(),
+  /** Games that run on this system version (packed, as `requiredSystemVersion`) or older. */
+  maxFirmware: CountSchema.optional(),
+});
+
+export const AppListQuerySchema = AppFiltersSchema.extend({
+  sort: z.enum(APP_SORTS).optional(),
+  order: z.enum(["asc", "desc"]).optional(),
+}).refine((query) => (query.device === undefined) === (query.installed === undefined), {
+  message: "Give both device and installed, or neither",
+  path: ["installed"],
+});
+
+export type AppFilters = z.infer<typeof AppFiltersSchema>;
+export type AppListQuery = z.infer<typeof AppListQuerySchema>;
 
 export interface AppSummary {
   applicationId: string;
@@ -342,6 +419,16 @@ export interface AppSummary {
   addedAt: number;
   /** First release date from titledb, as YYYYMMDD (20170303). Null when titledb doesn't list one. */
   releaseDate: number | null;
+  /** Release date of the newest update titledb's versions list knows of, as YYYYMMDD. */
+  lastUpdateDate: number | null;
+  /** Languages titledb lists (`en`, `ja`, …), sorted. Empty when unknown. */
+  languages: string[];
+  /** Regions titledb lists (`US`, `EU`, …), sorted. Empty when unknown. */
+  regions: string[];
+  /** Age rating titledb lists (the minimum age, in the rating system of its source). */
+  rating: number | null;
+  /** Most players titledb lists. */
+  players: number | null;
   /** The highest system version any of the game's content requires, or null when none is known. */
   requiredSystemVersion: number | null;
   flags: AppFlag[];

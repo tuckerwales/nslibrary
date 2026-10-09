@@ -13,7 +13,7 @@ import { updateLabel } from "../format";
 export function SwitchLibraryPage() {
   const [params, setParams] = useSearchParams();
   const devices = useDevices();
-  const apps = useApps("", null);
+  const apps = useApps();
   const active = useMemo(() => (devices.data ?? []).filter((d) => !d.revoked), [devices.data]);
   const requested = Number(params.get("device"));
   // Ignore a stale ?device= (say, a Switch revoked since the link was made).

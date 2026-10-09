@@ -436,6 +436,130 @@ describe("web API", () => {
       expect((await order("")).map((a) => a.releaseDate)).toEqual([null, null]);
     });
 
+    it("reads titledb details and a versions list, and sorts and filters by them", async () => {
+      const session = await setUp();
+      const library = join(dir, "library");
+      await populate(library);
+      const root = (
+        await call("POST", "/roots", { session, body: { path: library } })
+      ).json<LibraryRoot>();
+      await server.scanner.scanRoot(root.id);
+      const OTHER = "0100000000AB0000";
+      server.sqlite
+        .prepare("update content_metas set required_system_version = ? where title_id = ?")
+        .run(0x0c100000, "0100ABCDEF012800");
+
+      const titledbPath = join(dir, "titledb.json");
+      await writeFile(
+        titledbPath,
+        JSON.stringify({
+          [BASE]: {
+            name: "Example Game",
+            publisher: "Zebra",
+            releaseDate: 20170303,
+            languages: ["en", "JA", "en"],
+            regions: ["US", "eu"],
+            rating: 12,
+            numberOfPlayers: 4,
+            version: 65536,
+          },
+          // Nulls, as blawar's files have, drop just that field.
+          [OTHER]: {
+            name: "Other Game",
+            publisher: "acme",
+            releaseDate: 20190920,
+            languages: ["fr"],
+            regions: null,
+            rating: 3,
+            numberOfPlayers: null,
+            version: null,
+          },
+        }),
+      );
+      // Keyed by the game's ID or its update's, in either case.
+      const versionsPath = join(dir, "versions.json");
+      await writeFile(
+        versionsPath,
+        JSON.stringify({
+          "0100abcdef012800": { "65536": "2017-05-01", "196608": "2018-11-20" },
+          [OTHER]: { "0": "2019-09-20" },
+          "0100FFFFFFFF0000": { "65536": "2020-01-01" },
+        }),
+      );
+      await call("PUT", "/titledb", {
+        session,
+        body: { source: titledbPath, versionsSource: versionsPath },
+      });
+      const status = (await call("POST", "/titledb/refresh", { session })).json<TitledbStatus>();
+      expect(status).toMatchObject({
+        lastError: null,
+        titleCount: 2,
+        versionsSource: versionsPath,
+        datedVersionCount: 3,
+      });
+
+      const list = async (query: string) =>
+        (await call("GET", `/apps${query}`, { session })).json<AppSummary[]>();
+      const names = async (query: string) => (await list(query)).map((a) => a.name);
+
+      const [example, other] = await list("");
+      expect(example).toMatchObject({
+        name: "Example Game",
+        releaseDate: 20170303,
+        lastUpdateDate: 20181120,
+        languages: ["en", "ja"],
+        regions: ["EU", "US"],
+        rating: 12,
+        players: 4,
+        requiredSystemVersion: 0x0c100000,
+      });
+      // The versions list knows of a newer update than the entry.
+      expect(example?.flags).not.toContain("update-available");
+      expect(other).toMatchObject({
+        name: "Other Game",
+        lastUpdateDate: null,
+        languages: ["fr"],
+        regions: [],
+        rating: 3,
+        players: null,
+      });
+
+      expect(await names("?sort=updated&order=desc")).toEqual(["Example Game", "Other Game"]);
+      expect(await names("?sort=updated")).toEqual(["Example Game", "Other Game"]);
+      expect(await names("?sort=rating")).toEqual(["Other Game", "Example Game"]);
+      expect(await names("?sort=players")).toEqual(["Example Game", "Other Game"]);
+      expect(await names("?sort=id")).toEqual(["Other Game", "Example Game"]);
+      expect(await names("?sort=id&order=desc")).toEqual(["Example Game", "Other Game"]);
+
+      expect(await names("?publisher=ACME")).toEqual(["Other Game"]);
+      expect(await names("?language=JA")).toEqual(["Example Game"]);
+      expect(await names("?region=eu")).toEqual(["Example Game"]);
+      expect(await names("?minPlayers=2")).toEqual(["Example Game"]);
+      expect(await names("?maxRating=7")).toEqual(["Other Game"]);
+      expect(await names("?releasedFrom=20180101")).toEqual(["Other Game"]);
+      expect(await names("?releasedFrom=20170101&releasedTo=20171231")).toEqual(["Example Game"]);
+      expect(await names("?updatedFrom=20180101")).toEqual(["Example Game"]);
+      // Other Game's firmware is unknown, so neither firmware bound keeps it.
+      expect(await names(`?maxFirmware=${0x0c100000}`)).toEqual(["Example Game"]);
+      expect(await names(`?maxFirmware=${0x0c000000}`)).toEqual([]);
+      const sizes = (await list("")).map((a) => a.totalSize);
+      expect(await names(`?minSize=${Math.max(...sizes)}`)).toEqual(["Example Game"]);
+      expect(await names(`?maxSize=${Math.min(...sizes)}`)).toEqual(["Other Game"]);
+      // Filters combine.
+      expect(await names("?language=en&maxRating=7")).toEqual([]);
+
+      expect((await call("GET", "/apps?releasedFrom=2017", { session })).statusCode).toBe(400);
+      expect((await call("GET", "/apps?minPlayers=-1", { session })).statusCode).toBe(400);
+
+      // Off: none of it applies.
+      await call("PUT", "/titledb", { session, body: { enabled: false } });
+      expect((await list(""))[0]).toMatchObject({
+        lastUpdateDate: null,
+        languages: [],
+        rating: null,
+      });
+    });
+
     it("filters games by whether a Switch has them installed", async () => {
       const session = await setUp();
       const library = join(dir, "library");

@@ -2,7 +2,6 @@ import type { AppFlag, AppSummary } from "@nslib/shared";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
-  type DeviceFilter,
   isLibrarySort,
   LIBRARY_SORTS,
   type LibrarySort,
@@ -18,6 +17,13 @@ import { Callout } from "../components/Callout";
 import { LoadError, Loading } from "../components/Feedback";
 import { inputClass } from "../components/Field";
 import { Icon } from "../components/Icon";
+import {
+  countMoreFilters,
+  LibraryFilters,
+  MORE_FILTER_KEYS,
+  type MoreFilters,
+  readMoreFilters,
+} from "../components/LibraryFilters";
 import { PageHeader } from "../components/PageHeader";
 import { RelativeTime } from "../components/RelativeTime";
 import { type TitleLayout, TitleList } from "../components/TitleList";
@@ -102,7 +108,13 @@ const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
   { value: "released-asc", label: "Oldest release" },
   { value: "firmware-desc", label: "Newest firmware needed" },
   { value: "firmware-asc", label: "Oldest firmware needed" },
+  { value: "updated-desc", label: "Recently updated" },
+  { value: "updated-asc", label: "Least recently updated" },
+  { value: "rating-asc", label: "Lowest age rating" },
+  { value: "rating-desc", label: "Highest age rating" },
+  { value: "players-desc", label: "Most players" },
   { value: "publisher", label: "Publisher" },
+  { value: "id", label: "Title ID" },
 ];
 
 /**
@@ -126,6 +138,14 @@ const SORT_DETAIL: Partial<
       ? "Firmware needed unknown"
       : `Needs firmware ${firmwareLabel(app.requiredSystemVersion)}`,
   publisher: (app) => app.publisher ?? "Publisher unknown",
+  updated: (app) =>
+    app.lastUpdateDate === null
+      ? "Last update unknown"
+      : `Updated ${releaseDateLabel(app.lastUpdateDate)}`,
+  rating: (app) => (app.rating === null ? "Age rating unknown" : `Rated ${app.rating}+`),
+  players: (app) =>
+    app.players === null ? "Player count unknown" : `Up to ${plural(app.players, "player")}`,
+  id: (app) => app.applicationId,
 };
 
 function readStoredSort(): LibrarySort {
@@ -185,6 +205,12 @@ function SortSelect({
       </select>
     </label>
   );
+}
+
+/** Games that are, or aren't, on one Switch. */
+interface DeviceFilter {
+  deviceId: number;
+  installed: boolean;
 }
 
 /** `?on=<id>` or `?not-on=<id>`: games that are, or aren't, installed on that Switch. */
@@ -433,9 +459,23 @@ export function LibraryPage() {
     }),
   );
   const deviceFilter = readDeviceFilter(params);
-  const apps = useApps(q, flag, sort, deviceFilter);
+  const moreFilters = readMoreFilters(params);
+  const moreCount = countMoreFilters(moreFilters);
+  const [showMore, setShowMore] = useState(moreCount > 0);
+  const apps = useApps(
+    {
+      ...(q && { q }),
+      ...(flag && { flag }),
+      ...(deviceFilter && {
+        device: deviceFilter.deviceId,
+        installed: deviceFilter.installed ? "true" : "false",
+      }),
+      ...moreFilters,
+    },
+    sort,
+  );
   // The whole library in the same order, so an unfiltered view shares this request.
-  const everything = useApps("", null, sort).data;
+  const everything = useApps({}, sort).data;
   const detail = SORT_DETAIL[LIBRARY_SORTS[sort].sort];
   const stats = useStats().data;
   const roots = useRoots().data;
@@ -466,14 +506,21 @@ export function LibraryPage() {
       return next;
     });
 
+  const setMoreFilters = (patch: MoreFilters) =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === undefined) next.delete(key);
+        else next.set(key, String(value));
+      }
+      return next;
+    });
+
   const clearFilters = () => {
     setDraft("");
     setParams((current) => {
       const next = new URLSearchParams(current);
-      next.delete("q");
-      next.delete("flag");
-      next.delete("on");
-      next.delete("not-on");
+      for (const key of ["q", "flag", "on", "not-on", ...MORE_FILTER_KEYS]) next.delete(key);
       return next;
     });
   };
@@ -487,7 +534,7 @@ export function LibraryPage() {
     });
 
   const scanning = roots?.some((root) => root.scan.state !== "idle");
-  const filtering = q !== "" || flag !== null || deviceFilter !== null;
+  const filtering = q !== "" || flag !== null || deviceFilter !== null || moreCount > 0;
   // Filters with nothing in them are hidden, unless one is the filter in use.
   const filters = FILTERS.filter(
     (filter) => filter.flag === null || filter.flag === flag || flagCounts.get(filter.flag),
@@ -525,10 +572,27 @@ export function LibraryPage() {
           <SearchBox value={draft} onChange={setDraft} />
           <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
             <DeviceFilterSelect filter={deviceFilter} onChange={setDeviceFilter} />
+            <button
+              type="button"
+              aria-expanded={showMore}
+              aria-controls="library-filters"
+              onClick={() => setShowMore((open) => !open)}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm text-ink hover:border-muted"
+            >
+              More filters
+              {moreCount > 0 && (
+                <span className="rounded-full bg-ink px-1.5 text-xs font-semibold text-panel tabular-nums">
+                  {moreCount}
+                </span>
+              )}
+            </button>
             <SortSelect sort={sort} onChange={setSort} />
             <LayoutToggle layout={layout} onChange={setLayout} />
           </div>
         </div>
+        {showMore && (
+          <LibraryFilters apps={everything ?? []} filters={moreFilters} onChange={setMoreFilters} />
+        )}
         {filters.length > 1 && (
           <fieldset className="flex flex-wrap gap-1.5">
             <legend className="sr-only">Filter</legend>
@@ -582,7 +646,7 @@ export function LibraryPage() {
               </div>
             )}
             <TitleList
-              key={`${q}\n${flag}\n${sort}\n${deviceFilterValue(deviceFilter)}`}
+              key={params.toString()}
               items={apps.data.map((app) => ({ app, ...(detail && { detail: detail(app) }) }))}
               layout={layout}
               selection={selection ? { selected: selection, onToggle: toggleSelected } : undefined}

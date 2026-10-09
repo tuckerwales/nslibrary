@@ -252,18 +252,31 @@ function TitledbSection() {
   const save = useSaveTitledb();
   const setEnabled = useSetTitledbEnabled();
   const [source, setSource] = useState<string | null>(null);
+  const [versionsSource, setVersionsSource] = useState<string | null>(null);
   const titledbSource = source ?? titledb.data?.source ?? "";
+  const titledbVersionsSource = versionsSource ?? titledb.data?.versionsSource ?? "";
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    save.mutate(titledbSource.trim() || null, { onSuccess: () => setSource(null) });
+    save.mutate(
+      {
+        source: titledbSource.trim() || null,
+        versionsSource: titledbVersionsSource.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          setSource(null);
+          setVersionsSource(null);
+        },
+      },
+    );
   };
 
   return (
     <Card
       id="titledb"
       title="Title database"
-      description="Optional. A JSON file or URL you supply, used only for names, which game DLC belongs to, and the latest known version. A URL is refreshed once a day. NSLibrary never downloads games from it."
+      description="Optional. A JSON file or URL you supply, used only for names, which game DLC belongs to, the latest known version, and details to sort and filter the library by: release date, languages, regions, age rating, and players. A URL is refreshed once a day. NSLibrary never downloads games from it."
     >
       <CardBody>
         {titledb.error ? (
@@ -271,6 +284,9 @@ function TitledbSection() {
         ) : titledb.data ? (
           <p className="text-sm text-muted">
             {titledb.data.titleCount.toLocaleString()} titles loaded
+            {titledb.data.datedVersionCount > 0
+              ? `, ${titledb.data.datedVersionCount.toLocaleString()} update dates`
+              : ""}
             {titledb.data.lastRefreshAt ? (
               <>
                 , last refreshed <RelativeTime timestamp={titledb.data.lastRefreshAt} />
@@ -295,13 +311,28 @@ function TitledbSection() {
           <label htmlFor="titledb-source" className="block text-sm font-semibold">
             URL or file path
           </label>
+          <input
+            id="titledb-source"
+            className={`mt-1.5 ${inputClass}`}
+            placeholder="https://example/titledb.json"
+            value={titledbSource}
+            onChange={(e) => setSource(e.target.value)}
+          />
+          <label htmlFor="titledb-versions-source" className="mt-4 block text-sm font-semibold">
+            Update dates (optional)
+          </label>
+          <p id="titledb-versions-hint" className="mt-1 text-sm text-muted">
+            A versions list, URL or file path, giving each update's release date by title ID, for
+            sorting and filtering by when a game was last updated.
+          </p>
           <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
             <input
-              id="titledb-source"
+              id="titledb-versions-source"
+              aria-describedby="titledb-versions-hint"
               className={inputClass}
-              placeholder="https://example/titledb.json"
-              value={titledbSource}
-              onChange={(e) => setSource(e.target.value)}
+              placeholder="https://example/versions.json"
+              value={titledbVersionsSource}
+              onChange={(e) => setVersionsSource(e.target.value)}
             />
             <Button type="submit" variant="secondary" className="h-10" disabled={save.isPending}>
               {save.isPending ? "Saving…" : "Save and refresh"}

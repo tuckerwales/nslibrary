@@ -44,3 +44,37 @@ describe("SettingsPage account", () => {
     );
   });
 });
+
+describe("SettingsPage title database", () => {
+  it("saves the versions list with the titledb source", async () => {
+    const status = {
+      enabled: true,
+      source: "/data/titles.json",
+      versionsSource: null,
+      titleCount: 10,
+      datedVersionCount: 0,
+      lastRefreshAt: null,
+      lastError: null,
+    };
+    const fetch = stubApi({ "/titledb": status, "/titledb/refresh": status });
+    renderWithApp(<SettingsPage />);
+    expect(await screen.findByText(/10 titles loaded/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Update dates (optional)"), {
+      target: { value: " /data/versions.json " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save and refresh" }));
+    await waitFor(() =>
+      expect(fetch.mock.calls.some(([input]) => String(input).endsWith("/titledb/refresh"))).toBe(
+        true,
+      ),
+    );
+    const put = fetch.mock.calls.find(
+      ([input, init]) => String(input).endsWith("/titledb") && init?.method === "PUT",
+    );
+    expect(JSON.parse(String(put?.[1]?.body))).toEqual({
+      source: "/data/titles.json",
+      versionsSource: "/data/versions.json",
+    });
+  });
+});

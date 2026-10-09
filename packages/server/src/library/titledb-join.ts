@@ -5,12 +5,13 @@
  * - DLC whose base game was only guessed from its title ID uses the base ID titledb lists.
  * - Applications without NACP metadata take titledb's name and publisher.
  * - Content named only from its file name or ticket takes titledb's name.
- * - The latest known version and the release date come from the base game's titledb entry.
+ * - The latest known version, release date, languages, regions, age rating, and player count
+ *   come from the base game's titledb entry, and the last update date from its versions list.
  */
 import type { ApplicationIdSource } from "@nslib/shared";
 import { and, eq, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
-import { applications, contentMetas, titledbTitles } from "../db/schema";
+import { applications, contentMetas, titledbTitles, titledbVersions } from "../db/schema";
 
 export const tdbTitle = alias(titledbTitles, "tdb_title");
 export const tdbApp = alias(titledbTitles, "tdb_app");
@@ -29,6 +30,12 @@ export interface TitledbJoin {
   appPublisher: SQL<string | null>;
   latestKnownVersion: SQL<number | null>;
   releaseDate: SQL<number | null>;
+  lastUpdateDate: SQL<number | null>;
+  /** JSON arrays, as stored. */
+  languages: SQL<string | null>;
+  regions: SQL<string | null>;
+  rating: SQL<number | null>;
+  players: SQL<number | null>;
 }
 
 export function titledbJoin(enabled: boolean): TitledbJoin {
@@ -50,5 +57,12 @@ export function titledbJoin(enabled: boolean): TitledbJoin {
       number | null
     >`coalesce(${applications.latestKnownVersion}, ${tdbApp.latestVersion})`,
     releaseDate: sql<number | null>`${tdbApp.releaseDate}`,
+    lastUpdateDate: sql<
+      number | null
+    >`(case when ${on} then (select max(${titledbVersions.releaseDate}) from ${titledbVersions} where ${titledbVersions.titleId} = ${applicationId} and ${titledbVersions.version} > 0) end)`,
+    languages: sql<string | null>`${tdbApp.languages}`,
+    regions: sql<string | null>`${tdbApp.regions}`,
+    rating: sql<number | null>`${tdbApp.rating}`,
+    players: sql<number | null>`${tdbApp.numberOfPlayers}`,
   };
 }

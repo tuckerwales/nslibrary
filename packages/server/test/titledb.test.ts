@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "../src/db/client";
-import { parseReleaseDate, TitledbService } from "../src/titledb/service";
+import { parseReleaseDate, parseVersionsJson, TitledbService } from "../src/titledb/service";
 import { makeTempDir, removeDir } from "./helpers";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -77,5 +77,29 @@ describe("parseReleaseDate", () => {
     expect(parseReleaseDate("2017")).toBeNull();
     expect(parseReleaseDate(20171303)).toBeNull();
     expect(parseReleaseDate("soon")).toBeNull();
+  });
+});
+
+describe("parseVersionsJson", () => {
+  it("files versions under the game, with their dates", () => {
+    const versions = parseVersionsJson(
+      JSON.stringify({
+        "0100abcdef012800": { "65536": "2017-05-01", "131072": "not a date", v3: "2018-01-01" },
+        "0100ABCDEF012000": { "196608": 20181120 },
+        nonsense: { "65536": "2017-05-01" },
+      }),
+    );
+    expect([...versions]).toEqual([
+      [
+        "0100ABCDEF012000",
+        new Map([
+          [65536, 20170501],
+          [131072, null],
+          [196608, 20181120],
+        ]),
+      ],
+    ]);
+    expect(() => parseVersionsJson("[]")).toThrow();
+    expect(() => parseVersionsJson("{}")).toThrow(/No versions/);
   });
 });

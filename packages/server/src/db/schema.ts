@@ -136,6 +136,12 @@ export const titledbTitles = sqliteTable("titledb_titles", {
   applicationId: text("application_id"),
   /** YYYYMMDD, as titledb lists it. */
   releaseDate: integer("release_date"),
+  /** JSON array of language codes, sorted. */
+  languages: text("languages"),
+  /** JSON array of region codes, sorted. */
+  regions: text("regions"),
+  rating: integer("rating"),
+  numberOfPlayers: integer("number_of_players"),
   updatedAt: integer("updated_at").notNull(),
 });
 
@@ -194,6 +200,8 @@ export const titledbVersions = sqliteTable(
       .notNull()
       .references(() => titledbTitles.titleId, { onDelete: "cascade" }),
     version: integer("version").notNull(),
+    /** YYYYMMDD, from the versions list when one is configured. */
+    releaseDate: integer("release_date"),
   },
   (t) => [uniqueIndex("titledb_versions_idx").on(t.titleId, t.version)],
 );
