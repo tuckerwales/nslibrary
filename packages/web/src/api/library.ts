@@ -36,6 +36,13 @@ export const LIBRARY_SORTS = {
   name: { sort: "name", order: "asc" },
   "added-desc": { sort: "added", order: "desc" },
   "added-asc": { sort: "added", order: "asc" },
+  "size-desc": { sort: "size", order: "desc" },
+  "size-asc": { sort: "size", order: "asc" },
+  "released-desc": { sort: "released", order: "desc" },
+  "released-asc": { sort: "released", order: "asc" },
+  "firmware-desc": { sort: "firmware", order: "desc" },
+  "firmware-asc": { sort: "firmware", order: "asc" },
+  publisher: { sort: "publisher", order: "asc" },
 } as const satisfies Record<string, { sort: AppSort; order: SortOrder }>;
 
 export type LibrarySort = keyof typeof LIBRARY_SORTS;
@@ -44,10 +51,25 @@ export function isLibrarySort(value: string | null): value is LibrarySort {
   return value !== null && Object.hasOwn(LIBRARY_SORTS, value);
 }
 
-export function useApps(q: string, flag: AppFlag | null, librarySort: LibrarySort = "name") {
+/** Games that are, or aren't, on one Switch. */
+export interface DeviceFilter {
+  deviceId: number;
+  installed: boolean;
+}
+
+export function useApps(
+  q: string,
+  flag: AppFlag | null,
+  librarySort: LibrarySort = "name",
+  device: DeviceFilter | null = null,
+) {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (flag) params.set("flag", flag);
+  if (device) {
+    params.set("device", String(device.deviceId));
+    params.set("installed", String(device.installed));
+  }
   // The server's default is name order, so only other orders go on the wire.
   if (librarySort !== "name") {
     const { sort, order } = LIBRARY_SORTS[librarySort];
@@ -56,7 +78,7 @@ export function useApps(q: string, flag: AppFlag | null, librarySort: LibrarySor
   }
   const query = params.size > 0 ? `?${params}` : "";
   return useQuery({
-    queryKey: queryKeys.appList(q, flag, librarySort),
+    queryKey: queryKeys.appList(q, flag, librarySort, device),
     queryFn: () => request<AppSummary[]>("GET", `/apps${query}`),
     placeholderData: keepPreviousData,
   });

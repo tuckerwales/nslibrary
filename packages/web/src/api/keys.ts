@@ -3,7 +3,13 @@ export const queryKeys = {
   auth: ["auth"],
   stats: ["stats"],
   apps: ["apps"],
-  appList: (q: string, flag: string | null, sort = "name") => ["apps", q, flag, sort],
+  /** Lists filtered by a Switch carry its ID fifth, so its reports can refresh just those. */
+  appList: (
+    q: string,
+    flag: string | null,
+    sort = "name",
+    device: { deviceId: number; installed: boolean } | null = null,
+  ) => ["apps", q, flag, sort, device?.deviceId ?? null, device?.installed ?? null],
   app: ["app"],
   appDetail: (applicationId: string) => ["app", applicationId],
   homebrew: ["homebrew"],

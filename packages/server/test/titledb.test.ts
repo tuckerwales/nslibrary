@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "../src/db/client";
-import { TitledbService } from "../src/titledb/service";
+import { parseReleaseDate, TitledbService } from "../src/titledb/service";
 import { makeTempDir, removeDir } from "./helpers";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -64,5 +64,18 @@ describe("TitledbService scheduled refresh", () => {
     service.configure({ source: url(), enabled: false });
     expect(await service.refreshIfStale(DAY)).toBe(false);
     expect(requests).toBe(0);
+  });
+});
+
+describe("parseReleaseDate", () => {
+  it("reads YYYYMMDD as a number or a string, and drops anything else", () => {
+    expect(parseReleaseDate(20170303)).toBe(20170303);
+    expect(parseReleaseDate("20170303")).toBe(20170303);
+    expect(parseReleaseDate("2017-03-03")).toBe(20170303);
+    expect(parseReleaseDate(undefined)).toBeNull();
+    expect(parseReleaseDate(0)).toBeNull();
+    expect(parseReleaseDate("2017")).toBeNull();
+    expect(parseReleaseDate(20171303)).toBeNull();
+    expect(parseReleaseDate("soon")).toBeNull();
   });
 });

@@ -318,8 +318,11 @@ export type AppFlag =
   /** Titledb lists a newer update than any file in the library. */
   | "update-available";
 
-/** Library orderings for `GET /apps`. Ties fall back to name, then application ID. */
-export const APP_SORTS = ["name", "added"] as const;
+/**
+ * Library orderings for `GET /apps`. Ties fall back to name, then application ID. Games without a
+ * value for the key (no release date, unknown firmware, no publisher) come last in either order.
+ */
+export const APP_SORTS = ["name", "added", "size", "released", "firmware", "publisher"] as const;
 export type AppSort = (typeof APP_SORTS)[number];
 export type SortOrder = "asc" | "desc";
 
@@ -337,6 +340,10 @@ export interface AppSummary {
   totalSize: number;
   /** When the game's earliest present file was first seen, in epoch milliseconds. */
   addedAt: number;
+  /** First release date from titledb, as YYYYMMDD (20170303). Null when titledb doesn't list one. */
+  releaseDate: number | null;
+  /** The highest system version any of the game's content requires, or null when none is known. */
+  requiredSystemVersion: number | null;
   flags: AppFlag[];
 }
 

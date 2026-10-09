@@ -50,6 +50,13 @@
       "when": 1790400000000,
       "tag": "0006_save_backups",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791500000000,
+      "tag": "0007_titledb_release_date",
+      "breakpoints": true
     }
   ]
 }

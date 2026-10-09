@@ -27,6 +27,7 @@ const EntrySchema = z
     version: z.number().int().nonnegative().optional(),
     baseId: z.string().optional(),
     applicationId: z.string().optional(),
+    releaseDate: z.union([z.number(), z.string()]).optional(),
   })
   .passthrough();
 
@@ -48,6 +49,17 @@ function putSetting(db: Db, key: string, value: string | null): void {
 function normalizeTitleId(value: string): string | null {
   const hex = value.trim().replace(/^0x/i, "").toUpperCase();
   return /^[0-9A-F]{16}$/.test(hex) ? hex : null;
+}
+
+/** titledb lists release dates as YYYYMMDD, as a number or a string. Anything else is dropped. */
+export function parseReleaseDate(value: number | string | undefined): number | null {
+  if (value === undefined) return null;
+  const digits = String(value).trim().replace(/-/g, "");
+  if (!/^\d{8}$/.test(digits)) return null;
+  const date = Number(digits);
+  const month = Math.floor(date / 100) % 100;
+  const day = date % 100;
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31 ? date : null;
 }
 
 export class TitledbService {
@@ -155,6 +167,7 @@ export class TitledbService {
         iconUrl: entry.data.iconUrl ?? null,
         latestVersion: entry.data.version ?? previous?.latestVersion ?? null,
         applicationId: normalizeTitleId(entry.data.applicationId ?? entry.data.baseId ?? ""),
+        releaseDate: parseReleaseDate(entry.data.releaseDate) ?? previous?.releaseDate ?? null,
         updatedAt: now,
       });
     }

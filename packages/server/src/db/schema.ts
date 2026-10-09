@@ -134,6 +134,8 @@ export const titledbTitles = sqliteTable("titledb_titles", {
   iconUrl: text("icon_url"),
   latestVersion: integer("latest_version"),
   applicationId: text("application_id"),
+  /** YYYYMMDD, as titledb lists it. */
+  releaseDate: integer("release_date"),
   updatedAt: integer("updated_at").notNull(),
 });
 

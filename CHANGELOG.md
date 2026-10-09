@@ -11,6 +11,16 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+### Added
+- **More ways to sort the library.** Order games by size, release date, or the firmware they need,
+  or group them by publisher. Games with no value for the chosen order (no titledb release date,
+  firmware not readable without keys) come last either way. Release dates come from titledb, so
+  refresh it once to fill them in.
+- **Filter the library by what's on a Switch.** Show only the games a paired Switch has installed,
+  or only the ones it doesn't, alongside search and the other filters.
+- Web API: `GET /apps` takes `sort=size|released|firmware|publisher` and `device=<id>&installed=true|false`.
+  `AppSummary` gains `releaseDate` and `requiredSystemVersion`.
+
 ## [0.7.0] - 2026-10-04
 
 ### Added

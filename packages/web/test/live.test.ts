@@ -89,6 +89,19 @@ describe("applyServerEvent", () => {
     expect(isInvalidated(client, queryKeys.jobList(50))).toBe(false);
   });
 
+  it("refetches library lists filtered by a Switch when it reports its titles", () => {
+    const client = setUp();
+    const onThis = queryKeys.appList("", null, "name", { deviceId: 1, installed: true });
+    const onOther = queryKeys.appList("", null, "name", { deviceId: 2, installed: false });
+    client.setQueryData(onThis, []);
+    client.setQueryData(onOther, []);
+    client.setQueryData(queryKeys.appList("", null), []);
+    applyServerEvent(client, { type: "device.updated", deviceId: 1 });
+    expect(isInvalidated(client, onThis)).toBe(true);
+    expect(isInvalidated(client, onOther)).toBe(false);
+    expect(isInvalidated(client, queryKeys.appList("", null))).toBe(false);
+  });
+
   it("refetches save backups when they change", () => {
     const client = new QueryClient();
     client.setQueryData(queryKeys.saves, []);

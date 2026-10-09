@@ -113,6 +113,11 @@ export function applyServerEvent(client: QueryClient, event: ServerEvent) {
       void client.invalidateQueries({ queryKey: queryKeys.devices });
       void client.invalidateQueries({ queryKey: queryKeys.deviceDetail(event.deviceId) });
       void client.invalidateQueries({ queryKey: queryKeys.spaceCheck });
+      // Library lists filtered by what this Switch has installed.
+      void client.invalidateQueries({
+        queryKey: queryKeys.apps,
+        predicate: (query) => query.queryKey[4] === event.deviceId,
+      });
       break;
     case "verify.updated":
       // Only patch a list that's already loaded; otherwise the next fetch has it anyway.

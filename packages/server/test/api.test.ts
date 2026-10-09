@@ -376,8 +376,105 @@ describe("web API", () => {
         "Other Game Update",
         "Example Game",
       ]);
-      expect((await call("GET", "/apps?sort=size", { session })).statusCode).toBe(400);
+      expect((await call("GET", "/apps?sort=bogus", { session })).statusCode).toBe(400);
       expect((await call("GET", "/apps?order=up", { session })).statusCode).toBe(400);
+    });
+
+    it("sorts by size, release date, firmware, and publisher, unknowns last", async () => {
+      const session = await setUp();
+      const library = join(dir, "library");
+      await populate(library);
+      const root = (
+        await call("POST", "/roots", { session, body: { path: library } })
+      ).json<LibraryRoot>();
+      await server.scanner.scanRoot(root.id);
+      const OTHER = "0100000000AB0000";
+
+      const order = async (query: string) =>
+        (await call("GET", `/apps${query}`, { session })).json<AppSummary[]>();
+      const names = async (query: string) => (await order(query)).map((a) => a.name);
+
+      // Example Game has five files to Other Game Update's one.
+      expect(await names("?sort=size&order=desc")).toEqual(["Example Game", "Other Game Update"]);
+      expect(await names("?sort=size")).toEqual(["Other Game Update", "Example Game"]);
+
+      // Nothing known yet: both orders fall back to name.
+      expect(await names("?sort=released&order=desc")).toEqual([
+        "Example Game",
+        "Other Game Update",
+      ]);
+      server.sqlite
+        .prepare("update content_metas set required_system_version = ? where title_id = ?")
+        .run(0x0c100000, "0100ABCDEF012800");
+      const apps = await order("?sort=firmware&order=desc");
+      expect(apps.map((a) => [a.name, a.requiredSystemVersion])).toEqual([
+        ["Example Game", 0x0c100000],
+        ["Other Game Update", null],
+      ]);
+      // Unknown firmware stays last when the order flips.
+      expect(await names("?sort=firmware")).toEqual(["Example Game", "Other Game Update"]);
+
+      const titledbPath = join(dir, "titledb.json");
+      await writeFile(
+        titledbPath,
+        JSON.stringify({
+          [BASE]: { name: "Example Game", publisher: "Zebra", releaseDate: 20170303 },
+          [OTHER]: { name: "Other Game", publisher: "Acme", releaseDate: "2019-09-20" },
+        }),
+      );
+      await call("PUT", "/titledb", { session, body: { source: titledbPath } });
+      await call("POST", "/titledb/refresh", { session });
+      const released = await order("?sort=released&order=desc");
+      expect(released.map((a) => [a.name, a.releaseDate])).toEqual([
+        ["Other Game", 20190920],
+        ["Example Game", 20170303],
+      ]);
+      expect(await names("?sort=released")).toEqual(["Example Game", "Other Game"]);
+      expect(await names("?sort=publisher")).toEqual(["Other Game", "Example Game"]);
+
+      await call("PUT", "/titledb", { session, body: { enabled: false } });
+      expect((await order("")).map((a) => a.releaseDate)).toEqual([null, null]);
+    });
+
+    it("filters games by whether a Switch has them installed", async () => {
+      const session = await setUp();
+      const library = join(dir, "library");
+      await populate(library);
+      const root = (
+        await call("POST", "/roots", { session, body: { path: library } })
+      ).json<LibraryRoot>();
+      await server.scanner.scanRoot(root.id);
+
+      const { lastInsertRowid } = server.sqlite
+        .prepare(
+          "insert into devices (uuid, name, token_hash, created_at) values ('u', 'Lite', 'h', 0)",
+        )
+        .run();
+      const device = Number(lastInsertRowid);
+      const install = server.sqlite.prepare(
+        "insert into device_titles (device_id, storage, title_id, version, type, application_id) values (?, 'sd', ?, ?, ?, ?)",
+      );
+      // Only DLC of Other Game Update, which doesn't make it installed.
+      install.run(device, "0100000000AB1001", 0, "addon", "0100000000AB0000");
+
+      const names = async (query: string) =>
+        (await call("GET", `/apps${query}`, { session })).json<AppSummary[]>().map((a) => a.name);
+      expect(await names(`?device=${device}&installed=true`)).toEqual([]);
+      expect(await names(`?device=${device}&installed=false`)).toEqual([
+        "Example Game",
+        "Other Game Update",
+      ]);
+
+      install.run(device, "0100ABCDEF012800", 196608, "patch", BASE);
+      expect(await names(`?device=${device}&installed=true`)).toEqual(["Example Game"]);
+      expect(await names(`?device=${device}&installed=false&q=game`)).toEqual([
+        "Other Game Update",
+      ]);
+      // Another Switch has nothing.
+      expect(await names(`?device=${device + 1}&installed=true`)).toEqual([]);
+
+      expect((await call("GET", `/apps?device=${device}`, { session })).statusCode).toBe(400);
+      expect((await call("GET", "/apps?installed=true", { session })).statusCode).toBe(400);
     });
 
     it("groups content by game and reports problems", async () => {

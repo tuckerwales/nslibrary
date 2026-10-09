@@ -5,7 +5,7 @@
  * - DLC whose base game was only guessed from its title ID uses the base ID titledb lists.
  * - Applications without NACP metadata take titledb's name and publisher.
  * - Content named only from its file name or ticket takes titledb's name.
- * - The latest known version comes from the base game's titledb entry.
+ * - The latest known version and the release date come from the base game's titledb entry.
  */
 import type { ApplicationIdSource } from "@nslib/shared";
 import { and, eq, type SQL, sql } from "drizzle-orm";
@@ -28,6 +28,7 @@ export interface TitledbJoin {
   appName: SQL<string | null>;
   appPublisher: SQL<string | null>;
   latestKnownVersion: SQL<number | null>;
+  releaseDate: SQL<number | null>;
 }
 
 export function titledbJoin(enabled: boolean): TitledbJoin {
@@ -48,5 +49,6 @@ export function titledbJoin(enabled: boolean): TitledbJoin {
     latestKnownVersion: sql<
       number | null
     >`coalesce(${applications.latestKnownVersion}, ${tdbApp.latestVersion})`,
+    releaseDate: sql<number | null>`${tdbApp.releaseDate}`,
   };
 }

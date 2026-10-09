@@ -1,10 +1,13 @@
-import type { AppFlag } from "@nslib/shared";
+import type { AppFlag, AppSummary } from "@nslib/shared";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
+  type DeviceFilter,
   isLibrarySort,
+  LIBRARY_SORTS,
   type LibrarySort,
   useApps,
+  useDevices,
   useKeysStatus,
   useRoots,
   useStats,
@@ -18,7 +21,7 @@ import { Icon } from "../components/Icon";
 import { PageHeader } from "../components/PageHeader";
 import { RelativeTime } from "../components/RelativeTime";
 import { type TitleLayout, TitleList } from "../components/TitleList";
-import { formatBytes, plural } from "../format";
+import { firmwareLabel, formatBytes, plural, releaseDateLabel } from "../format";
 
 const FILTERS: { flag: AppFlag | null; label: string }[] = [
   { flag: null, label: "All" },
@@ -93,7 +96,37 @@ const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
   { value: "name", label: "Name" },
   { value: "added-desc", label: "Recently added" },
   { value: "added-asc", label: "Oldest added" },
+  { value: "size-desc", label: "Largest" },
+  { value: "size-asc", label: "Smallest" },
+  { value: "released-desc", label: "Newest release" },
+  { value: "released-asc", label: "Oldest release" },
+  { value: "firmware-desc", label: "Newest firmware needed" },
+  { value: "firmware-asc", label: "Oldest firmware needed" },
+  { value: "publisher", label: "Publisher" },
 ];
+
+/**
+ * What a row shows under the name for orders by something it doesn't otherwise show. Size is
+ * already on every row and card.
+ */
+const SORT_DETAIL: Partial<
+  Record<(typeof LIBRARY_SORTS)[LibrarySort]["sort"], (app: AppSummary) => ReactNode>
+> = {
+  added: (app) => (
+    <>
+      Added <RelativeTime timestamp={app.addedAt} />
+    </>
+  ),
+  released: (app) =>
+    app.releaseDate === null
+      ? "Release date unknown"
+      : `Released ${releaseDateLabel(app.releaseDate)}`,
+  firmware: (app) =>
+    app.requiredSystemVersion === null
+      ? "Firmware needed unknown"
+      : `Needs firmware ${firmwareLabel(app.requiredSystemVersion)}`,
+  publisher: (app) => app.publisher ?? "Publisher unknown",
+};
 
 function readStoredSort(): LibrarySort {
   try {
@@ -148,6 +181,63 @@ function SortSelect({
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** `?on=<id>` or `?not-on=<id>`: games that are, or aren't, installed on that Switch. */
+function readDeviceFilter(params: URLSearchParams): DeviceFilter | null {
+  for (const [key, installed] of [
+    ["on", true],
+    ["not-on", false],
+  ] as const) {
+    const id = Number(params.get(key));
+    if (Number.isInteger(id) && id > 0) return { deviceId: id, installed };
+  }
+  return null;
+}
+
+const deviceFilterValue = (filter: DeviceFilter | null) =>
+  filter ? `${filter.installed ? "on" : "not-on"}:${filter.deviceId}` : "";
+
+function DeviceFilterSelect({
+  filter,
+  onChange,
+}: {
+  filter: DeviceFilter | null;
+  onChange: (value: DeviceFilter | null) => void;
+}) {
+  const devices = useDevices().data?.filter((device) => !device.revoked) ?? [];
+  // A filter for a Switch that has since been removed still shows, so it can be cleared.
+  if (devices.length === 0 && !filter) return null;
+  return (
+    <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+      <span className="sr-only">Installed on</span>
+      <select
+        className="h-9 rounded-md border border-line bg-panel px-2 text-sm text-ink"
+        value={deviceFilterValue(filter)}
+        onChange={(e) => {
+          const [kind, id] = e.target.value.split(":");
+          onChange(kind && id ? { deviceId: Number(id), installed: kind === "on" } : null);
+        }}
+      >
+        <option value="">Any Switch</option>
+        {filter && !devices.some((device) => device.id === filter.deviceId) && (
+          <option value={deviceFilterValue(filter)}>
+            {filter.installed ? "On" : "Not on"} a removed Switch
+          </option>
+        )}
+        {devices.map((device) => (
+          <optgroup key={device.id} label={device.name}>
+            <option value={deviceFilterValue({ deviceId: device.id, installed: true })}>
+              On {device.name}
+            </option>
+            <option value={deviceFilterValue({ deviceId: device.id, installed: false })}>
+              Not on {device.name}
+            </option>
+          </optgroup>
         ))}
       </select>
     </label>
@@ -342,10 +432,11 @@ export function LibraryPage() {
       return next;
     }),
   );
-  const apps = useApps(q, flag, sort);
+  const deviceFilter = readDeviceFilter(params);
+  const apps = useApps(q, flag, sort, deviceFilter);
   // The whole library in the same order, so an unfiltered view shares this request.
   const everything = useApps("", null, sort).data;
-  const byDate = sort !== "name";
+  const detail = SORT_DETAIL[LIBRARY_SORTS[sort].sort];
   const stats = useStats().data;
   const roots = useRoots().data;
   const [selection, setSelection] = useState<Set<string> | null>(null);
@@ -366,12 +457,23 @@ export function LibraryPage() {
       return next;
     });
 
+  const setDeviceFilter = (value: DeviceFilter | null) =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("on");
+      next.delete("not-on");
+      if (value) next.set(value.installed ? "on" : "not-on", String(value.deviceId));
+      return next;
+    });
+
   const clearFilters = () => {
     setDraft("");
     setParams((current) => {
       const next = new URLSearchParams(current);
       next.delete("q");
       next.delete("flag");
+      next.delete("on");
+      next.delete("not-on");
       return next;
     });
   };
@@ -385,7 +487,7 @@ export function LibraryPage() {
     });
 
   const scanning = roots?.some((root) => root.scan.state !== "idle");
-  const filtering = q !== "" || flag !== null;
+  const filtering = q !== "" || flag !== null || deviceFilter !== null;
   // Filters with nothing in them are hidden, unless one is the filter in use.
   const filters = FILTERS.filter(
     (filter) => filter.flag === null || filter.flag === flag || flagCounts.get(filter.flag),
@@ -421,7 +523,8 @@ export function LibraryPage() {
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <SearchBox value={draft} onChange={setDraft} />
-          <div className="flex items-center gap-3 sm:ml-auto">
+          <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
+            <DeviceFilterSelect filter={deviceFilter} onChange={setDeviceFilter} />
             <SortSelect sort={sort} onChange={setSort} />
             <LayoutToggle layout={layout} onChange={setLayout} />
           </div>
@@ -479,17 +582,8 @@ export function LibraryPage() {
               </div>
             )}
             <TitleList
-              key={`${q}\n${flag}\n${sort}`}
-              items={apps.data.map((app) => ({
-                app,
-                ...(byDate && {
-                  detail: (
-                    <>
-                      Added <RelativeTime timestamp={app.addedAt} />
-                    </>
-                  ),
-                }),
-              }))}
+              key={`${q}\n${flag}\n${sort}\n${deviceFilterValue(deviceFilter)}`}
+              items={apps.data.map((app) => ({ app, ...(detail && { detail: detail(app) }) }))}
               layout={layout}
               selection={selection ? { selected: selection, onToggle: toggleSelected } : undefined}
             />

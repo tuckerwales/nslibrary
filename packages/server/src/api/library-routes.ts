@@ -29,6 +29,9 @@ const AppListQuerySchema = z.object({
     .optional(),
   sort: z.enum(APP_SORTS).optional(),
   order: z.enum(["asc", "desc"]).optional(),
+  /** With `installed`, keeps only games that are (`true`) or aren't (`false`) on this Switch. */
+  device: z.coerce.number().int().positive().optional(),
+  installed: z.enum(["true", "false"]).optional(),
 });
 
 const AppParamsSchema = z.object({
@@ -53,12 +56,17 @@ export async function registerLibraryRoutes(api: FastifyInstance, ctx: AppContex
     }),
   );
 
-  api.get("/apps", async (request) =>
-    listApplications(ctx.db, {
-      ...parseWith(AppListQuerySchema, request.query),
+  api.get("/apps", async (request) => {
+    const { device, installed, ...query } = parseWith(AppListQuerySchema, request.query);
+    if ((device === undefined) !== (installed === undefined)) {
+      throw new ApiError("BAD_REQUEST", "Give both device and installed, or neither");
+    }
+    return listApplications(ctx.db, {
+      ...query,
+      ...(device !== undefined && { device: { id: device, installed: installed === "true" } }),
       titledb: ctx.titledb.enabled(),
-    }),
-  );
+    });
+  });
 
   api.get("/apps/:applicationId", async (request) => {
     const { applicationId } = parseWith(AppParamsSchema, request.params);

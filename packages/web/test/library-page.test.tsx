@@ -1,14 +1,15 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LibraryPage } from "../src/pages/LibraryPage";
-import { app } from "./fixtures";
+import { app, device } from "./fixtures";
 import { renderWithApp, stubApi } from "./render";
 
 afterEach(() => vi.unstubAllGlobals());
 
-function setUp(url = "/", apps = [app()]) {
+function setUp(url = "/", apps = [app()], devices = [device()]) {
   const fetch = stubApi({
     "/apps": apps,
+    "/devices": devices,
     "/stats": {
       applications: 1,
       files: 1,
@@ -29,6 +30,7 @@ function setUp(url = "/", apps = [app()]) {
         .filter((url) => url.pathname.endsWith("/apps"))
         .map((url) => url.search),
     sort: () => screen.getByRole<HTMLSelectElement>("combobox", { name: /sort/i }),
+    installedOn: () => screen.getByRole<HTMLSelectElement>("combobox", { name: /installed on/i }),
     search: () => screen.getByRole<HTMLInputElement>("searchbox"),
     location: () => screen.getByTestId("location").textContent,
   };
@@ -113,11 +115,55 @@ describe("LibraryPage sort", () => {
     expect(page.appRequests()).toEqual(["?sort=added&order=desc"]);
   });
 
+  it("shows what each order sorts by under the name", async () => {
+    setUp("/?sort=released-desc", [
+      app({ releaseDate: 20170303, requiredSystemVersion: 0x0c100000, publisher: "Acme" }),
+    ]);
+    expect(await screen.findByText(/^Released .*2017/)).toBeTruthy();
+    cleanup();
+    setUp("/?sort=firmware-desc", [app({ requiredSystemVersion: 0x0c100000 })]);
+    expect(await screen.findByText("Needs firmware 3.1.0")).toBeTruthy();
+    cleanup();
+    setUp("/?sort=publisher", [app({ publisher: null })]);
+    expect(await screen.findByText("Publisher unknown")).toBeTruthy();
+  });
+
+  it("asks the server for the new orders", async () => {
+    const page = setUp("/?sort=size-desc");
+    await screen.findByText("Example");
+    expect(page.appRequests()).toEqual(["?sort=size&order=desc"]);
+  });
+
   it("ignores an unknown order in the URL", async () => {
     const page = setUp("/?sort=bogus");
     await screen.findByText("Example");
     expect(page.sort().value).toBe("name");
     expect(page.appRequests()).toEqual([""]);
+  });
+});
+
+describe("LibraryPage Switch filter", () => {
+  it("filters by what a Switch has installed, in the URL and the request", async () => {
+    const page = setUp();
+    await screen.findByText("Example");
+    expect(page.installedOn().value).toBe("");
+
+    fireEvent.change(page.installedOn(), { target: { value: "not-on:1" } });
+    await waitFor(() => expect(page.location()).toBe("/?not-on=1"));
+    await waitFor(() => expect(page.appRequests()).toContain("?device=1&installed=false"));
+
+    fireEvent.change(page.installedOn(), { target: { value: "on:1" } });
+    await waitFor(() => expect(page.location()).toBe("/?on=1"));
+    await waitFor(() => expect(page.appRequests()).toContain("?device=1&installed=true"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(page.location()).toBe("/"));
+  });
+
+  it("is hidden until a Switch is paired", async () => {
+    setUp("/", [app()], []);
+    await screen.findByText("Example");
+    expect(screen.queryByRole("combobox", { name: /installed on/i })).toBeNull();
   });
 });
 

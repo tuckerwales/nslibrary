@@ -136,7 +136,7 @@ orphan update or DLC, firmware newer than a device, not present on a given devic
 
 ### Web API (`/api/v1`, cookie session)
 
-Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&type&flags&sort&order&device…`
+Auth (setup, login, logout, password change), roots (CRUD plus scan trigger), apps (`GET /apps?q&flag&sort&order&device&installed`
 and `GET /apps/:id` grouping base, updates, DLC, files and per-device state), file verification,
 compression (`GET /compress`, `GET`/`PUT /compress/settings`, `GET /compress/folders`,
 `GET /compress/candidates`, `POST /compress` for several files, `POST /compress/clear`, and
