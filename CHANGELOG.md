@@ -11,6 +11,8 @@ released the `.nro` only.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-10
+
 ### Added
 - **Sort the library more ways.** Size, release date, last update, the firmware a game needs, age
   rating, number of players, publisher, and title ID join name and date added. Games with no value
